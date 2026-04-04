@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: food-delivery-backend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRY
+        value: 15m
+      - key: REFRESH_TOKEN_EXPIRY
+        value: 7d
+      - key: CHAPA_SECRET_KEY
+        sync: false
+      - key: CHAPA_WEBHOOK_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: MAPBOX_ACCESS_TOKEN
+        sync: false
+      - key: RIDER_SEARCH_RADIUS_KM
+        value: "5"
+      - key: RIDER_TIMEOUT_SECONDS
+        value: "60"
+      - key: DISPATCH_MAX_DURATION_MINUTES
+        value: "10"
+      - key: DELIVERY_BASE_FEE
+        value: "5.00"
+      - key: DELIVERY_RATE_PER_KM
+        value: "2.00"
