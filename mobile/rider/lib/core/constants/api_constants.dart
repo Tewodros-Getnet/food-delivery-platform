@@ -1,6 +1,8 @@
 class ApiConstants {
-  static const String baseUrl = 'http://10.0.2.2:3000/api/v1';
-  static const String wsUrl = 'http://10.0.2.2:3000';
+  static const String baseUrl =
+      'https://food-delivery-platform-i5by.onrender.com/api/v1';
+  static const String wsUrl =
+      'https://food-delivery-platform-i5by.onrender.com';
 
   static const String register = '/auth/register';
   static const String login = '/auth/login';
