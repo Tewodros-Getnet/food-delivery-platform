@@ -18,6 +18,10 @@ build/
 .idea/
 .vscode/
 
+# Flutter generated files
+**/GeneratedPluginRegistrant.java
+**/GeneratedPluginRegistrant.kt
+
 # OS
 .DS_Store
 Thumbs.db
