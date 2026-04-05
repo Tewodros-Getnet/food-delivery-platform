@@ -6,6 +6,7 @@ import '../../features/auth/screens/register_screen.dart';
 import '../../features/orders/screens/orders_screen.dart';
 import '../../features/menu/screens/menu_screen.dart';
 import '../../features/restaurant/screens/restaurant_setup_screen.dart';
+import '../../features/profile/screens/profile_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -27,6 +28,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/orders', builder: (_, __) => const OrdersScreen()),
       GoRoute(
           path: '/setup', builder: (_, __) => const RestaurantSetupScreen()),
+      GoRoute(
+          path: '/profile',
+          builder: (_, __) => const RestaurantProfileScreen()),
       GoRoute(
         path: '/menu/:restaurantId',
         builder: (_, s) =>

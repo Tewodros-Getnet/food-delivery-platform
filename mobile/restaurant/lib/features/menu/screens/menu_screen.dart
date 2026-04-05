@@ -24,9 +24,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
 
   Future<void> _load() async {
     try {
-      final items = await ref
-          .read(menuServiceProvider)
-          .getItems(widget.restaurantId);
+      final items =
+          await ref.read(menuServiceProvider).getItems(widget.restaurantId);
       setState(() {
         _items = items;
         _loading = false;
@@ -52,46 +51,46 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
-          ? const Center(child: Text('No menu items yet. Tap + to add.'))
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView.builder(
-                itemCount: _items.length,
-                itemBuilder: (ctx, i) {
-                  final item = _items[i] as Map<String, dynamic>;
-                  return ListTile(
-                    title: Text(item['name'] as String),
-                    subtitle: Text(
-                      'ETB ${item['price']} • ${item['category'] ?? ''}',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Switch(
-                          value: item['available'] as bool? ?? true,
-                          activeColor: const Color(0xFF2E7D32),
-                          onChanged: (_) async {
-                            await ref
-                                .read(menuServiceProvider)
-                                .toggleAvailability(item['id'] as String);
-                            await _load();
-                          },
+              ? const Center(child: Text('No menu items yet. Tap + to add.'))
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView.builder(
+                    itemCount: _items.length,
+                    itemBuilder: (ctx, i) {
+                      final item = _items[i] as Map<String, dynamic>;
+                      return ListTile(
+                        title: Text(item['name'] as String),
+                        subtitle: Text(
+                          'ETB ${item['price']} • ${item['category'] ?? ''}',
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () async {
-                            await ref
-                                .read(menuServiceProvider)
-                                .deleteItem(item['id'] as String);
-                            await _load();
-                          },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Switch(
+                              value: item['available'] as bool? ?? true,
+                              activeThumbColor: const Color(0xFF2E7D32),
+                              onChanged: (_) async {
+                                await ref
+                                    .read(menuServiceProvider)
+                                    .toggleAvailability(item['id'] as String);
+                                await _load();
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () async {
+                                await ref
+                                    .read(menuServiceProvider)
+                                    .deleteItem(item['id'] as String);
+                                await _load();
+                              },
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
+                      );
+                    },
+                  ),
+                ),
     );
   }
 

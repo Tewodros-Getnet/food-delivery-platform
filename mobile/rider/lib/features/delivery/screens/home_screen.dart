@@ -174,7 +174,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     Switch(
                       value: _isAvailable,
                       onChanged: (_) => _toggleAvailability(),
-                      activeColor: const Color(0xFF1565C0),
+                      activeThumbColor: const Color(0xFF1565C0),
                     ),
                   ],
                 ),
