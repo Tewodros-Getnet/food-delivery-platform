@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import express from 'express';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/rbac';
 import { query } from '../config/database';
 import { calculateDeliveryFee } from '../utils/haversine';
 import { env } from '../config/env';
@@ -54,7 +55,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req: R
 });
 
 // POST /payments/refund (admin only)
-router.post('/refund', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/refund', authenticate, authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { orderId, amount } = req.body as { orderId: string; amount?: number };
     await initiateRefund(orderId, amount);
