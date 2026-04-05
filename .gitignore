@@ -22,6 +22,9 @@ build/
 **/GeneratedPluginRegistrant.java
 **/GeneratedPluginRegistrant.kt
 
+# Android Gradle cache
+**/.gradle/
+
 # OS
 .DS_Store
 Thumbs.db
