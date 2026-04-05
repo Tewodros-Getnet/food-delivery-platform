@@ -9,6 +9,7 @@ class ApiConstants {
   static const String refresh = '/auth/refresh';
   static const String logout = '/auth/logout';
   static const String profile = '/users/profile';
+  static const String password = '/users/password';
   static const String fcmToken = '/users/fcm-token';
   static const String restaurants = '/restaurants';
   static const String menu = '/menu';
