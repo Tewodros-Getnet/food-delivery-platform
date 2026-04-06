@@ -17,6 +17,7 @@ class OrdersScreen extends ConsumerStatefulWidget {
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   List<OrderModel> _orders = [];
   bool _loading = true;
+  String? _restaurantId;
   io.Socket? _socket;
 
   @override
@@ -28,9 +29,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   Future<void> _load() async {
     try {
+      // Fetch restaurant info to get the ID
+      final dio = ref.read(dioClientProvider).dio;
+      final rRes = await dio.get(ApiConstants.myRestaurant);
+      _restaurantId =
+          (rRes.data['data'] as Map<String, dynamic>?)?['id'] as String?;
+
       final orders = await ref.read(orderServiceProvider).getOrders();
       setState(() {
         _orders = orders;
+        // Fallback: get restaurantId from orders if API call failed
+        if (_restaurantId == null && orders.isNotEmpty) {
+          _restaurantId = orders.first.restaurantId;
+        }
         _loading = false;
       });
     } catch (_) {
@@ -78,10 +89,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           IconButton(
             icon: const Icon(Icons.restaurant_menu),
             onPressed: () {
-              final restaurantId =
-                  _orders.isNotEmpty ? _orders.first.restaurantId : null;
-              if (restaurantId != null) {
-                context.push('/menu/$restaurantId');
+              if (_restaurantId != null) {
+                context.push('/menu/$_restaurantId');
               } else {
                 context.push('/setup');
               }

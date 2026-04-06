@@ -16,6 +16,14 @@ import { getRestaurantRatings } from '../services/rating.service';
 
 const router = Router();
 
+router.get('/my', authenticate, authorize('restaurant'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { getRestaurantByOwner } = await import('../services/restaurant.service');
+    const restaurant = await getRestaurantByOwner(req.userId!);
+    if (!restaurant) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+    res.json(successResponse(restaurant));
+  } catch (err) { next(err); }
+});
 router.get('/', listRestaurantsHandler);
 router.get('/:id', getRestaurantHandler);
 router.get('/:id/ratings', async (req: Request, res: Response, next: NextFunction) => {
