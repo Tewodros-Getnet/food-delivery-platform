@@ -30,7 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
@@ -38,6 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const SizedBox(height: 40),
                 const Icon(Icons.fastfood, size: 64, color: Colors.orange),
                 const SizedBox(height: 16),
                 const Text('Food Delivery',
@@ -101,6 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextButton(
                     onPressed: () => context.push('/register'),
                     child: const Text("Don't have an account? Register")),
+                const SizedBox(height: 24),
               ],
             ),
           ),

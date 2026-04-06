@@ -30,7 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
@@ -38,6 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const SizedBox(height: 40),
                 const Icon(
                   Icons.delivery_dining,
                   size: 64,
@@ -88,9 +89,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ? null
                       : () async {
                           if (_formKey.currentState!.validate()) {
-                            await ref
-                                .read(authProvider.notifier)
-                                .login(
+                            await ref.read(authProvider.notifier).login(
                                   _emailCtrl.text.trim(),
                                   _passwordCtrl.text,
                                 );
@@ -119,6 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onPressed: () => context.push('/register'),
                   child: const Text("New rider? Register"),
                 ),
+                const SizedBox(height: 24),
               ],
             ),
           ),
