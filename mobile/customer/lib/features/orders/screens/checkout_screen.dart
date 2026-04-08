@@ -54,7 +54,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         }
       }
       ref.read(cartProvider.notifier).clear();
-      if (mounted) context.go('/order/$orderId/track');
+      if (mounted) context.push('/order/$orderId/track');
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
