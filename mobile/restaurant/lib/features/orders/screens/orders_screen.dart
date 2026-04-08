@@ -44,6 +44,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       }
 
       final orders = await ref.read(orderServiceProvider).getOrders();
+      if (!mounted) return;
       setState(() {
         _orders = orders;
         // Fallback: get restaurantId from orders if API call failed
@@ -53,6 +54,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         _loading = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => _loading = false);
     }
   }
@@ -66,7 +68,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         'token': token,
       }).build(),
     );
-    _socket!.on('order:status_changed', (_) => _load());
+    _socket!.on('order:status_changed', (_) {
+      if (mounted) _load();
+    });
   }
 
   @override

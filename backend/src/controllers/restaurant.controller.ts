@@ -47,8 +47,14 @@ export async function listRestaurantsHandler(req: Request, res: Response, next: 
   }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getRestaurantHandler(req: Request, res: Response, next: NextFunction) {
   try {
+    if (!UUID_REGEX.test(req.params.id)) {
+      res.status(404).json(errorResponse('Restaurant not found'));
+      return;
+    }
     const restaurant = await restaurantService.getRestaurantById(req.params.id);
     if (!restaurant) {
       res.status(404).json(errorResponse('Restaurant not found'));
