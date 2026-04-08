@@ -30,11 +30,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   Future<void> _load() async {
     try {
-      // Fetch restaurant info to get the ID
       final dio = ref.read(dioClientProvider).dio;
-      final rRes = await dio.get(ApiConstants.myRestaurant);
-      _restaurantId =
-          (rRes.data['data'] as Map<String, dynamic>?)?['id'] as String?;
+      try {
+        final rRes = await dio.get(ApiConstants.myRestaurant);
+        _restaurantId =
+            (rRes.data['data'] as Map<String, dynamic>?)?['id'] as String?;
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not fetch restaurant details: $e')),
+          );
+        }
+      }
 
       final orders = await ref.read(orderServiceProvider).getOrders();
       setState(() {
