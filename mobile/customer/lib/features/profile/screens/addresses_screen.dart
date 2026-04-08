@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
+import 'map_picker_screen.dart';
 
 class AddressesScreen extends ConsumerStatefulWidget {
   const AddressesScreen({super.key});
@@ -40,63 +41,27 @@ class _AddressesScreenState extends ConsumerState<AddressesScreen> {
     await _load();
   }
 
-  void _showAddDialog() {
-    final lineCtrl = TextEditingController();
-    final latCtrl = TextEditingController();
-    final lonCtrl = TextEditingController();
-    final labelCtrl = TextEditingController();
-    showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              title: const Text('Add Address'),
-              content: SingleChildScrollView(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(
-                    controller: labelCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Label (e.g. Home)')),
-                const SizedBox(height: 8),
-                TextField(
-                    controller: lineCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Address Line')),
-                const SizedBox(height: 8),
-                TextField(
-                    controller: latCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Latitude')),
-                const SizedBox(height: 8),
-                TextField(
-                    controller: lonCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Longitude')),
-              ])),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Cancel')),
-                ElevatedButton(
-                    onPressed: () async {
-                      try {
-                        await ref
-                            .read(dioClientProvider)
-                            .dio
-                            .post(ApiConstants.addresses, data: {
-                          'addressLine': lineCtrl.text,
-                          'latitude': double.parse(latCtrl.text),
-                          'longitude': double.parse(lonCtrl.text),
-                          'label': labelCtrl.text,
-                        });
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        await _load();
-                      } catch (e) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text('Error: $e')));
-                      }
-                    },
-                    child: const Text('Add')),
-              ],
-            ));
+  Future<void> _openMapPicker() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(builder: (_) => const MapPickerScreen()),
+    );
+    if (result == null) return;
+
+    try {
+      await ref.read(dioClientProvider).dio.post(ApiConstants.addresses, data: {
+        'addressLine': result['addressLine'],
+        'latitude': result['latitude'],
+        'longitude': result['longitude'],
+        'label': result['label'],
+      });
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error saving address: $e')));
+      }
+    }
   }
 
   @override
@@ -104,13 +69,34 @@ class _AddressesScreenState extends ConsumerState<AddressesScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Saved Addresses')),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddDialog,
-        child: const Icon(Icons.add),
+        onPressed: _openMapPicker,
+        backgroundColor: Colors.orange,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _addresses.isEmpty
-              ? const Center(child: Text('No saved addresses'))
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.location_off,
+                          size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      const Text('No saved addresses',
+                          style: TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: _openMapPicker,
+                        icon: const Icon(Icons.add_location_alt),
+                        label: const Text('Add Address'),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white),
+                      ),
+                    ],
+                  ),
+                )
               : ListView.builder(
                   itemCount: _addresses.length,
                   itemBuilder: (ctx, i) {
@@ -120,15 +106,19 @@ class _AddressesScreenState extends ConsumerState<AddressesScreen> {
                           const Icon(Icons.location_on, color: Colors.orange),
                       title: Text(a['label'] as String? ?? 'Address'),
                       subtitle: Text(a['address_line'] as String),
-                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        if (a['is_default'] == true)
-                          const Chip(
-                              label: Text('Default',
-                                  style: TextStyle(fontSize: 11))),
-                        IconButton(
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (a['is_default'] == true)
+                            const Chip(
+                                label: Text('Default',
+                                    style: TextStyle(fontSize: 11))),
+                          IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _deleteAddress(a['id'] as String)),
-                      ]),
+                            onPressed: () => _deleteAddress(a['id'] as String),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),
