@@ -80,9 +80,8 @@ export async function verifyPayment(txRef: string): Promise<{ status: string; am
 
 export function verifyWebhookSignature(payload: string, signature: string): boolean {
   const crypto = require('crypto') as typeof import('crypto');
-  const expected = crypto
-    .createHmac('sha256', env.CHAPA_WEBHOOK_SECRET)
-    .update(payload)
-    .digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  const expected = Buffer.from(env.CHAPA_WEBHOOK_SECRET);
+  const received = Buffer.from(signature);
+  if (expected.length !== received.length) return false;
+  return crypto.timingSafeEqual(expected, received);
 }
