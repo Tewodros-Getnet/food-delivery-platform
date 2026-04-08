@@ -46,8 +46,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final orderId = (result['order'] as Map<String, dynamic>)['id'] as String;
       if (paymentUrl != null) {
         final uri = Uri.parse(paymentUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        final launched =
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched && mounted) {
+          setState(() => _error = 'Could not open payment page. Try again.');
+          return;
         }
       }
       ref.read(cartProvider.notifier).clear();
