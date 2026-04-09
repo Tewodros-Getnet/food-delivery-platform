@@ -43,3 +43,9 @@ services:
         value: "5.00"
       - key: DELIVERY_RATE_PER_KM
         value: "2.00"
+      - key: CHAPA_BASE_URL
+        value: "https://api.chapa.co/v1"
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: APP_DEEP_LINK_BASE
+        value: "fooddelivery://app"
