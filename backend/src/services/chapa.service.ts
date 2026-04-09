@@ -1,6 +1,7 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import crypto from 'crypto';
 import { env } from '../config/env';
+import { logger } from '../utils/logger';
 
 export interface ChapaInitResponse {
   status: string;
@@ -17,25 +18,38 @@ export async function initializePayment(params: {
   callbackUrl?: string;
   returnUrl?: string;
 }): Promise<ChapaInitResponse> {
-  const response = await axios.post<ChapaInitResponse>(
-    `${env.CHAPA_BASE_URL}/transaction/initialize`,
-    {
-      amount: params.amount,
-      currency: params.currency || 'ETB',
-      tx_ref: params.txRef,
-      email: params.email,
-      first_name: params.firstName,
-      callback_url: params.callbackUrl,
-      return_url: params.returnUrl,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${env.CHAPA_SECRET_KEY}`,
-        'Content-Type': 'application/json',
+  try {
+    const response = await axios.post<ChapaInitResponse>(
+      `${env.CHAPA_BASE_URL}/transaction/initialize`,
+      {
+        amount: params.amount,
+        currency: params.currency || 'ETB',
+        tx_ref: params.txRef,
+        email: params.email,
+        first_name: params.firstName,
+        callback_url: params.callbackUrl,
+        return_url: params.returnUrl,
       },
-    }
-  );
-  return response.data;
+      {
+        headers: {
+          Authorization: `Bearer ${env.CHAPA_SECRET_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return response.data;
+  } catch (err) {
+    const axiosErr = err as AxiosError;
+    // Log the full Chapa error body so we can diagnose 400s
+    logger.error('Chapa initializePayment failed', {
+      status: axiosErr.response?.status,
+      chapaError: axiosErr.response?.data,
+      amount: params.amount,
+      currency: params.currency,
+      emailPresent: !!params.email,
+    });
+    throw err;
+  }
 }
 
 export async function verifyPayment(txRef: string): Promise<{ status: string; amount: number }> {
@@ -56,7 +70,6 @@ export function verifyWebhookSignature(payload: string, signature: string): bool
     .digest('hex');
   const expectedBuf = Buffer.from(expected);
   const signatureBuf = Buffer.from(signature);
-  // timingSafeEqual requires same length — if lengths differ, signature is invalid
   if (expectedBuf.length !== signatureBuf.length) return false;
   return crypto.timingSafeEqual(expectedBuf, signatureBuf);
 }
