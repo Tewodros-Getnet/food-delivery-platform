@@ -1,4 +1,5 @@
-import https from 'https';
+import axios from 'axios';
+import crypto from 'crypto';
 import { env } from '../config/env';
 
 export interface ChapaInitResponse {
@@ -16,71 +17,39 @@ export async function initializePayment(params: {
   callbackUrl?: string;
   returnUrl?: string;
 }): Promise<ChapaInitResponse> {
-  const body = JSON.stringify({
-    amount: params.amount,
-    currency: params.currency || 'ETB',
-    tx_ref: params.txRef,
-    email: params.email,
-    first_name: params.firstName,
-    callback_url: params.callbackUrl,
-    return_url: params.returnUrl,
-  });
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        hostname: 'api.chapa.co',
-        path: '/v1/transaction/initialize',
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.CHAPA_SECRET_KEY}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-        },
+  const response = await axios.post<ChapaInitResponse>(
+    `${env.CHAPA_BASE_URL}/transaction/initialize`,
+    {
+      amount: params.amount,
+      currency: params.currency || 'ETB',
+      tx_ref: params.txRef,
+      email: params.email,
+      first_name: params.firstName,
+      callback_url: params.callbackUrl,
+      return_url: params.returnUrl,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${env.CHAPA_SECRET_KEY}`,
+        'Content-Type': 'application/json',
       },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-        res.on('end', () => {
-          try { resolve(JSON.parse(data) as ChapaInitResponse); }
-          catch (e) { reject(e); }
-        });
-      }
-    );
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
+    }
+  );
+  return response.data;
 }
 
 export async function verifyPayment(txRef: string): Promise<{ status: string; amount: number }> {
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        hostname: 'api.chapa.co',
-        path: `/v1/transaction/verify/${txRef}`,
-        method: 'GET',
-        headers: { Authorization: `Bearer ${env.CHAPA_SECRET_KEY}` },
-      },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data) as { status: string; data: { status: string; amount: number } };
-            resolve({ status: parsed.data.status, amount: parsed.data.amount });
-          } catch (e) { reject(e); }
-        });
-      }
-    );
-    req.on('error', reject);
-    req.end();
-  });
+  const response = await axios.get<{ status: string; data: { status: string; amount: number } }>(
+    `${env.CHAPA_BASE_URL}/transaction/verify/${txRef}`,
+    {
+      headers: { Authorization: `Bearer ${env.CHAPA_SECRET_KEY}` },
+    }
+  );
+  return { status: response.data.data.status, amount: response.data.data.amount };
 }
 
 export function verifyWebhookSignature(payload: string, signature: string): boolean {
-  const crypto = require('crypto') as typeof import('crypto');
-   const expected = crypto
+  const expected = crypto
     .createHmac('sha256', env.CHAPA_WEBHOOK_SECRET)
     .update(payload)
     .digest('hex');

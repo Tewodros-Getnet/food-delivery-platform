@@ -25,4 +25,5 @@ export const env = {
   USE_CLOUDINARY: process.env.USE_CLOUDINARY === 'true',
   CHAPA_BASE_URL: process.env.CHAPA_BASE_URL || 'https://api.chapa.co/v1',
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001',
+  APP_DEEP_LINK_BASE: process.env.APP_DEEP_LINK_BASE || 'fooddelivery://app',
 };

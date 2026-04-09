@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,10 +21,68 @@ class CheckoutScreen extends ConsumerStatefulWidget {
   ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
+class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
+    with WidgetsBindingObserver {
   bool _isLoading = false;
   String? _error;
   String? _selectedAddressId;
+
+  // Tracks the pending order while user is on Chapa page
+  String? _pendingOrderId;
+  bool _awaitingReturn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Called when app comes back to foreground after user returns from Chapa
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _awaitingReturn &&
+        _pendingOrderId != null) {
+      _awaitingReturn = false;
+      _verifyAndNavigate(_pendingOrderId!);
+    }
+  }
+
+  // Bug 4 fix: poll order status after returning from Chapa browser
+  Future<void> _verifyAndNavigate(String orderId) async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      // Poll up to 5 times with 1.5s delay to give webhook time to fire
+      for (int i = 0; i < 5; i++) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        final order = await ref.read(orderServiceProvider).getById(orderId);
+        if (order.status == 'confirmed') {
+          if (mounted) context.push('/order/$orderId/track');
+          return;
+        }
+        if (order.status == 'payment_failed') {
+          setState(() => _error =
+              'Payment failed. Please try again or use a different method.');
+          return;
+        }
+      }
+      // Webhook may still be in flight — navigate anyway, tracking screen will update
+      if (mounted) context.push('/order/$orderId/track');
+    } catch (e) {
+      if (mounted) context.push('/order/$orderId/track');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _placeOrder() async {
     final cart = ref.read(cartProvider);
@@ -44,6 +103,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           );
       final paymentUrl = result['paymentUrl'] as String?;
       final orderId = (result['order'] as Map<String, dynamic>)['id'] as String;
+
       if (paymentUrl != null) {
         final uri = Uri.parse(paymentUrl);
         final launched =
@@ -52,13 +112,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           setState(() => _error = 'Could not open payment page. Try again.');
           return;
         }
+        // Bug 4 fix: mark that we're waiting for the user to return from Chapa
+        ref.read(cartProvider.notifier).clear();
+        setState(() {
+          _pendingOrderId = orderId;
+          _awaitingReturn = true;
+          _isLoading = false;
+        });
+        // didChangeAppLifecycleState will handle navigation on return
       }
-      ref.read(cartProvider.notifier).clear();
-      if (mounted) context.push('/order/$orderId/track');
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
-      setState(() => _isLoading = false);
+      if (!_awaitingReturn) setState(() => _isLoading = false);
     }
   }
 
@@ -125,21 +191,38 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         .toList(),
                   ),
           ),
+          if (_awaitingReturn) ...[
+            const SizedBox(height: 16),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 12),
+                Text('Waiting for payment confirmation...'),
+              ],
+            ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(_error!, style: const TextStyle(color: Colors.red)),
+            if (_pendingOrderId != null)
+              TextButton(
+                onPressed: () => _verifyAndNavigate(_pendingOrderId!),
+                child: const Text('Check payment status'),
+              ),
           ],
           const Spacer(),
-          ElevatedButton(
-            onPressed: _isLoading ? null : _placeOrder,
-            style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.orange),
-            child: _isLoading
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text('Pay with Chapa',
-                    style: TextStyle(fontSize: 16, color: Colors.white)),
-          ),
+          if (!_awaitingReturn)
+            ElevatedButton(
+              onPressed: _isLoading ? null : _placeOrder,
+              style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Colors.orange),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('Pay with Chapa',
+                      style: TextStyle(fontSize: 16, color: Colors.white)),
+            ),
         ]),
       ),
     );

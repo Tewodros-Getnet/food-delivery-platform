@@ -4,21 +4,24 @@ class OrderModel {
   final String restaurantId;
   final String? riderId;
   final String status;
+  final String? paymentStatus;
   final double subtotal;
   final double deliveryFee;
   final double total;
   final DateTime createdAt;
 
-  const OrderModel(
-      {required this.id,
-      required this.customerId,
-      required this.restaurantId,
-      this.riderId,
-      required this.status,
-      required this.subtotal,
-      required this.deliveryFee,
-      required this.total,
-      required this.createdAt});
+  const OrderModel({
+    required this.id,
+    required this.customerId,
+    required this.restaurantId,
+    this.riderId,
+    required this.status,
+    this.paymentStatus,
+    required this.subtotal,
+    required this.deliveryFee,
+    required this.total,
+    required this.createdAt,
+  });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
         id: json['id'] as String,
@@ -26,6 +29,7 @@ class OrderModel {
         restaurantId: json['restaurant_id'] as String,
         riderId: json['rider_id'] as String?,
         status: json['status'] as String,
+        paymentStatus: json['payment_status'] as String?,
         subtotal: double.parse(json['subtotal'].toString()),
         deliveryFee: double.parse(json['delivery_fee'].toString()),
         total: double.parse(json['total'].toString()),
@@ -43,6 +47,10 @@ class OrderModel {
         'delivered': 'Your order has been delivered. Enjoy your meal.',
         'cancelled': 'Your order has been cancelled.',
         'payment_failed': 'Payment failed. Please try again.',
+        'pending_payment': 'Waiting for payment confirmation...',
       }[status] ??
       'Processing your order...';
+
+  bool get isPaymentFailed => status == 'payment_failed';
+  bool get isPendingPayment => status == 'pending_payment';
 }
