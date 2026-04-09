@@ -15,7 +15,6 @@ export interface CreateOrderInput {
 
 export async function createOrder(input: CreateOrderInput): Promise<{ order: Order; paymentUrl: string }> {
   return withTransaction(async (client) => {
-    // Validate all menu items are available and belong to the restaurant
     const itemIds = input.items.map((i) => i.menuItemId);
     const menuResult = await client.query(
       `SELECT * FROM menu_items WHERE id = ANY($1::uuid[]) AND restaurant_id = $2`,
@@ -35,7 +34,6 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
       throw err;
     }
 
-    // Get restaurant and address coords for fee calculation
     const [rResult, aResult] = await Promise.all([
       client.query('SELECT latitude, longitude FROM restaurants WHERE id = $1', [input.restaurantId]),
       client.query('SELECT latitude, longitude FROM addresses WHERE id = $1', [input.deliveryAddressId]),
@@ -49,7 +47,6 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
       env.DELIVERY_BASE_FEE, env.DELIVERY_RATE_PER_KM
     );
 
-    // Calculate subtotal
     const menuMap = new Map(menuResult.rows.map((m: { id: string; price: number; name: string; image_url: string }) => [m.id, m]));
     let subtotal = 0;
     for (const item of input.items) {
@@ -57,10 +54,8 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
       if (menuItem) subtotal += menuItem.price * item.quantity;
     }
     const total = subtotal + delivery_fee;
-
     const txRef = uuidv4();
 
-    // Create order
     const orderResult = await client.query<Order>(
       `INSERT INTO orders (customer_id, restaurant_id, delivery_address_id, status, subtotal, delivery_fee, total, payment_reference)
        VALUES ($1,$2,$3,'pending_payment',$4,$5,$6,$7) RETURNING *`,
@@ -68,7 +63,6 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
     );
     const order = orderResult.rows[0];
 
-    // Insert order items
     for (const item of input.items) {
       const menuItem = menuMap.get(item.menuItemId) as { price: number; name: string; image_url: string } | undefined;
       if (menuItem) {
@@ -80,14 +74,13 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
       }
     }
 
-    // Get customer email for Chapa
     const userResult = await client.query('SELECT email, display_name FROM users WHERE id = $1', [input.customerId]);
     const user = userResult.rows[0] as { email: string; display_name: string };
 
-    // Initialize Chapa payment — pass return_url only if it's a valid https URL
-    // (Chapa rejects custom URI schemes like fooddelivery://)
-    const returnUrl = env.APP_DEEP_LINK_BASE.startsWith('http')
-      ? `${env.APP_DEEP_LINK_BASE}/order/${order.id}/track`
+    // Only pass return_url if it's a valid http/https URL — Chapa rejects custom schemes
+    const appBase = env.APP_DEEP_LINK_BASE || '';
+    const returnUrl = appBase.startsWith('http')
+      ? appBase + '/order/' + order.id + '/track'
       : undefined;
 
     const chapaResponse = await chapaService.initializePayment({
@@ -132,7 +125,6 @@ export async function getOrdersByUser(userId: string, role: string): Promise<Ord
   return result.rows;
 }
 
-// Bug fix: all dynamic field placeholders now correctly use $N syntax
 export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus,
@@ -143,35 +135,39 @@ export async function updateOrderStatus(
   let idx = 2;
 
   if (extra?.rider_id !== undefined) {
-    fields.push('rider_id = $' + idx++);
+    fields.push('rider_id = $' + idx);
+    idx++;
     values.push(extra.rider_id);
   }
   if (extra?.payment_reference !== undefined) {
-    fields.push('payment_reference = $' + idx++);
+    fields.push('payment_reference = $' + idx);
+    idx++;
     values.push(extra.payment_reference);
   }
   if (extra?.payment_status !== undefined) {
-    fields.push('payment_status = $' + idx++);
+    fields.push('payment_status = $' + idx);
+    idx++;
     values.push(extra.payment_status);
   }
   if (extra?.cancellation_reason !== undefined) {
-    fields.push('cancellation_reason = $' + idx++);
+    fields.push('cancellation_reason = $' + idx);
+    idx++;
     values.push(extra.cancellation_reason);
   }
   if (extra?.cancelled_at !== undefined) {
-    fields.push('cancelled_at = $' + idx++);
+    fields.push('cancelled_at = $' + idx);
+    idx++;
     values.push(extra.cancelled_at);
   }
   if (extra?.estimated_prep_time_minutes !== undefined) {
-    fields.push('estimated_prep_time_minutes = $' + idx++);
+    fields.push('estimated_prep_time_minutes = $' + idx);
+    idx++;
     values.push(extra.estimated_prep_time_minutes);
   }
 
   values.push(orderId);
-  const result = await query<Order>(
-    'UPDATE orders SET ' + fields.join(', ') + ' WHERE id = $' + idx + ' RETURNING *',
-    values
-  );
+  const sql = 'UPDATE orders SET ' + fields.join(', ') + ' WHERE id = $' + idx + ' RETURNING *';
+  const result = await query<Order>(sql, values);
   return result.rows[0] ?? null;
 }
 
@@ -185,15 +181,14 @@ export async function handleWebhook(payload: string, signature: string): Promise
   const data = JSON.parse(payload) as { tx_ref: string; status: string; amount: number };
   const { tx_ref, status } = data;
 
-  // Idempotency: check if already processed
   const existing = await query(
-    `SELECT id, status, customer_id FROM orders WHERE payment_reference = $1`,
+    'SELECT id, status, customer_id FROM orders WHERE payment_reference = $1',
     [tx_ref]
   );
   if (!existing.rows[0]) return;
 
   const order = existing.rows[0] as { id: string; status: string; customer_id: string };
-  if (order.status !== 'pending_payment') return; // Already processed
+  if (order.status !== 'pending_payment') return;
 
   if (status === 'success') {
     const confirmed = await updateOrderStatus(order.id, 'confirmed', {
@@ -201,21 +196,18 @@ export async function handleWebhook(payload: string, signature: string): Promise
       payment_reference: tx_ref,
     });
     if (confirmed) {
-      // Notify restaurant owner
       const rResult = await query<{ owner_id: string }>(
         'SELECT owner_id FROM restaurants WHERE id = $1', [confirmed.restaurant_id]
       );
       if (rResult.rows[0]) {
         void sendPushNotification(rResult.rows[0].owner_id, 'New Order', 'You have a new order!', { orderId: confirmed.id });
       }
-      // Notify customer via socket
       const { emitOrderStatusChanged } = await import('./socket.service');
       emitOrderStatusChanged(confirmed, order.customer_id);
     }
   } else {
     const failed = await updateOrderStatus(order.id, 'payment_failed', { payment_status: 'failed' });
     if (failed) {
-      // Notify customer via socket so tracking screen updates immediately
       const { emitOrderStatusChanged } = await import('./socket.service');
       emitOrderStatusChanged(failed, order.customer_id);
     }
