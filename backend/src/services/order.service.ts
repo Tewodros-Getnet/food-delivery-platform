@@ -84,14 +84,19 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
     const userResult = await client.query('SELECT email, display_name FROM users WHERE id = $1', [input.customerId]);
     const user = userResult.rows[0] as { email: string; display_name: string };
 
-    // Initialize Chapa payment — pass return_url so Chapa redirects back to the app
+    // Initialize Chapa payment — pass return_url only if it's a valid https URL
+    // (Chapa rejects custom URI schemes like fooddelivery://)
+    const returnUrl = env.APP_DEEP_LINK_BASE.startsWith('http')
+      ? `${env.APP_DEEP_LINK_BASE}/order/${order.id}/track`
+      : undefined;
+
     const chapaResponse = await chapaService.initializePayment({
       amount: total,
       currency: 'ETB',
       txRef,
       email: user.email,
       firstName: user.display_name || 'Customer',
-      returnUrl: `${env.APP_DEEP_LINK_BASE}/order/${order.id}/track`,
+      returnUrl,
     });
 
     return { order, paymentUrl: chapaResponse.data.checkout_url };
