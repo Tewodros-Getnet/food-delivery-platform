@@ -49,9 +49,14 @@ export async function verifyPayment(txRef: string): Promise<{ status: string; am
 }
 
 export function verifyWebhookSignature(payload: string, signature: string): boolean {
+  if (!signature) return false;
   const expected = crypto
     .createHmac('sha256', env.CHAPA_WEBHOOK_SECRET)
     .update(payload)
     .digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  const expectedBuf = Buffer.from(expected);
+  const signatureBuf = Buffer.from(signature);
+  // timingSafeEqual requires same length — if lengths differ, signature is invalid
+  if (expectedBuf.length !== signatureBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, signatureBuf);
 }

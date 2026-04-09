@@ -21,8 +21,16 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Apply JSON body parser to everything EXCEPT the Chapa webhook
+// (webhook needs raw body for HMAC signature verification)
+app.use((req, res, next) => {
+  if (req.path === '/api/v1/payments/webhook') return next();
+  express.json({ limit: '10mb' })(req, res, next);
+});
+app.use((req, res, next) => {
+  if (req.path === '/api/v1/payments/webhook') return next();
+  express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
+});
 app.use(requestIdMiddleware);
 app.use(requestLogger);
 app.use(rateLimiter);

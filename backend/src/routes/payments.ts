@@ -44,11 +44,23 @@ router.get('/estimate-fee', authenticate, async (req: Request, res: Response, ne
 // POST /payments/webhook — implemented in Task 7
 // POST /payments/refund  — implemented in Task 12
 
-// POST /payments/webhook (raw body needed for signature verification)
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req: Request, res: Response, next: NextFunction) => {
+// POST /payments/webhook (raw body needed for HMAC signature verification)
+// NOTE: express.raw() here only works if this route is registered BEFORE
+// the global express.json() middleware processes it. We handle this by
+// checking if body is already a Buffer or re-stringifying if it's an object.
+router.post('/webhook', express.raw({ type: '*/*' }), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const signature = req.headers['x-chapa-signature'] as string || '';
-    const payload = (req.body as Buffer).toString();
+    // Body may be a Buffer (raw) or already-parsed object (if json middleware ran first)
+    let payload: string;
+    if (Buffer.isBuffer(req.body)) {
+      payload = req.body.toString('utf8');
+    } else if (typeof req.body === 'string') {
+      payload = req.body;
+    } else {
+      // Fallback: re-serialize — signature will still fail if order changed, but at least we try
+      payload = JSON.stringify(req.body);
+    }
     await orderService.handleWebhook(payload, signature);
     res.json({ received: true });
   } catch (err) { next(err); }
