@@ -70,4 +70,46 @@ router.get('/available', authenticate, authorize('admin'), async (req: Request, 
   } catch (err) { next(err); }
 });
 
+// GET /riders/profile
+router.get('/profile', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query<{
+      id: string; rider_id: string; license_number: string | null;
+      vehicle_type: string | null; vehicle_plate: string | null;
+      document_url: string | null; verified: boolean;
+      created_at: Date; updated_at: Date;
+    }>('SELECT * FROM rider_profiles WHERE rider_id = $1', [req.userId]);
+    res.json(successResponse(result.rows[0] ?? {}));
+  } catch (err) { next(err); }
+});
+
+// PUT /riders/profile
+router.put('/profile', authenticate, authorize('rider'), [
+  body('license_number').optional().trim(),
+  body('vehicle_type').optional().trim(),
+  body('vehicle_plate').optional().trim(),
+  body('document_url').optional().trim().isURL(),
+  validate,
+], async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { license_number, vehicle_type, vehicle_plate, document_url } = req.body as {
+      license_number?: string; vehicle_type?: string;
+      vehicle_plate?: string; document_url?: string;
+    };
+    const result = await query(
+      `INSERT INTO rider_profiles (rider_id, license_number, vehicle_type, vehicle_plate, document_url)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (rider_id) DO UPDATE SET
+         license_number = COALESCE(EXCLUDED.license_number, rider_profiles.license_number),
+         vehicle_type = COALESCE(EXCLUDED.vehicle_type, rider_profiles.vehicle_type),
+         vehicle_plate = COALESCE(EXCLUDED.vehicle_plate, rider_profiles.vehicle_plate),
+         document_url = COALESCE(EXCLUDED.document_url, rider_profiles.document_url),
+         updated_at = NOW()
+       RETURNING *`,
+      [req.userId, license_number ?? null, vehicle_type ?? null, vehicle_plate ?? null, document_url ?? null]
+    );
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
+
 export default router;

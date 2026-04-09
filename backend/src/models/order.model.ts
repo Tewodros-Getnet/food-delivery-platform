@@ -23,6 +23,9 @@ export interface Order {
   cancellation_reason: string | null;
   cancelled_at: Date | null;
   estimated_prep_time_minutes: number | null;
+  notes?: string | null;
+  estimated_delivery_time?: Date | null;
+  payment_method?: string | null;
   created_at: Date;
   updated_at: Date;
 }

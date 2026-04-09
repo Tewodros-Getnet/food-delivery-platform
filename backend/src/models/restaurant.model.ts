@@ -13,6 +13,9 @@ export interface Restaurant {
   category: string | null;
   status: RestaurantStatus;
   average_rating: number;
+  is_open?: boolean;
+  operating_hours?: Record<string, { open: string; close: string }> | null;
+  minimum_order_value?: number;
   created_at: Date;
   updated_at: Date;
 }

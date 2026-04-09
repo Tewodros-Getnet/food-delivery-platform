@@ -7,7 +7,7 @@ import { successResponse, errorResponse } from '../utils/response';
 
 export const createMenuItemValidation = [
   body('name').notEmpty().trim(),
-  body('description').notEmpty().trim(),
+  body('description').optional().trim(),
   body('price').isFloat({ min: 0 }),
   body('category').notEmpty().trim(),
   body('imageBase64').notEmpty().withMessage('Image is required'),

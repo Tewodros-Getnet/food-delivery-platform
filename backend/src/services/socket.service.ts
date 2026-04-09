@@ -6,10 +6,60 @@ import { Order } from '../models/order.model';
 
 let io: Server;
 
+// ── Missed event queue ────────────────────────────────────────────────────────
+const MISSED_EVENT_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface QueuedEvent {
+  event: string;
+  payload: unknown;
+  ts: number;
+}
+
+const missedEventQueue = new Map<string, QueuedEvent[]>();
+
+function queueEvent(userId: string, event: string, payload: unknown) {
+  const now = Date.now();
+  if (!missedEventQueue.has(userId)) {
+    missedEventQueue.set(userId, []);
+  }
+  missedEventQueue.get(userId)!.push({ event, payload, ts: now });
+
+  // Schedule TTL cleanup
+  setTimeout(() => {
+    const queue = missedEventQueue.get(userId);
+    if (!queue) return;
+    const fresh = queue.filter(e => Date.now() - e.ts < MISSED_EVENT_TTL_MS);
+    if (fresh.length === 0) {
+      missedEventQueue.delete(userId);
+    } else {
+      missedEventQueue.set(userId, fresh);
+    }
+  }, MISSED_EVENT_TTL_MS);
+}
+
+function flushQueue(socket: Socket, userId: string) {
+  const queue = missedEventQueue.get(userId);
+  if (!queue || queue.length === 0) return;
+  const now = Date.now();
+  for (const item of queue) {
+    if (now - item.ts < MISSED_EVENT_TTL_MS) {
+      socket.emit(item.event, item.payload);
+    }
+  }
+  missedEventQueue.delete(userId);
+}
+
+function isUserOnline(userId: string): boolean {
+  if (!io) return false;
+  const room = io.sockets.adapter.rooms.get(`user:${userId}`);
+  return !!room && room.size > 0;
+}
+
+// ── Socket server init ────────────────────────────────────────────────────────
+
 export function initSocketServer(socketServer: Server) {
   io = socketServer;
 
-  // JWT auth middleware for socket connections
   io.use((socket: Socket, next) => {
     const token = socket.handshake.auth.token as string | undefined
       || socket.handshake.headers.authorization?.split(' ')[1];
@@ -33,15 +83,21 @@ export function initSocketServer(socketServer: Server) {
     void socket.join(`user:${userId}`);
     logger.info('Socket connected', { socketId: socket.id, userId });
 
+    // Deliver any events missed while offline
+    flushQueue(socket, userId);
+
     socket.on('disconnect', () => {
       logger.info('Socket disconnected', { socketId: socket.id, userId });
+      void socket.leave(`user:${userId}`);
     });
   });
 }
 
+// ── Emit helpers ──────────────────────────────────────────────────────────────
+
 export function emitOrderStatusChanged(order: Order, targetUserId: string) {
   if (!io) return;
-  io.to(`user:${targetUserId}`).emit('order:status_changed', {
+  const payload = {
     event: 'order:status_changed',
     data: {
       orderId: order.id,
@@ -49,12 +105,17 @@ export function emitOrderStatusChanged(order: Order, targetUserId: string) {
       timestamp: new Date().toISOString(),
       order,
     },
-  });
+  };
+  if (isUserOnline(targetUserId)) {
+    io.to(`user:${targetUserId}`).emit('order:status_changed', payload);
+  } else {
+    queueEvent(targetUserId, 'order:status_changed', payload);
+  }
 }
 
 export function emitToRestaurant(restaurantOwnerId: string, order: Order) {
   if (!io) return;
-  io.to(`user:${restaurantOwnerId}`).emit('order:status_changed', {
+  const payload = {
     event: 'order:status_changed',
     data: {
       orderId: order.id,
@@ -62,7 +123,12 @@ export function emitToRestaurant(restaurantOwnerId: string, order: Order) {
       timestamp: new Date().toISOString(),
       order,
     },
-  });
+  };
+  if (isUserOnline(restaurantOwnerId)) {
+    io.to(`user:${restaurantOwnerId}`).emit('order:status_changed', payload);
+  } else {
+    queueEvent(restaurantOwnerId, 'order:status_changed', payload);
+  }
 }
 
 export function emitRiderLocationUpdate(params: {
@@ -73,7 +139,7 @@ export function emitRiderLocationUpdate(params: {
   longitude: number;
 }) {
   if (!io) return;
-  io.to(`user:${params.customerId}`).emit('rider:location_update', {
+  const payload = {
     event: 'rider:location_update',
     data: {
       riderId: params.riderId,
@@ -82,7 +148,12 @@ export function emitRiderLocationUpdate(params: {
       longitude: params.longitude,
       timestamp: new Date().toISOString(),
     },
-  });
+  };
+  if (isUserOnline(params.customerId)) {
+    io.to(`user:${params.customerId}`).emit('rider:location_update', payload);
+  } else {
+    queueEvent(params.customerId, 'rider:location_update', payload);
+  }
 }
 
 export function emitDeliveryRequest(riderId: string, payload: {
@@ -95,10 +166,12 @@ export function emitDeliveryRequest(riderId: string, payload: {
   expiresAt: string;
 }) {
   if (!io) return;
-  io.to(`user:${riderId}`).emit('delivery:request', {
-    event: 'delivery:request',
-    data: payload,
-  });
+  const wrapped = { event: 'delivery:request', data: payload };
+  if (isUserOnline(riderId)) {
+    io.to(`user:${riderId}`).emit('delivery:request', wrapped);
+  } else {
+    queueEvent(riderId, 'delivery:request', wrapped);
+  }
 }
 
 export function emitDisputeResolved(customerId: string, payload: {
@@ -109,10 +182,15 @@ export function emitDisputeResolved(customerId: string, payload: {
   adminNotes?: string;
 }) {
   if (!io) return;
-  io.to(`user:${customerId}`).emit('dispute:resolved', {
+  const wrapped = {
     event: 'dispute:resolved',
     data: { ...payload, timestamp: new Date().toISOString() },
-  });
+  };
+  if (isUserOnline(customerId)) {
+    io.to(`user:${customerId}`).emit('dispute:resolved', wrapped);
+  } else {
+    queueEvent(customerId, 'dispute:resolved', wrapped);
+  }
 }
 
 export function getIo(): Server {

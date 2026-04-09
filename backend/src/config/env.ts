@@ -21,4 +21,8 @@ export const env = {
   DISPATCH_MAX_DURATION_MINUTES: parseInt(process.env.DISPATCH_MAX_DURATION_MINUTES || '10', 10),
   DELIVERY_BASE_FEE: parseFloat(process.env.DELIVERY_BASE_FEE || '5.00'),
   DELIVERY_RATE_PER_KM: parseFloat(process.env.DELIVERY_RATE_PER_KM || '2.00'),
+  CHAPA_PUBLIC_KEY: process.env.CHAPA_PUBLIC_KEY || '',
+  USE_CLOUDINARY: process.env.USE_CLOUDINARY === 'true',
+  CHAPA_BASE_URL: process.env.CHAPA_BASE_URL || 'https://api.chapa.co/v1',
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001',
 };

@@ -79,12 +79,15 @@ export async function findNearbyRiders(
     .sort((a, b) => a.distance_km - b.distance_km);
 }
 
-// Active dispatch sessions: orderId -> { timeoutHandle, startTime, riderIndex, riders }
+// Active dispatch sessions: orderId -> session state
 const dispatchSessions = new Map<string, {
   startTime: number;
   riderIndex: number;
   riders: NearbyRider[];
   currentTimeout: ReturnType<typeof setTimeout> | null;
+  restaurant: { name: string; address: string };
+  customerAddress: string;
+  deliveryFee: number;
 }>();
 
 export async function startDispatch(orderId: string, restaurantId: string): Promise<void> {
@@ -123,6 +126,9 @@ export async function startDispatch(orderId: string, restaurantId: string): Prom
     riderIndex: 0,
     riders,
     currentTimeout: null,
+    restaurant: { name: restaurant.name, address: restaurant.address },
+    customerAddress,
+    deliveryFee: order.delivery_fee,
   });
 
   sendToNextRider(orderId, restaurant, customerAddress, order.delivery_fee);
@@ -184,6 +190,5 @@ export function riderDeclined(orderId: string) {
   if (!session) return;
   if (session.currentTimeout) clearTimeout(session.currentTimeout);
   session.riderIndex++;
-  // We need restaurant/address info — re-trigger via a lightweight re-query
-  // The timeout handler already handles this, so just increment and let it fire
+  sendToNextRider(orderId, session.restaurant, session.customerAddress, session.deliveryFee);
 }
