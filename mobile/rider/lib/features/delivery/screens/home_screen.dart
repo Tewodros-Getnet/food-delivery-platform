@@ -129,6 +129,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
       });
     });
     _socket!.on('connect_error', (err) async {
+      debugPrint('Rider socket connect_error: $err');
       // If auth error, refresh token and reconnect
       final errStr = err.toString();
       if (errStr.contains('Invalid token') ||
@@ -147,6 +148,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
         }
       }
     });
+    _socket!.on('connect', (_) => debugPrint('Rider socket connected ✅'));
+    _socket!.on('disconnect',
+        (reason) => debugPrint('Rider socket disconnected: $reason'));
   }
 
   Future<void> _toggleAvailability() async {
