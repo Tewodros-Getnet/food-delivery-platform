@@ -57,6 +57,17 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
     setState(() => _isAvailable = !_isAvailable);
 
     if (_isAvailable) {
+      // Send location immediately so dispatch can find this rider right away
+      try {
+        final pos = await Geolocator.getCurrentPosition();
+        setState(() {
+          _currentLat = pos.latitude;
+          _currentLon = pos.longitude;
+        });
+        await ref
+            .read(riderServiceProvider)
+            .updateLocation(pos.latitude, pos.longitude, 'available');
+      } catch (_) {}
       _startLocationUpdates(interval: 30);
     } else {
       _locationTimer?.cancel();

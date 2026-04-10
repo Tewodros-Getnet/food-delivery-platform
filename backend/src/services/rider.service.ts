@@ -39,12 +39,21 @@ export async function setRiderAvailability(
   riderId: string,
   availability: 'available' | 'on_delivery' | 'offline'
 ): Promise<void> {
-  await query(
+  // Try to copy last known location; if none exists, insert with (0,0) as placeholder
+  const inserted = await query(
     `INSERT INTO rider_locations (rider_id, latitude, longitude, availability)
      SELECT $1, latitude, longitude, $2 FROM rider_locations
      WHERE rider_id = $1 ORDER BY timestamp DESC LIMIT 1`,
     [riderId, availability]
   );
+  if ((inserted.rowCount ?? 0) === 0) {
+    // No prior location — insert placeholder so rider shows as available
+    await query(
+      `INSERT INTO rider_locations (rider_id, latitude, longitude, availability)
+       VALUES ($1, 0, 0, $2)`,
+      [riderId, availability]
+    );
+  }
 }
 
 interface NearbyRider {
@@ -117,9 +126,11 @@ export async function startDispatch(orderId: string, restaurantId: string): Prom
   );
 
   if (riders.length === 0) {
-    logger.warn('No riders available for dispatch', { orderId });
+    logger.warn('No riders available for dispatch', { orderId, restaurantLat: restaurant.latitude, restaurantLon: restaurant.longitude, radiusKm: env.RIDER_SEARCH_RADIUS_KM });
     return;
   }
+
+  logger.info('Dispatch started', { orderId, riderCount: riders.length, riders: riders.map(r => ({ id: r.rider_id, distanceKm: r.distance_km })) });
 
   dispatchSessions.set(orderId, {
     startTime: Date.now(),
