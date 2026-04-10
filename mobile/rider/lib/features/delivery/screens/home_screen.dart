@@ -9,6 +9,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../services/rider_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../notifications/fcm_service.dart';
 
 class RiderHomeScreen extends ConsumerStatefulWidget {
   const RiderHomeScreen({super.key});
@@ -34,6 +35,24 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _connectSocket();
     _restoreAvailability();
+    // Register FCM callback so delivery requests work even when app is backgrounded
+    onDeliveryRequestReceived = (data) {
+      if (mounted) {
+        setState(() => _deliveryRequest = {
+              'orderId': data['orderId'],
+              'restaurantName': data['restaurantName'] ?? 'Restaurant',
+              'customerAddress': data['customerAddress'] ?? 'Customer',
+              'deliveryFee': double.tryParse(data['deliveryFee'] ?? '0') ?? 0,
+              'estimatedDistance':
+                  double.tryParse(data['estimatedDistance'] ?? '0') ?? 0,
+              'expiresAt': data['expiresAt'],
+            });
+        _requestTimer?.cancel();
+        _requestTimer = Timer(const Duration(seconds: 60), () {
+          if (_deliveryRequest != null) _declineDelivery();
+        });
+      }
+    };
   }
 
   // Restore persisted availability on app start / return from background
@@ -195,6 +214,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    onDeliveryRequestReceived = null;
     _locationTimer?.cancel();
     _requestTimer?.cancel();
     _socket?.disconnect();

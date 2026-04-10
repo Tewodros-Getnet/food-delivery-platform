@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { haversineDistance } from '../utils/haversine';
 import { emitDeliveryRequest } from './socket.service';
+import { sendPushNotification } from './fcm.service';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
 
@@ -186,6 +187,14 @@ function sendToNextRider(
     estimatedDistance: rider.distance_km,
     expiresAt,
   });
+
+  // Also send FCM push so rider is notified even when app is backgrounded/closed
+  void sendPushNotification(
+    rider.rider_id,
+    'New Delivery Request',
+    `From ${restaurant.name} — ETB ${deliveryFee} (${rider.distance_km.toFixed(1)} km)`,
+    { type: 'delivery_request', orderId, expiresAt }
+  );
 
   logger.info('Delivery request sent to rider', { orderId, riderId: rider.rider_id });
 
