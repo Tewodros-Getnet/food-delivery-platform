@@ -53,6 +53,8 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     if (state == AppLifecycleState.resumed && _isAvailable) {
       // Re-send location immediately to refresh the 5-minute window
       _sendLocationNow();
+      // Reconnect socket with fresh token in case it dropped
+      _connectSocket();
     }
   }
 
@@ -83,6 +85,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   }
 
   Future<void> _connectSocket() async {
+    _socket?.disconnect();
+    _socket?.dispose();
+
     final token = await ref.read(secureStorageProvider).getJwt();
     if (token == null) return;
     _socket = io.io(
@@ -103,6 +108,25 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
       _requestTimer = Timer(const Duration(seconds: 60), () {
         if (_deliveryRequest != null) _declineDelivery();
       });
+    });
+    _socket!.on('connect_error', (err) async {
+      // If auth error, refresh token and reconnect
+      final errStr = err.toString();
+      if (errStr.contains('Invalid token') ||
+          errStr.contains('Authentication')) {
+        final rt = await ref.read(secureStorageProvider).getRefreshToken();
+        if (rt != null) {
+          try {
+            final res = await ref.read(riderServiceProvider).refreshToken(rt);
+            if (res != null) {
+              await ref
+                  .read(secureStorageProvider)
+                  .saveTokens(jwt: res, refreshToken: rt);
+              _connectSocket(); // reconnect with fresh token
+            }
+          } catch (_) {}
+        }
+      }
     });
   }
 

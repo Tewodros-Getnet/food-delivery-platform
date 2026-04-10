@@ -43,4 +43,14 @@ class RiderService {
   Future<void> confirmDelivery(String orderId) async {
     await _client.dio.put('${ApiConstants.deliveries}/$orderId/deliver');
   }
+
+  Future<String?> refreshToken(String refreshToken) async {
+    try {
+      final res = await _client.dio
+          .post(ApiConstants.refresh, data: {'refreshToken': refreshToken});
+      return res.data['data']['jwt'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
 }
