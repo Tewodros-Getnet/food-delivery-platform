@@ -20,4 +20,12 @@ class SecureStorageService {
   Future<String?> getJwt() => _storage.read(key: 'jwt');
   Future<String?> getRefreshToken() => _storage.read(key: 'refreshToken');
   Future<void> clearTokens() => _storage.deleteAll();
+
+  // Rider availability persistence
+  Future<void> saveAvailability(bool isAvailable) => _storage.write(
+      key: 'rider_available', value: isAvailable ? 'true' : 'false');
+  Future<bool> getAvailability() async {
+    final val = await _storage.read(key: 'rider_available');
+    return val == 'true';
+  }
 }

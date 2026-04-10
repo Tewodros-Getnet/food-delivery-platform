@@ -16,7 +16,8 @@ class RiderHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<RiderHomeScreen> createState() => _RiderHomeScreenState();
 }
 
-class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
+class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
+    with WidgetsBindingObserver {
   bool _isAvailable = false;
   bool _onDelivery = false;
   String? _activeOrderId;
@@ -30,7 +31,44 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _connectSocket();
+    _restoreAvailability();
+  }
+
+  // Restore persisted availability on app start / return from background
+  Future<void> _restoreAvailability() async {
+    final wasAvailable =
+        await ref.read(secureStorageProvider).getAvailability();
+    if (wasAvailable && mounted) {
+      setState(() => _isAvailable = true);
+      await _sendLocationNow();
+      _startLocationUpdates(interval: 30);
+    }
+  }
+
+  // Called when app comes back to foreground
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isAvailable) {
+      // Re-send location immediately to refresh the 5-minute window
+      _sendLocationNow();
+    }
+  }
+
+  Future<void> _sendLocationNow() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _currentLat = pos.latitude;
+        _currentLon = pos.longitude;
+      });
+      final availability = _onDelivery ? 'on_delivery' : 'available';
+      await ref
+          .read(riderServiceProvider)
+          .updateLocation(pos.latitude, pos.longitude, availability);
+    } catch (_) {}
   }
 
   Future<void> _connectSocket() async {
@@ -54,20 +92,15 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
   Future<void> _toggleAvailability() async {
     final newStatus = _isAvailable ? 'offline' : 'available';
     await ref.read(riderServiceProvider).setAvailability(newStatus);
-    setState(() => _isAvailable = !_isAvailable);
+    final nowAvailable = !_isAvailable;
+    setState(() => _isAvailable = nowAvailable);
 
-    if (_isAvailable) {
-      // Send location immediately so dispatch can find this rider right away
-      try {
-        final pos = await Geolocator.getCurrentPosition();
-        setState(() {
-          _currentLat = pos.latitude;
-          _currentLon = pos.longitude;
-        });
-        await ref
-            .read(riderServiceProvider)
-            .updateLocation(pos.latitude, pos.longitude, 'available');
-      } catch (_) {}
+    // Persist the new state
+    await ref.read(secureStorageProvider).saveAvailability(nowAvailable);
+
+    if (nowAvailable) {
+      // Send location immediately so dispatch finds this rider right away
+      await _sendLocationNow();
       _startLocationUpdates(interval: 30);
     } else {
       _locationTimer?.cancel();
@@ -77,17 +110,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
   void _startLocationUpdates({required int interval}) {
     _locationTimer?.cancel();
     _locationTimer = Timer.periodic(Duration(seconds: interval), (_) async {
-      try {
-        final pos = await Geolocator.getCurrentPosition();
-        setState(() {
-          _currentLat = pos.latitude;
-          _currentLon = pos.longitude;
-        });
-        final availability = _onDelivery ? 'on_delivery' : 'available';
-        await ref
-            .read(riderServiceProvider)
-            .updateLocation(pos.latitude, pos.longitude, availability);
-      } catch (_) {}
+      if (_isAvailable) await _sendLocationNow();
     });
   }
 
@@ -130,6 +153,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _locationTimer?.cancel();
     _requestTimer?.cancel();
     _socket?.disconnect();
@@ -146,7 +170,11 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
+            onPressed: () async {
+              // Clear availability on logout
+              await ref.read(secureStorageProvider).saveAvailability(false);
+              ref.read(authProvider.notifier).logout();
+            },
           ),
         ],
       ),
@@ -165,20 +193,15 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Availability',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        const Text('Availability',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                         Text(
                           _isAvailable
                               ? 'You are available'
                               : 'You are offline',
                           style: TextStyle(
-                            color: _isAvailable ? Colors.green : Colors.grey,
-                          ),
+                              color: _isAvailable ? Colors.green : Colors.grey),
                         ),
                       ],
                     ),
@@ -193,7 +216,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Delivery request popup
+            // Delivery request card
             if (_deliveryRequest != null)
               Card(
                 color: Colors.blue.shade50,
@@ -202,59 +225,47 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'New Delivery Request!',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1565C0),
-                        ),
-                      ),
+                      const Text('New Delivery Request!',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1565C0))),
                       const SizedBox(height: 8),
                       Text(
-                        'From: ${_deliveryRequest!['restaurantName'] ?? 'Restaurant'}',
-                      ),
+                          'From: ${_deliveryRequest!['restaurantName'] ?? 'Restaurant'}'),
                       Text(
-                        'To: ${_deliveryRequest!['customerAddress'] ?? 'Customer'}',
-                      ),
+                          'To: ${_deliveryRequest!['customerAddress'] ?? 'Customer'}'),
                       Text('Fee: ETB ${_deliveryRequest!['deliveryFee'] ?? 0}'),
                       Text(
-                        'Distance: ${(_deliveryRequest!['estimatedDistance'] as num?)?.toStringAsFixed(1) ?? '?'} km',
-                      ),
+                          'Distance: ${(_deliveryRequest!['estimatedDistance'] as num?)?.toStringAsFixed(1) ?? '?'} km'),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _acceptDelivery,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                              ),
-                              child: const Text(
-                                'Accept',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
+                      Row(children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _acceptDelivery,
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green),
+                            child: const Text('Accept',
+                                style: TextStyle(color: Colors.white)),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _declineDelivery,
-                              style: OutlinedButton.styleFrom(
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _declineDelivery,
+                            style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.red,
-                                side: const BorderSide(color: Colors.red),
-                              ),
-                              child: const Text('Decline'),
-                            ),
+                                side: const BorderSide(color: Colors.red)),
+                            child: const Text('Decline'),
                           ),
-                        ],
-                      ),
+                        ),
+                      ]),
                     ],
                   ),
                 ),
               ),
 
-            // Active delivery
+            // Active delivery card
             if (_onDelivery && _activeOrderId != null)
               Card(
                 color: Colors.orange.shade50,
@@ -263,28 +274,20 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Active Delivery',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      const Text('Active Delivery',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
                       Text('Order: ${_activeOrderId!.substring(0, 8)}...'),
                       const SizedBox(height: 12),
-                      // Live map — flutter_map + OpenStreetMap
                       Container(
                         height: 160,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                            borderRadius: BorderRadius.circular(8)),
                         child: FlutterMap(
                           options: MapOptions(
                             initialCenter: LatLng(
-                              _currentLat ?? 9.03,
-                              _currentLon ?? 38.74,
-                            ),
+                                _currentLat ?? 9.03, _currentLon ?? 38.74),
                             initialZoom: 14,
                           ),
                           children: [
@@ -294,53 +297,40 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                               userAgentPackageName: 'com.fooddelivery.rider',
                             ),
                             if (_currentLat != null)
-                              MarkerLayer(
-                                markers: [
-                                  Marker(
-                                    point: LatLng(_currentLat!, _currentLon!),
-                                    width: 40,
-                                    height: 40,
-                                    child: const Icon(
-                                      Icons.delivery_dining,
-                                      color: Color(0xFF1565C0),
-                                      size: 36,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              MarkerLayer(markers: [
+                                Marker(
+                                  point: LatLng(_currentLat!, _currentLon!),
+                                  width: 40,
+                                  height: 40,
+                                  child: const Icon(Icons.delivery_dining,
+                                      color: Color(0xFF1565C0), size: 36),
+                                ),
+                              ]),
                           ],
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _confirmPickup,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                              ),
-                              child: const Text(
-                                'Confirm Pickup',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
+                      Row(children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _confirmPickup,
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange),
+                            child: const Text('Confirm Pickup',
+                                style: TextStyle(color: Colors.white)),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _confirmDelivery,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                              ),
-                              child: const Text(
-                                'Confirm Delivery',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _confirmDelivery,
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green),
+                            child: const Text('Confirm Delivery',
+                                style: TextStyle(color: Colors.white)),
                           ),
-                        ],
-                      ),
+                        ),
+                      ]),
                     ],
                   ),
                 ),
@@ -354,11 +344,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                     children: [
                       Icon(Icons.delivery_dining, size: 80, color: Colors.grey),
                       SizedBox(height: 16),
-                      Text(
-                        'Toggle availability to start receiving orders',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
+                      Text('Toggle availability to start receiving orders',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey, fontSize: 16)),
                     ],
                   ),
                 ),
