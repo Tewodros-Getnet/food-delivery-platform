@@ -87,9 +87,15 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     if (token == null) return;
     _socket = io.io(
       ApiConstants.wsUrl,
-      io.OptionBuilder().setTransports(['websocket']).setAuth({
-        'token': token,
-      }).build(),
+      io.OptionBuilder()
+          .setTransports(['websocket'])
+          .setAuth({'token': token})
+          .enableAutoConnect()
+          .enableReconnection()
+          .setReconnectionAttempts(999)
+          .setReconnectionDelay(2000)
+          .setReconnectionDelayMax(10000)
+          .build(),
     );
     _socket!.on('delivery:request', (data) {
       setState(() => _deliveryRequest = data['data'] as Map<String, dynamic>);
