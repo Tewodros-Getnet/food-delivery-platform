@@ -58,7 +58,16 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
 
   Future<void> _sendLocationNow() async {
     try {
-      final pos = await Geolocator.getCurrentPosition();
+      // Ensure location permission is granted
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) return;
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
       if (!mounted) return;
       setState(() {
         _currentLat = pos.latitude;
@@ -68,7 +77,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
       await ref
           .read(riderServiceProvider)
           .updateLocation(pos.latitude, pos.longitude, availability);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Location error: $e');
+    }
   }
 
   Future<void> _connectSocket() async {

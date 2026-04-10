@@ -9,6 +9,9 @@ import router from './routes/index';
 
 const app = express();
 
+// Trust Render's proxy so rate limiter can read the real client IP
+app.set('trust proxy', 1);
+
 const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
 
 app.use(cors({
