@@ -47,5 +47,6 @@ services:
         value: "https://api.chapa.co/v1"
       - key: ALLOWED_ORIGINS
         sync: false
+        # Set to: http://localhost:3000,http://localhost:3001,https://fooddeliveryadmin-nine.vercel.app
       - key: APP_DEEP_LINK_BASE
         value: "fooddelivery://app"
