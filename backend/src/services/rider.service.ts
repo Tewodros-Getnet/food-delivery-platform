@@ -73,7 +73,7 @@ export async function findNearbyRiders(
     `SELECT DISTINCT ON (rider_id) rider_id, latitude, longitude
      FROM rider_locations
      WHERE availability = 'available'
-       AND timestamp > NOW() - INTERVAL '5 minutes'
+       AND timestamp > NOW() - INTERVAL '30 minutes'
      ORDER BY rider_id, timestamp DESC`
   );
 
@@ -124,6 +124,14 @@ export async function startDispatch(orderId: string, restaurantId: string): Prom
     restaurant.latitude, restaurant.longitude,
     env.RIDER_SEARCH_RADIUS_KM
   );
+
+  logger.info('Dispatch: searching riders', {
+    orderId,
+    restaurantLat: restaurant.latitude,
+    restaurantLon: restaurant.longitude,
+    radiusKm: env.RIDER_SEARCH_RADIUS_KM,
+    ridersFound: riders.length,
+  });
 
   if (riders.length === 0) {
     logger.warn('No riders available for dispatch', { orderId, restaurantLat: restaurant.latitude, restaurantLon: restaurant.longitude, radiusKm: env.RIDER_SEARCH_RADIUS_KM });
