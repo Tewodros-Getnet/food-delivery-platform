@@ -61,8 +61,10 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
         await ref.read(secureStorageProvider).getAvailability();
     if (wasAvailable && mounted) {
       setState(() => _isAvailable = true);
-      await _sendLocationNow();
-      _startLocationUpdates(interval: 30);
+      final locationOk = await _sendLocationNow();
+      if (locationOk) {
+        _startLocationUpdates(interval: 30);
+      }
     }
   }
 
@@ -70,26 +72,46 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _isAvailable) {
-      // Re-send location immediately to refresh the 5-minute window
-      _sendLocationNow();
-      // Reconnect socket with fresh token in case it dropped
+      _sendLocationNow(); // return value intentionally ignored here — best effort on resume
       _connectSocket();
     }
   }
 
-  Future<void> _sendLocationNow() async {
+  Future<bool> _sendLocationNow() async {
     try {
-      // Ensure location permission is granted
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.deniedForever) return;
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Location permission permanently denied. '
+                'Please enable it in app settings to go available.',
+              ),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        return false;
+      }
+      if (permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permission is required to go available.'),
+            ),
+          );
+        }
+        return false;
+      }
 
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _currentLat = pos.latitude;
         _currentLon = pos.longitude;
@@ -98,8 +120,10 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
       await ref
           .read(riderServiceProvider)
           .updateLocation(pos.latitude, pos.longitude, availability);
+      return true;
     } catch (e) {
       debugPrint('Location error: $e');
+      return false;
     }
   }
 
@@ -155,7 +179,17 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
 
   Future<void> _toggleAvailability() async {
     final newStatus = _isAvailable ? 'offline' : 'available';
-    await ref.read(riderServiceProvider).setAvailability(newStatus);
+    try {
+      await ref.read(riderServiceProvider).setAvailability(newStatus);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update availability: $e')),
+        );
+      }
+      return; // don't update state if API call failed
+    }
+
     final nowAvailable = !_isAvailable;
     setState(() => _isAvailable = nowAvailable);
 
@@ -164,7 +198,16 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
 
     if (nowAvailable) {
       // Send location immediately so dispatch finds this rider right away
-      await _sendLocationNow();
+      final locationOk = await _sendLocationNow();
+      if (!locationOk) {
+        // Location permission denied — roll back availability
+        try {
+          await ref.read(riderServiceProvider).setAvailability('offline');
+        } catch (_) {}
+        setState(() => _isAvailable = false);
+        await ref.read(secureStorageProvider).saveAvailability(false);
+        return;
+      }
       _startLocationUpdates(interval: 30);
     } else {
       _locationTimer?.cancel();
@@ -174,7 +217,8 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   void _startLocationUpdates({required int interval}) {
     _locationTimer?.cancel();
     _locationTimer = Timer.periodic(Duration(seconds: interval), (_) async {
-      if (_isAvailable) await _sendLocationNow();
+      if (_isAvailable)
+        await _sendLocationNow(); // best-effort, return value ignored
     });
   }
 
