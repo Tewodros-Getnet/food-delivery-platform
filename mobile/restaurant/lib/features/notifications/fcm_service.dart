@@ -7,6 +7,10 @@ import '../../../core/constants/api_constants.dart';
 @pragma('vm:entry-point')
 Future<void> _bgHandler(RemoteMessage message) async {}
 
+// Global callback — set by OrdersScreen to reload orders when a notification is tapped
+typedef OrdersReloadCallback = void Function();
+OrdersReloadCallback? onOrdersReloadRequested;
+
 final fcmServiceProvider =
     Provider<FcmService>((ref) => FcmService(ref.read(dioClientProvider)));
 
@@ -35,7 +39,22 @@ class FcmService {
           ),
         );
       }
+      // Reload orders list when a new order notification arrives in foreground
+      onOrdersReloadRequested?.call();
     });
+
+    // App opened from background by tapping notification — reload orders
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      onOrdersReloadRequested?.call();
+    });
+
+    // App launched from terminated state by tapping notification — reload orders
+    final initial = await FirebaseMessaging.instance.getInitialMessage();
+    if (initial != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onOrdersReloadRequested?.call();
+      });
+    }
   }
 
   Future<void> _registerToken(String token) async {

@@ -8,6 +8,7 @@ import '../../../core/storage/secure_storage.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../notifications/fcm_service.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
@@ -26,6 +27,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     super.initState();
     _load();
     _connect();
+    // Reload orders when a notification is tapped (background or terminated state)
+    onOrdersReloadRequested = () {
+      if (mounted) _load();
+    };
   }
 
   Future<void> _load() async {
@@ -103,6 +108,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   @override
   void dispose() {
+    onOrdersReloadRequested = null;
     _socket?.disconnect();
     super.dispose();
   }
