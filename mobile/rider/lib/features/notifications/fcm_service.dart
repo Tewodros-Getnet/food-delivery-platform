@@ -14,6 +14,9 @@ Future<void> _bgHandler(RemoteMessage message) async {
 typedef DeliveryRequestCallback = void Function(Map<String, dynamic> data);
 DeliveryRequestCallback? onDeliveryRequestReceived;
 
+// Holds a delivery request that arrived before RiderHomeScreen was mounted
+Map<String, dynamic>? pendingDeliveryRequest;
+
 final fcmServiceProvider =
     Provider<FcmService>((ref) => FcmService(ref.read(dioClientProvider)));
 
@@ -52,8 +55,12 @@ class FcmService {
   void _handleMessage(RemoteMessage message, BuildContext context) {
     final data = message.data;
     if (data['type'] == 'delivery_request') {
-      // Trigger the delivery request card in RiderHomeScreen
-      onDeliveryRequestReceived?.call(data);
+      if (onDeliveryRequestReceived != null) {
+        onDeliveryRequestReceived!.call(data);
+      } else {
+        // RiderHomeScreen not mounted yet — store it so it can be picked up on mount
+        pendingDeliveryRequest = data;
+      }
     } else if (context.mounted && message.notification != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

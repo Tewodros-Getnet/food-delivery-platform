@@ -63,7 +63,20 @@ router.post('/webhook', express.raw({ type: '*/*' }), async (req: Request, res: 
     }
     await orderService.handleWebhook(payload, signature);
     res.json({ received: true });
-  } catch (err) { next(err); }
+  } catch (err: unknown) {
+    // Log webhook failures explicitly so they appear in Render logs
+    const message = err instanceof Error ? err.message : String(err);
+    const statusCode = (err as { statusCode?: number }).statusCode;
+    if (statusCode === 401) {
+      // Signature mismatch — log the raw signature so it can be compared
+      console.error('[webhook] signature verification failed', {
+        signatureReceived: req.headers['x-chapa-signature'] ?? '(none)',
+        bodyType: typeof req.body,
+        isBuffer: Buffer.isBuffer(req.body),
+      });
+    }
+    next(err);
+  }
 });
 
 // POST /payments/refund (admin only)

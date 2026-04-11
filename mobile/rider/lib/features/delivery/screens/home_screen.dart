@@ -53,6 +53,16 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
         });
       }
     };
+
+    // Consume any delivery request that arrived before this screen was mounted
+    if (pendingDeliveryRequest != null) {
+      final pending = pendingDeliveryRequest!;
+      pendingDeliveryRequest = null;
+      // Use addPostFrameCallback so setState runs after the first frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onDeliveryRequestReceived?.call(pending);
+      });
+    }
   }
 
   // Restore persisted availability on app start / return from background

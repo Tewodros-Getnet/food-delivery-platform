@@ -60,16 +60,44 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   Future<void> _connect() async {
+    _socket?.disconnect();
     final token = await ref.read(secureStorageProvider).getJwt();
     if (token == null) return;
     _socket = io.io(
       ApiConstants.wsUrl,
-      io.OptionBuilder().setTransports(['websocket']).setAuth({
-        'token': token,
-      }).build(),
+      io.OptionBuilder()
+          .setTransports(['websocket'])
+          .setAuth({'token': token})
+          .enableAutoConnect()
+          .enableReconnection()
+          .setReconnectionAttempts(999)
+          .setReconnectionDelay(2000)
+          .setReconnectionDelayMax(10000)
+          .build(),
     );
     _socket!.on('order:status_changed', (_) {
       if (mounted) _load();
+    });
+    _socket!.on('connect_error', (err) async {
+      final errStr = err.toString();
+      if (errStr.contains('Invalid token') ||
+          errStr.contains('Authentication')) {
+        final storage = ref.read(secureStorageProvider);
+        final rt = await storage.getRefreshToken();
+        if (rt != null) {
+          try {
+            final res = await ref
+                .read(dioClientProvider)
+                .dio
+                .post(ApiConstants.refresh, data: {'refreshToken': rt});
+            final newJwt = res.data['data']['jwt'] as String?;
+            if (newJwt != null) {
+              await storage.saveTokens(jwt: newJwt, refreshToken: rt);
+              _connect();
+            }
+          } catch (_) {}
+        }
+      }
     });
   }
 
