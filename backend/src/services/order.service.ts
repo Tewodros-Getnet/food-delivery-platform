@@ -201,9 +201,13 @@ export async function handleWebhook(payload: string, signature: string): Promise
       );
       if (rResult.rows[0]) {
         void sendPushNotification(rResult.rows[0].owner_id, 'New Order', 'You have a new order!', { orderId: confirmed.id });
+        const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
+        emitOrderStatusChanged(confirmed, order.customer_id);
+        emitToRestaurant(rResult.rows[0].owner_id, confirmed);
+      } else {
+        const { emitOrderStatusChanged } = await import('./socket.service');
+        emitOrderStatusChanged(confirmed, order.customer_id);
       }
-      const { emitOrderStatusChanged } = await import('./socket.service');
-      emitOrderStatusChanged(confirmed, order.customer_id);
     }
   } else {
     const failed = await updateOrderStatus(order.id, 'payment_failed', { payment_status: 'failed' });

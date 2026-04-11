@@ -45,4 +45,14 @@ class AuthService {
   }
 
   Future<bool> isLoggedIn() async => (await _storage.getJwt()) != null;
+
+  Future<String?> refreshToken(String refreshToken) async {
+    try {
+      final res = await _client.dio
+          .post(ApiConstants.refresh, data: {'refreshToken': refreshToken});
+      return res.data['data']['jwt'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
 }

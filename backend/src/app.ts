@@ -36,13 +36,15 @@ app.use((req, res, next) => {
 });
 app.use(requestIdMiddleware);
 app.use(requestLogger);
+// Auth-specific rate limiter must be registered before the global one
+// so auth endpoints get the stricter 10 req/15min limit
+app.use('/api/v1/auth', authRateLimiter);
 app.use(rateLimiter);
 
 app.get('/health', (_req, res) => {
   res.json({ success: true, data: { status: 'ok' }, error: null });
 });
 
-app.use('/api/v1/auth', authRateLimiter);
 app.use('/api/v1', router);
 
 app.use(notFoundHandler);

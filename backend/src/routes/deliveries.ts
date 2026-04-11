@@ -23,7 +23,8 @@ router.post('/:id/accept', authenticate, authorize('rider'), async (req: Request
       rider_id: req.userId,
     });
 
-    await riderService.updateRiderLocation(req.userId!, 0, 0, 'on_delivery');
+    // Mark rider as on_delivery using their last known location (avoids inserting bogus 0,0 coords)
+    await riderService.setRiderAvailability(req.userId!, 'on_delivery');
     riderService.riderAccepted(order.id);
 
     if (updated) {

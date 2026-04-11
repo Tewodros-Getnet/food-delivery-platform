@@ -25,6 +25,9 @@ build/
 # Android Gradle cache
 **/.gradle/
 
+# Android local machine config
+**/local.properties
+
 # OS
 .DS_Store
 Thumbs.db

@@ -70,6 +70,11 @@ router.put('/:id/status', authenticate, authorize('restaurant'), [
     });
     if (updated) {
       emitOrderStatusChanged(updated, order.customer_id);
+      // Notify restaurant owner so their order list updates in real-time
+      const rResult = await query<{ owner_id: string }>(
+        'SELECT owner_id FROM restaurants WHERE id = $1', [order.restaurant_id]
+      );
+      if (rResult.rows[0]) emitToRestaurant(rResult.rows[0].owner_id, updated);
       void startDispatch(order.id, order.restaurant_id);
     }
     res.json(successResponse(updated));

@@ -7,6 +7,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
+import '../../auth/services/auth_service.dart';
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
@@ -44,10 +45,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   Future<void> _connect() async {
     final token = await ref.read(secureStorageProvider).getJwt();
     if (token == null) return;
+    _socket?.disconnect();
     _socket = io.io(
         ApiConstants.wsUrl,
         io.OptionBuilder()
-            .setTransports(['websocket']).setAuth({'token': token}).build());
+            .setTransports(['websocket'])
+            .setAuth({'token': token})
+            .enableAutoConnect()
+            .enableReconnection()
+            .setReconnectionAttempts(999)
+            .setReconnectionDelay(2000)
+            .setReconnectionDelayMax(10000)
+            .build());
     _socket!.on('order:status_changed', (data) {
       final d = data['data'] as Map<String, dynamic>;
       if (d['orderId'] == widget.orderId) {
@@ -62,6 +71,23 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           _riderLat = (d['latitude'] as num).toDouble();
           _riderLon = (d['longitude'] as num).toDouble();
         });
+      }
+    });
+    _socket!.on('connect_error', (err) async {
+      final errStr = err.toString();
+      if (errStr.contains('Invalid token') ||
+          errStr.contains('Authentication')) {
+        final storage = ref.read(secureStorageProvider);
+        final rt = await storage.getRefreshToken();
+        if (rt != null) {
+          try {
+            final newJwt = await ref.read(authServiceProvider).refreshToken(rt);
+            if (newJwt != null) {
+              await storage.saveTokens(jwt: newJwt, refreshToken: rt);
+              _connect(); // reconnect with fresh token
+            }
+          } catch (_) {}
+        }
       }
     });
   }

@@ -78,17 +78,18 @@ export function initSocketServer(socketServer: Server) {
     }
   });
 
-  io.on('connection', (socket: Socket) => {
+  io.on('connection', async (socket: Socket) => {
     const userId = socket.data.userId as string;
-    void socket.join(`user:${userId}`);
+    // Await join so the room exists before we flush queued events
+    await socket.join(`user:${userId}`);
     logger.info('Socket connected', { socketId: socket.id, userId });
 
     // Deliver any events missed while offline
     flushQueue(socket, userId);
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       logger.info('Socket disconnected', { socketId: socket.id, userId });
-      void socket.leave(`user:${userId}`);
+      await socket.leave(`user:${userId}`);
     });
   });
 }
