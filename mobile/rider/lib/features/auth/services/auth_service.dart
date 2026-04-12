@@ -39,11 +39,18 @@ class AuthService {
       data: {'email': email, 'password': password},
     );
     final data = res.data['data'] as Map<String, dynamic>;
+    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    if (user.role != 'rider') {
+      throw Exception(
+        'This account is not a rider account. '
+        'Please use the correct app for your account type.',
+      );
+    }
     await _storage.saveTokens(
       jwt: data['tokens']['jwt'] as String,
       refreshToken: data['tokens']['refreshToken'] as String,
     );
-    return UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    return user;
   }
 
   Future<void> logout() async {
