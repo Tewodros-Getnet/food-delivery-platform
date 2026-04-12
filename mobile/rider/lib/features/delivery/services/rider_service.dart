@@ -28,8 +28,10 @@ class RiderService {
     );
   }
 
-  Future<void> acceptDelivery(String orderId) async {
-    await _client.dio.post('${ApiConstants.deliveries}/$orderId/accept');
+  Future<Map<String, dynamic>?> acceptDelivery(String orderId) async {
+    final res =
+        await _client.dio.post('${ApiConstants.deliveries}/$orderId/accept');
+    return res.data['data'] as Map<String, dynamic>?;
   }
 
   Future<void> declineDelivery(String orderId) async {

@@ -27,6 +27,18 @@ router.post('/:id/accept', authenticate, authorize('rider'), async (req: Request
     await riderService.setRiderAvailability(req.userId!, 'on_delivery');
     riderService.riderAccepted(order.id);
 
+    // Fetch restaurant and delivery address coordinates for rider navigation
+    const [restaurantResult, addressResult] = await Promise.all([
+      query<{ latitude: number; longitude: number; name: string; address: string }>(
+        'SELECT latitude, longitude, name, address FROM restaurants WHERE id = $1',
+        [order.restaurant_id]
+      ),
+      query<{ latitude: number; longitude: number; address_line: string }>(
+        'SELECT latitude, longitude, address_line FROM addresses WHERE id = $1',
+        [order.delivery_address_id]
+      ),
+    ]);
+
     if (updated) {
       emitOrderStatusChanged(updated, order.customer_id);
       // Notify restaurant
@@ -36,7 +48,13 @@ router.post('/:id/accept', authenticate, authorize('rider'), async (req: Request
       if (rResult.rows[0]) emitToRestaurant(rResult.rows[0].owner_id, updated);
     }
 
-    res.json(successResponse(updated));
+    res.json(successResponse({
+      order: updated,
+      navigation: {
+        restaurant: restaurantResult.rows[0] ?? null,
+        delivery: addressResult.rows[0] ?? null,
+      },
+    }));
   } catch (err) { next(err); }
 });
 

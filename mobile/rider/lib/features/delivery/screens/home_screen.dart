@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../services/rider_service.dart';
@@ -20,10 +21,14 @@ class RiderHomeScreen extends ConsumerStatefulWidget {
 class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     with WidgetsBindingObserver {
   bool _isAvailable = false;
-  bool _restoringAvailability = true; // true until storage read completes
+  bool _restoringAvailability = true;
   bool _onDelivery = false;
   String? _activeOrderId;
   Map<String, dynamic>? _deliveryRequest;
+  // Navigation coordinates set when rider accepts a delivery
+  double? _restaurantLat, _restaurantLon;
+  double? _customerLat, _customerLon;
+  bool _pickedUp = false; // tracks whether pickup is confirmed
   Timer? _locationTimer;
   Timer? _requestTimer;
   io.Socket? _socket;
@@ -242,11 +247,19 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     final orderId = _deliveryRequest?['orderId'] as String?;
     if (orderId == null) return;
     _requestTimer?.cancel();
-    await ref.read(riderServiceProvider).acceptDelivery(orderId);
+    final result = await ref.read(riderServiceProvider).acceptDelivery(orderId);
+    final nav = result?['navigation'] as Map<String, dynamic>?;
+    final restaurant = nav?['restaurant'] as Map<String, dynamic>?;
+    final delivery = nav?['delivery'] as Map<String, dynamic>?;
     setState(() {
       _deliveryRequest = null;
       _onDelivery = true;
       _activeOrderId = orderId;
+      _pickedUp = false;
+      _restaurantLat = (restaurant?['latitude'] as num?)?.toDouble();
+      _restaurantLon = (restaurant?['longitude'] as num?)?.toDouble();
+      _customerLat = (delivery?['latitude'] as num?)?.toDouble();
+      _customerLon = (delivery?['longitude'] as num?)?.toDouble();
     });
     _startLocationUpdates(interval: 10);
   }
@@ -262,7 +275,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   Future<void> _confirmPickup() async {
     if (_activeOrderId == null) return;
     await ref.read(riderServiceProvider).confirmPickup(_activeOrderId!);
-    setState(() {});
+    setState(() => _pickedUp = true);
   }
 
   Future<void> _confirmDelivery() async {
@@ -271,8 +284,23 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     setState(() {
       _onDelivery = false;
       _activeOrderId = null;
+      _pickedUp = false;
+      _restaurantLat = _restaurantLon = null;
+      _customerLat = _customerLon = null;
     });
     _startLocationUpdates(interval: 30);
+  }
+
+  Future<void> _openNavigation(double lat, double lon) async {
+    // Opens Google Maps app with turn-by-turn navigation — no API key needed
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon&travelmode=driving',
+    );
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      // Fallback to geo: URI if Google Maps app not available
+      final geoUri = Uri.parse('geo:$lat,$lon?q=$lat,$lon');
+      await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -437,26 +465,58 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                         ),
                       ),
                       const SizedBox(height: 12),
+                      // Navigate button — goes to restaurant before pickup, customer after
+                      if (!_pickedUp && _restaurantLat != null)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _openNavigation(
+                                _restaurantLat!, _restaurantLon!),
+                            icon: const Icon(Icons.navigation,
+                                color: Colors.white),
+                            label: const Text('Navigate to Restaurant',
+                                style: TextStyle(color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1565C0)),
+                          ),
+                        ),
+                      if (_pickedUp && _customerLat != null)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () =>
+                                _openNavigation(_customerLat!, _customerLon!),
+                            icon: const Icon(Icons.navigation,
+                                color: Colors.white),
+                            label: const Text('Navigate to Customer',
+                                style: TextStyle(color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1565C0)),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
                       Row(children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _confirmPickup,
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange),
-                            child: const Text('Confirm Pickup',
-                                style: TextStyle(color: Colors.white)),
+                        if (!_pickedUp)
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _confirmPickup,
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange),
+                              child: const Text('Confirm Pickup',
+                                  style: TextStyle(color: Colors.white)),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _confirmDelivery,
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green),
-                            child: const Text('Confirm Delivery',
-                                style: TextStyle(color: Colors.white)),
+                        if (_pickedUp) ...[
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _confirmDelivery,
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green),
+                              child: const Text('Confirm Delivery',
+                                  style: TextStyle(color: Colors.white)),
+                            ),
                           ),
-                        ),
+                        ],
                       ]),
                     ],
                   ),
