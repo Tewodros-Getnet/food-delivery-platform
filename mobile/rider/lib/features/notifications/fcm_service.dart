@@ -17,6 +17,16 @@ DeliveryRequestCallback? onDeliveryRequestReceived;
 // Holds a delivery request that arrived before RiderHomeScreen was mounted
 Map<String, dynamic>? pendingDeliveryRequest;
 
+/// Store a pending delivery request and deliver it immediately if the
+/// home screen callback is already registered.
+void storePendingDeliveryRequest(Map<String, dynamic> data) {
+  if (onDeliveryRequestReceived != null) {
+    onDeliveryRequestReceived!.call(data);
+  } else {
+    pendingDeliveryRequest = data;
+  }
+}
+
 final fcmServiceProvider =
     Provider<FcmService>((ref) => FcmService(ref.read(dioClientProvider)));
 
@@ -55,12 +65,7 @@ class FcmService {
   void _handleMessage(RemoteMessage message, BuildContext context) {
     final data = message.data;
     if (data['type'] == 'delivery_request') {
-      if (onDeliveryRequestReceived != null) {
-        onDeliveryRequestReceived!.call(data);
-      } else {
-        // RiderHomeScreen not mounted yet — store it so it can be picked up on mount
-        pendingDeliveryRequest = data;
-      }
+      storePendingDeliveryRequest(data);
     } else if (context.mounted && message.notification != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

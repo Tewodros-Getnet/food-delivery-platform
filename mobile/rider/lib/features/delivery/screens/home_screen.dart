@@ -20,6 +20,7 @@ class RiderHomeScreen extends ConsumerStatefulWidget {
 class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     with WidgetsBindingObserver {
   bool _isAvailable = false;
+  bool _restoringAvailability = true; // true until storage read completes
   bool _onDelivery = false;
   String? _activeOrderId;
   Map<String, dynamic>? _deliveryRequest;
@@ -33,9 +34,8 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _connectSocket();
-    _restoreAvailability();
-    // Register FCM callback so delivery requests work even when app is backgrounded
+
+    // Register callback FIRST so any pending request is delivered immediately
     onDeliveryRequestReceived = (data) {
       if (mounted) {
         setState(() => _deliveryRequest = {
@@ -54,23 +54,29 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
       }
     };
 
-    // Consume any delivery request that arrived before this screen was mounted
+    // Consume any delivery request already stored before this screen mounted
     if (pendingDeliveryRequest != null) {
       final pending = pendingDeliveryRequest!;
       pendingDeliveryRequest = null;
-      // Use addPostFrameCallback so setState runs after the first frame
       WidgetsBinding.instance.addPostFrameCallback((_) {
         onDeliveryRequestReceived?.call(pending);
       });
     }
+
+    _connectSocket();
+    _restoreAvailability();
   }
 
   // Restore persisted availability on app start / return from background
   Future<void> _restoreAvailability() async {
     final wasAvailable =
         await ref.read(secureStorageProvider).getAvailability();
-    if (wasAvailable && mounted) {
-      setState(() => _isAvailable = true);
+    if (!mounted) return;
+    setState(() {
+      _isAvailable = wasAvailable;
+      _restoringAvailability = false;
+    });
+    if (wasAvailable) {
       final locationOk = await _sendLocationNow();
       if (locationOk) {
         _startLocationUpdates(interval: 30);
@@ -326,7 +332,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                     ),
                     Switch(
                       value: _isAvailable,
-                      onChanged: (_) => _toggleAvailability(),
+                      onChanged: _restoringAvailability
+                          ? null
+                          : (_) => _toggleAvailability(),
                       activeThumbColor: const Color(0xFF1565C0),
                     ),
                   ],
