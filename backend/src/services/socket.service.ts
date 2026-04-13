@@ -175,6 +175,38 @@ export function emitDeliveryRequest(riderId: string, payload: {
   }
 }
 
+export function emitSearchingRider(params: {
+  customerId: string;
+  restaurantOwnerId: string;
+  orderId: string;
+  retryCount: number;
+  maxRetries: number;
+}) {
+  if (!io) return;
+  const payload = {
+    event: 'order:searching_rider',
+    data: {
+      orderId: params.orderId,
+      message: 'Looking for a rider, please wait...',
+      retryCount: params.retryCount,
+      maxRetries: params.maxRetries,
+      timestamp: new Date().toISOString(),
+    },
+  };
+  // Notify customer
+  if (isUserOnline(params.customerId)) {
+    io.to(`user:${params.customerId}`).emit('order:searching_rider', payload);
+  } else {
+    queueEvent(params.customerId, 'order:searching_rider', payload);
+  }
+  // Notify restaurant
+  if (isUserOnline(params.restaurantOwnerId)) {
+    io.to(`user:${params.restaurantOwnerId}`).emit('order:searching_rider', payload);
+  } else {
+    queueEvent(params.restaurantOwnerId, 'order:searching_rider', payload);
+  }
+}
+
 export function emitDisputeResolved(customerId: string, payload: {
   disputeId: string;
   orderId: string;

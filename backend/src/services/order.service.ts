@@ -217,3 +217,51 @@ export async function handleWebhook(payload: string, signature: string): Promise
     }
   }
 }
+
+// Called by rider.service when no rider is found after all retries
+export async function cancelOrderNoRider(orderId: string): Promise<void> {
+  const orderResult = await query<{ customer_id: string; restaurant_id: string; status: string }>(
+    'SELECT customer_id, restaurant_id, status FROM orders WHERE id = $1',
+    [orderId]
+  );
+  const order = orderResult.rows[0];
+  if (!order) return;
+  // Only cancel if still waiting for a rider
+  if (!['ready_for_pickup', 'confirmed'].includes(order.status)) return;
+
+  const cancelled = await updateOrderStatus(orderId, 'cancelled', {
+    cancellation_reason: 'No rider available',
+    cancelled_at: new Date(),
+    payment_status: 'refunded',
+  });
+
+  if (!cancelled) return;
+
+  // Initiate refund (fire-and-forget — logs success/failure internally)
+  const { initiateRefund } = await import('./refund.service');
+  void initiateRefund(orderId);
+
+  // Notify customer via socket + FCM
+  const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
+  emitOrderStatusChanged(cancelled, order.customer_id);
+  void sendPushNotification(
+    order.customer_id,
+    'Order Cancelled',
+    'We couldn\'t find a rider for your order. A refund has been initiated.',
+    { type: 'order_cancelled', orderId }
+  );
+
+  // Notify restaurant
+  const rResult = await query<{ owner_id: string }>(
+    'SELECT owner_id FROM restaurants WHERE id = $1', [order.restaurant_id]
+  );
+  if (rResult.rows[0]) {
+    emitToRestaurant(rResult.rows[0].owner_id, cancelled);
+    void sendPushNotification(
+      rResult.rows[0].owner_id,
+      'Order Cancelled',
+      'Order was cancelled — no rider was available.',
+      { type: 'order_cancelled', orderId }
+    );
+  }
+}

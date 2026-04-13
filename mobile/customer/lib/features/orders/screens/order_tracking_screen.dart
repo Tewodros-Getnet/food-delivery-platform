@@ -22,6 +22,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   double? _riderLat, _riderLon;
   bool _loading = true;
   io.Socket? _socket;
+  String? _searchingRiderMessage; // shown when no rider found yet
 
   @override
   void initState() {
@@ -60,8 +61,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     _socket!.on('order:status_changed', (data) {
       final d = data['data'] as Map<String, dynamic>;
       if (d['orderId'] == widget.orderId) {
-        setState(() =>
-            _order = OrderModel.fromJson(d['order'] as Map<String, dynamic>));
+        setState(() {
+          _order = OrderModel.fromJson(d['order'] as Map<String, dynamic>);
+          _searchingRiderMessage =
+              null; // clear searching message on status change
+        });
+      }
+    });
+    _socket!.on('order:searching_rider', (data) {
+      final d = data['data'] as Map<String, dynamic>;
+      if (d['orderId'] == widget.orderId) {
+        setState(() => _searchingRiderMessage =
+            'Looking for a rider... (attempt ${d['retryCount']}/${d['maxRetries']})');
       }
     });
     _socket!.on('rider:location_update', (data) {
@@ -121,6 +132,23 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
             const SizedBox(height: 4),
             Text(_order!.statusMessage,
                 style: TextStyle(color: Colors.grey[700])),
+            if (_searchingRiderMessage != null) ...[
+              const SizedBox(height: 6),
+              Row(children: [
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.orange),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(_searchingRiderMessage!,
+                      style:
+                          const TextStyle(color: Colors.orange, fontSize: 13)),
+                ),
+              ]),
+            ],
           ]),
         ),
         // Live map with rider location — flutter_map + OpenStreetMap (no API key needed)

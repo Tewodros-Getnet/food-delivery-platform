@@ -1,9 +1,23 @@
 import { query } from '../config/database';
 import { haversineDistance } from '../utils/haversine';
-import { emitDeliveryRequest } from './socket.service';
+import { emitDeliveryRequest, emitSearchingRider } from './socket.service';
 import { sendPushNotification } from './fcm.service';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
+
+// Retry intervals and radius expansion when no riders found
+const RETRY_INTERVAL_MS = 2 * 60 * 1000;   // 2 minutes between retries
+const MAX_RETRIES = 10;                      // 10 × 2min = 20 minutes max
+const RADIUS_STEPS_KM = [5, 8, 12];         // expand radius on each immediate attempt
+
+// Active no-rider retry sessions: orderId → retry state
+const retrySessionsNoRider = new Map<string, {
+  retryCount: number;
+  retryTimeout: ReturnType<typeof setTimeout> | null;
+  restaurantId: string;
+  customerId: string;
+  restaurantOwnerId: string;
+}>();
 
 export interface RiderLocation {
   id: string;
@@ -108,8 +122,8 @@ export async function startDispatch(orderId: string, restaurantId: string): Prom
   if (!rResult.rows[0]) return;
   const restaurant = rResult.rows[0];
 
-  const orderResult = await query<{ delivery_address_id: string; delivery_fee: number }>(
-    'SELECT delivery_address_id, delivery_fee FROM orders WHERE id = $1',
+  const orderResult = await query<{ delivery_address_id: string; delivery_fee: number; customer_id: string }>(
+    'SELECT delivery_address_id, delivery_fee, customer_id FROM orders WHERE id = $1',
     [orderId]
   );
   if (!orderResult.rows[0]) return;
@@ -121,25 +135,54 @@ export async function startDispatch(orderId: string, restaurantId: string): Prom
   );
   const customerAddress = addrResult.rows[0]?.address_line ?? 'Unknown';
 
-  const riders = await findNearbyRiders(
-    restaurant.latitude, restaurant.longitude,
-    env.RIDER_SEARCH_RADIUS_KM
-  );
-
-  logger.info('Dispatch: searching riders', {
-    orderId,
-    restaurantLat: restaurant.latitude,
-    restaurantLon: restaurant.longitude,
-    radiusKm: env.RIDER_SEARCH_RADIUS_KM,
-    ridersFound: riders.length,
-  });
+  // Try expanding radius immediately before giving up
+  let riders: NearbyRider[] = [];
+  let usedRadius = env.RIDER_SEARCH_RADIUS_KM;
+  for (const radius of RADIUS_STEPS_KM) {
+    riders = await findNearbyRiders(restaurant.latitude, restaurant.longitude, radius);
+    usedRadius = radius;
+    logger.info('Dispatch: searching riders', {
+      orderId, restaurantLat: restaurant.latitude, restaurantLon: restaurant.longitude,
+      radiusKm: radius, ridersFound: riders.length,
+    });
+    if (riders.length > 0) break;
+  }
 
   if (riders.length === 0) {
-    logger.warn('No riders available for dispatch', { orderId, restaurantLat: restaurant.latitude, restaurantLon: restaurant.longitude, radiusKm: env.RIDER_SEARCH_RADIUS_KM });
+    // No riders found even after expanding radius — fetch restaurant owner for notifications
+    const ownerResult = await query<{ owner_id: string }>(
+      'SELECT owner_id FROM restaurants WHERE id = $1', [restaurantId]
+    );
+    const restaurantOwnerId = ownerResult.rows[0]?.owner_id ?? '';
+
+    logger.warn('No riders available — starting retry schedule', { orderId });
+
+    // Notify customer and restaurant immediately
+    emitSearchingRider({
+      customerId: order.customer_id,
+      restaurantOwnerId,
+      orderId,
+      retryCount: 0,
+      maxRetries: MAX_RETRIES,
+    });
+
+    // Store retry session
+    retrySessionsNoRider.set(orderId, {
+      retryCount: 0,
+      retryTimeout: null,
+      restaurantId,
+      customerId: order.customer_id,
+      restaurantOwnerId,
+    });
+
+    scheduleRetry(orderId, restaurant, customerAddress, order.delivery_fee);
     return;
   }
 
-  logger.info('Dispatch started', { orderId, riderCount: riders.length, riders: riders.map(r => ({ id: r.rider_id, distanceKm: r.distance_km })) });
+  logger.info('Dispatch started', {
+    orderId, riderCount: riders.length, radiusKm: usedRadius,
+    riders: riders.map(r => ({ id: r.rider_id, distanceKm: r.distance_km })),
+  });
 
   dispatchSessions.set(orderId, {
     startTime: Date.now(),
@@ -152,6 +195,80 @@ export async function startDispatch(orderId: string, restaurantId: string): Prom
   });
 
   sendToNextRider(orderId, restaurant, customerAddress, order.delivery_fee);
+}
+
+function scheduleRetry(
+  orderId: string,
+  restaurant: { latitude: number; longitude: number; name: string; address: string },
+  customerAddress: string,
+  deliveryFee: number
+) {
+  const session = retrySessionsNoRider.get(orderId);
+  if (!session) return;
+
+  session.retryTimeout = setTimeout(async () => {
+    // Check order is still waiting for a rider
+    const orderCheck = await query<{ status: string }>(
+      'SELECT status FROM orders WHERE id = $1', [orderId]
+    );
+    if (!orderCheck.rows[0] || orderCheck.rows[0].status !== 'ready_for_pickup') {
+      retrySessionsNoRider.delete(orderId);
+      return;
+    }
+
+    session.retryCount++;
+    logger.info('Retrying dispatch', { orderId, retryCount: session.retryCount });
+
+    // Try all radius steps again
+    let riders: NearbyRider[] = [];
+    for (const radius of RADIUS_STEPS_KM) {
+      riders = await findNearbyRiders(restaurant.latitude, restaurant.longitude, radius);
+      if (riders.length > 0) break;
+    }
+
+    if (riders.length > 0) {
+      // Rider found — start normal dispatch
+      retrySessionsNoRider.delete(orderId);
+      logger.info('Rider found on retry', { orderId, retryCount: session.retryCount });
+      dispatchSessions.set(orderId, {
+        startTime: Date.now(),
+        riderIndex: 0,
+        riders,
+        currentTimeout: null,
+        restaurant: { name: restaurant.name, address: restaurant.address },
+        customerAddress,
+        deliveryFee,
+      });
+      sendToNextRider(orderId, restaurant, customerAddress, deliveryFee);
+      return;
+    }
+
+    if (session.retryCount >= MAX_RETRIES) {
+      // Exhausted all retries — cancel order and refund
+      retrySessionsNoRider.delete(orderId);
+      logger.warn('Max retries reached — cancelling order', { orderId });
+      const { cancelOrderNoRider } = await import('./order.service');
+      void cancelOrderNoRider(orderId);
+      return;
+    }
+
+    // Still no rider — notify again and schedule next retry
+    emitSearchingRider({
+      customerId: session.customerId,
+      restaurantOwnerId: session.restaurantOwnerId,
+      orderId,
+      retryCount: session.retryCount,
+      maxRetries: MAX_RETRIES,
+    });
+    scheduleRetry(orderId, restaurant, customerAddress, deliveryFee);
+  }, RETRY_INTERVAL_MS);
+}
+
+// Cancel any pending retry when a rider accepts or order is cancelled externally
+export function cancelRetrySession(orderId: string) {
+  const session = retrySessionsNoRider.get(orderId);
+  if (session?.retryTimeout) clearTimeout(session.retryTimeout);
+  retrySessionsNoRider.delete(orderId);
 }
 
 function sendToNextRider(
@@ -211,6 +328,7 @@ export function riderAccepted(orderId: string) {
   const session = dispatchSessions.get(orderId);
   if (session?.currentTimeout) clearTimeout(session.currentTimeout);
   dispatchSessions.delete(orderId);
+  cancelRetrySession(orderId); // also clear any no-rider retry session
 }
 
 export function riderDeclined(orderId: string) {

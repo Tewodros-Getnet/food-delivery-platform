@@ -83,6 +83,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     _socket!.on('order:status_changed', (_) {
       if (mounted) _load();
     });
+    _socket!.on('order:searching_rider', (data) {
+      // Show a snackbar so restaurant knows the system is still searching
+      final d = (data['data'] as Map<String, dynamic>?);
+      if (mounted && d != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Looking for a rider for order ${(d['orderId'] as String).substring(0, 8)}... '
+              '(attempt ${d['retryCount']}/${d['maxRetries']})',
+            ),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    });
     _socket!.on('connect_error', (err) async {
       final errStr = err.toString();
       if (errStr.contains('Invalid token') ||
