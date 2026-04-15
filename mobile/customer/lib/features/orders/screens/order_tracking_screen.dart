@@ -132,6 +132,22 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
             const SizedBox(height: 4),
             Text(_order!.statusMessage,
                 style: TextStyle(color: Colors.grey[700])),
+            if (_order!.estimatedDeliveryTime != null &&
+                !['delivered', 'cancelled'].contains(_order!.status)) ...[
+              const SizedBox(height: 6),
+              Row(children: [
+                const Icon(Icons.access_time,
+                    size: 14, color: Colors.deepOrange),
+                const SizedBox(width: 4),
+                Text(
+                  _etaLabel(_order!.estimatedDeliveryTime!),
+                  style: const TextStyle(
+                      color: Colors.deepOrange,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                ),
+              ]),
+            ],
             if (_searchingRiderMessage != null) ...[
               const SizedBox(height: 6),
               Row(children: [
@@ -216,6 +232,15 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                         style: TextStyle(color: Colors.red))),
               ],
             ));
+  }
+
+  String _etaLabel(DateTime eta) {
+    final now = DateTime.now();
+    final diff = eta.difference(now);
+    if (diff.isNegative) return 'Arriving soon';
+    final mins = diff.inMinutes;
+    if (mins < 1) return 'Arriving now';
+    return 'Estimated delivery: ~$mins min';
   }
 
   String _statusLabel(String s) =>

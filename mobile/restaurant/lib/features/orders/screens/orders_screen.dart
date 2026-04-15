@@ -20,6 +20,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   List<OrderModel> _orders = [];
   bool _loading = true;
   String? _restaurantId;
+  bool _isOpen = true; // restaurant open/closed status
   io.Socket? _socket;
 
   @override
@@ -38,8 +39,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       final dio = ref.read(dioClientProvider).dio;
       try {
         final rRes = await dio.get(ApiConstants.myRestaurant);
-        _restaurantId =
-            (rRes.data['data'] as Map<String, dynamic>?)?['id'] as String?;
+        final rData = rRes.data['data'] as Map<String, dynamic>?;
+        _restaurantId = rData?['id'] as String?;
+        if (mounted)
+          setState(() => _isOpen = (rData?['is_open'] as bool?) ?? true);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -122,6 +125,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     });
   }
 
+  Future<void> _toggleOpen() async {
+    final newStatus = !_isOpen;
+    try {
+      await ref.read(dioClientProvider).dio.put(
+        ApiConstants.myRestaurantStatus,
+        data: {'is_open': newStatus},
+      );
+      setState(() => _isOpen = newStatus);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update status: $e')),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     onOrdersReloadRequested = null;
@@ -148,6 +168,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         backgroundColor: const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
         actions: [
+          // Open/Closed toggle
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            child: GestureDetector(
+              onTap: _toggleOpen,
+              child: Chip(
+                label: Text(
+                  _isOpen ? 'OPEN' : 'CLOSED',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: _isOpen ? Colors.green : Colors.red,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.restaurant_menu),
             onPressed: () {

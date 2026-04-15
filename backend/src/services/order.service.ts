@@ -35,12 +35,18 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
     }
 
     const [rResult, aResult] = await Promise.all([
-      client.query('SELECT latitude, longitude FROM restaurants WHERE id = $1', [input.restaurantId]),
+      client.query('SELECT latitude, longitude, is_open FROM restaurants WHERE id = $1', [input.restaurantId]),
       client.query('SELECT latitude, longitude FROM addresses WHERE id = $1', [input.deliveryAddressId]),
     ]);
 
-    const r = rResult.rows[0] as { latitude: number; longitude: number };
+    const r = rResult.rows[0] as { latitude: number; longitude: number; is_open: boolean };
     const a = aResult.rows[0] as { latitude: number; longitude: number };
+
+    if (r.is_open === false) {
+      const err = new Error('Restaurant is currently closed') as Error & { statusCode: number };
+      err.statusCode = 422;
+      throw err;
+    }
 
     const delivery_fee = calculateDeliveryFee(
       r.latitude, r.longitude, a.latitude, a.longitude,

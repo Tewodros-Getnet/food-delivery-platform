@@ -9,6 +9,8 @@ class OrderModel {
   final double deliveryFee;
   final double total;
   final DateTime createdAt;
+  final DateTime? estimatedDeliveryTime;
+  final int? estimatedPrepTimeMinutes;
 
   const OrderModel({
     required this.id,
@@ -21,6 +23,8 @@ class OrderModel {
     required this.deliveryFee,
     required this.total,
     required this.createdAt,
+    this.estimatedDeliveryTime,
+    this.estimatedPrepTimeMinutes,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
@@ -34,6 +38,10 @@ class OrderModel {
         deliveryFee: double.parse(json['delivery_fee'].toString()),
         total: double.parse(json['total'].toString()),
         createdAt: DateTime.parse(json['created_at'] as String),
+        estimatedDeliveryTime: json['estimated_delivery_time'] != null
+            ? DateTime.parse(json['estimated_delivery_time'] as String)
+            : null,
+        estimatedPrepTimeMinutes: json['estimated_prep_time_minutes'] as int?,
       );
 
   String get statusMessage =>

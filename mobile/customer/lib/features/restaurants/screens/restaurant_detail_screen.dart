@@ -51,7 +51,37 @@ class RestaurantDetailScreen extends ConsumerWidget {
                           Expanded(
                               child: Text(r.address,
                                   style: TextStyle(color: Colors.grey[600]))),
+                          if (!r.isOpen)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('CLOSED',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold)),
+                            ),
                         ]),
+                        if (!r.isOpen) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: const Text(
+                              'This restaurant is currently closed and not accepting orders.',
+                              style: TextStyle(color: Colors.red, fontSize: 13),
+                            ),
+                          ),
+                        ],
                         if (r.description != null) ...[
                           const SizedBox(height: 8),
                           Text(r.description!)
@@ -67,8 +97,10 @@ class RestaurantDetailScreen extends ConsumerWidget {
             error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
             data: (items) => SliverList(
                 delegate: SliverChildBuilderDelegate(
-                    (ctx, i) =>
-                        _MenuTile(item: items[i], restaurantId: restaurantId),
+                    (ctx, i) => _MenuTile(
+                        item: items[i],
+                        restaurantId: restaurantId,
+                        isRestaurantOpen: r.isOpen),
                     childCount: items.length)),
           ),
         ]),
@@ -87,7 +119,11 @@ class RestaurantDetailScreen extends ConsumerWidget {
 class _MenuTile extends ConsumerWidget {
   final MenuItemModel item;
   final String restaurantId;
-  const _MenuTile({required this.item, required this.restaurantId});
+  final bool isRestaurantOpen;
+  const _MenuTile(
+      {required this.item,
+      required this.restaurantId,
+      required this.isRestaurantOpen});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -118,33 +154,36 @@ class _MenuTile extends ConsumerWidget {
                 color: Colors.orange, fontWeight: FontWeight.bold)),
       ]),
       trailing: IconButton(
-        icon: const Icon(Icons.add_circle, color: Colors.orange, size: 32),
-        onPressed: () {
-          final added =
-              ref.read(cartProvider.notifier).addItem(item, restaurantId);
-          if (!added) {
-            showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                      title: const Text('Clear Cart?'),
-                      content: const Text(
-                          'Your cart has items from another restaurant. Clear it?'),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Cancel')),
-                        TextButton(
-                            onPressed: () {
-                              ref
-                                  .read(cartProvider.notifier)
-                                  .clearAndAdd(item, restaurantId);
-                              Navigator.pop(ctx);
-                            },
-                            child: const Text('Clear & Add')),
-                      ],
-                    ));
-          }
-        },
+        icon: Icon(Icons.add_circle,
+            color: isRestaurantOpen ? Colors.orange : Colors.grey, size: 32),
+        onPressed: isRestaurantOpen
+            ? () {
+                final added =
+                    ref.read(cartProvider.notifier).addItem(item, restaurantId);
+                if (!added) {
+                  showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                            title: const Text('Clear Cart?'),
+                            content: const Text(
+                                'Your cart has items from another restaurant. Clear it?'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel')),
+                              TextButton(
+                                  onPressed: () {
+                                    ref
+                                        .read(cartProvider.notifier)
+                                        .clearAndAdd(item, restaurantId);
+                                    Navigator.pop(ctx);
+                                  },
+                                  child: const Text('Clear & Add')),
+                            ],
+                          ));
+                }
+              }
+            : null,
       ),
     );
   }

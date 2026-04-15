@@ -5,9 +5,10 @@ import { authorize } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
 import * as orderService from '../services/order.service';
 import { emitOrderStatusChanged, emitToRestaurant } from '../services/socket.service';
-import { startDispatch } from '../services/rider.service';
+import { calculateDeliveryFee, haversineDistance, estimateMinutes } from '../utils/haversine';
 import { initiateRefund } from '../services/refund.service';
 import * as ratingService from '../services/rating.service';
+import { startDispatch } from '../services/rider.service';
 import { query } from '../config/database';
 import { successResponse, errorResponse } from '../utils/response';
 
@@ -69,8 +70,30 @@ router.put('/:id/status', authenticate, authorize('restaurant'), [
       estimated_prep_time_minutes: req.body.estimatedPrepTime as number | undefined,
     });
     if (updated) {
+      // Calculate ETA: prep time + rider travel time (restaurant → customer)
+      const prepMins = (req.body.estimatedPrepTime as number | undefined) ?? 10;
+      const coordsResult = await query<{
+        r_lat: number; r_lon: number; a_lat: number; a_lon: number;
+      }>(
+        `SELECT r.latitude as r_lat, r.longitude as r_lon,
+                a.latitude as a_lat, a.longitude as a_lon
+         FROM restaurants r, addresses a
+         WHERE r.id = $1 AND a.id = $2`,
+        [order.restaurant_id, order.delivery_address_id]
+      );
+      if (coordsResult.rows[0]) {
+        const { r_lat, r_lon, a_lat, a_lon } = coordsResult.rows[0];
+        const distKm = haversineDistance(r_lat, r_lon, a_lat, a_lon);
+        const travelMins = estimateMinutes(distKm);
+        const etaDate = new Date(Date.now() + (prepMins + travelMins) * 60 * 1000);
+        await query(
+          'UPDATE orders SET estimated_delivery_time = $1 WHERE id = $2',
+          [etaDate, order.id]
+        );
+        // Attach ETA to the updated order for the socket event
+        (updated as Record<string, unknown>).estimated_delivery_time = etaDate;
+      }
       emitOrderStatusChanged(updated, order.customer_id);
-      // Notify restaurant owner so their order list updates in real-time
       const rResult = await query<{ owner_id: string }>(
         'SELECT owner_id FROM restaurants WHERE id = $1', [order.restaurant_id]
       );

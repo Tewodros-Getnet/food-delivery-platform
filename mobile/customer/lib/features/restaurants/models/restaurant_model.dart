@@ -9,6 +9,7 @@ class RestaurantModel {
   final double longitude;
   final String? category;
   final double averageRating;
+  final bool isOpen;
 
   const RestaurantModel(
       {required this.id,
@@ -20,7 +21,8 @@ class RestaurantModel {
       required this.latitude,
       required this.longitude,
       this.category,
-      required this.averageRating});
+      required this.averageRating,
+      this.isOpen = true});
 
   factory RestaurantModel.fromJson(Map<String, dynamic> json) =>
       RestaurantModel(
@@ -34,6 +36,7 @@ class RestaurantModel {
         longitude: double.parse(json['longitude'].toString()),
         category: json['category'] as String?,
         averageRating: double.parse((json['average_rating'] ?? 0).toString()),
+        isOpen: (json['is_open'] as bool?) ?? true,
       );
 }
 

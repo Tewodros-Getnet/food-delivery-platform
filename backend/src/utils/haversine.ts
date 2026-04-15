@@ -25,3 +25,9 @@ export function calculateDeliveryFee(
   const distanceKm = haversineDistance(restaurantLat, restaurantLon, customerLat, customerLon);
   return Math.round((baseFee + distanceKm * ratePerKm) * 100) / 100;
 }
+
+// Estimate travel time in minutes at average city speed of 30 km/h
+export function estimateMinutes(distanceKm: number): number {
+  const AVG_SPEED_KMH = 30;
+  return Math.ceil((distanceKm / AVG_SPEED_KMH) * 60);
+}
