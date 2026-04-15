@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 import { env } from '../config/env';
 
 // Retry intervals and radius expansion when no riders found
-const RETRY_INTERVAL_MS = 2 * 60 * 1000;   // 2 minutes between retries
+const RETRY_INTERVAL_MS = 1 * 60 * 1000;   // 1 minute between retries
 const MAX_RETRIES = 10;                      // 10 × 2min = 20 minutes max
 const RADIUS_STEPS_KM = [5, 8, 12];         // expand radius on each immediate attempt
 
