@@ -26,6 +26,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   bool _onDelivery = false;
   String? _activeOrderId;
   Map<String, dynamic>? _deliveryRequest;
+  Map<String, dynamic>? _pendingInvitation; // pending restaurant invitation
   // Navigation coordinates set when rider accepts a delivery
   double? _restaurantLat, _restaurantLon;
   double? _customerLat, _customerLon;
@@ -71,6 +72,38 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
 
     _connectSocket();
     _restoreAvailability();
+    _checkInvitation();
+  }
+
+  Future<void> _checkInvitation() async {
+    try {
+      final res = await ref.read(riderServiceProvider).getPendingInvitation();
+      if (mounted && res != null) {
+        setState(() => _pendingInvitation = res);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _respondInvitation(bool accept) async {
+    final id = _pendingInvitation?['id'] as String?;
+    if (id == null) return;
+    try {
+      await ref.read(riderServiceProvider).respondInvitation(id, accept);
+      setState(() => _pendingInvitation = null);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(accept
+              ? 'You joined the restaurant team!'
+              : 'Invitation declined'),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   // Restore persisted availability on app start / return from background
@@ -374,6 +407,59 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Pending invitation card
+            if (_pendingInvitation != null)
+              Card(
+                color: Colors.green.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Restaurant Invitation',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2E7D32))),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${_pendingInvitation!['restaurant_name']} wants you to join their delivery team.',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      Text(
+                        _pendingInvitation!['restaurant_address'] as String? ??
+                            '',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => _respondInvitation(true),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E7D32)),
+                            child: const Text('Accept',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => _respondInvitation(false),
+                            style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red)),
+                            child: const Text('Decline'),
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+
             const SizedBox(height: 16),
 
             // Delivery request card

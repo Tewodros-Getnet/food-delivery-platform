@@ -14,6 +14,9 @@ class ApiConstants {
   static const String restaurants = '/restaurants';
   static const String myRestaurant = '/restaurants/my';
   static const String myRestaurantStatus = '/restaurants/my/status';
+  static const String myRestaurantRiders = '/restaurants/my/riders';
+  static const String myRestaurantRidersInvite =
+      '/restaurants/my/riders/invite';
   static const String menu = '/menu';
   static const String orders = '/orders';
 }

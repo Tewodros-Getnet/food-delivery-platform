@@ -46,6 +46,17 @@ class RiderService {
     await _client.dio.put('${ApiConstants.deliveries}/$orderId/deliver');
   }
 
+  Future<Map<String, dynamic>?> getPendingInvitation() async {
+    final res = await _client.dio.get(ApiConstants.ridersInvitation);
+    return res.data['data'] as Map<String, dynamic>?;
+  }
+
+  Future<void> respondInvitation(String invitationId, bool accept) async {
+    final action = accept ? 'accept' : 'decline';
+    await _client.dio
+        .post('${ApiConstants.ridersInvitation}/$invitationId/$action');
+  }
+
   Future<String?> refreshToken(String refreshToken) async {
     try {
       final res = await _client.dio

@@ -70,6 +70,73 @@ router.get('/available', authenticate, authorize('admin'), async (req: Request, 
   } catch (err) { next(err); }
 });
 
+// GET /riders/invitation — get pending invitation for this rider
+router.get('/invitation', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const emailResult = await query<{ email: string }>(
+      'SELECT email FROM users WHERE id = $1', [req.userId]
+    );
+    if (!emailResult.rows[0]) { res.status(404).json(errorResponse('User not found')); return; }
+    const email = emailResult.rows[0].email;
+
+    const result = await query(
+      `SELECT ri.id, ri.restaurant_id, ri.status, ri.created_at,
+              r.name as restaurant_name, r.address as restaurant_address
+       FROM rider_invitations ri
+       JOIN restaurants r ON r.id = ri.restaurant_id
+       WHERE ri.rider_email = $1 AND ri.status = 'pending'
+       ORDER BY ri.created_at DESC LIMIT 1`,
+      [email]
+    );
+    res.json(successResponse(result.rows[0] ?? null));
+  } catch (err) { next(err); }
+});
+
+// POST /riders/invitation/:id/accept
+router.post('/invitation/:id/accept', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Check rider is not already assigned
+    const existing = await query(
+      'SELECT restaurant_id FROM restaurant_riders WHERE rider_id = $1', [req.userId]
+    );
+    if (existing.rows[0]) {
+      res.status(409).json(errorResponse('You are already assigned to a restaurant'));
+      return;
+    }
+
+    const inv = await query<{ restaurant_id: string; rider_email: string; status: string }>(
+      'SELECT * FROM rider_invitations WHERE id = $1', [req.params.id]
+    );
+    if (!inv.rows[0] || inv.rows[0].status !== 'pending') {
+      res.status(404).json(errorResponse('Invitation not found or already handled'));
+      return;
+    }
+
+    // Link rider to restaurant
+    await query(
+      'INSERT INTO restaurant_riders (rider_id, restaurant_id) VALUES ($1, $2)',
+      [req.userId, inv.rows[0].restaurant_id]
+    );
+    // Mark invitation accepted
+    await query(
+      "UPDATE rider_invitations SET status = 'accepted' WHERE id = $1",
+      [req.params.id]
+    );
+    res.json(successResponse({ message: 'Invitation accepted' }));
+  } catch (err) { next(err); }
+});
+
+// POST /riders/invitation/:id/decline
+router.post('/invitation/:id/decline', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await query(
+      "UPDATE rider_invitations SET status = 'declined' WHERE id = $1",
+      [req.params.id]
+    );
+    res.json(successResponse({ message: 'Invitation declined' }));
+  } catch (err) { next(err); }
+});
+
 // GET /riders/earnings
 router.get('/earnings', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
   try {

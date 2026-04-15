@@ -187,6 +187,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.delivery_dining),
+            tooltip: 'My Riders',
+            onPressed: () => context.push('/riders'),
+          ),
+          IconButton(
             icon: const Icon(Icons.restaurant_menu),
             onPressed: () {
               if (_restaurantId != null) {

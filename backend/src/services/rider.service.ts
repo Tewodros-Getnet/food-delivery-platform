@@ -81,16 +81,31 @@ interface NearbyRider {
 export async function findNearbyRiders(
   restaurantLat: number,
   restaurantLon: number,
-  radiusKm: number
+  radiusKm: number,
+  restaurantId?: string
 ): Promise<NearbyRider[]> {
-  // Get latest location per rider that is 'available' and within 5 minutes old
-  const result = await query<{ rider_id: string; latitude: number; longitude: number }>(
-    `SELECT DISTINCT ON (rider_id) rider_id, latitude, longitude
-     FROM rider_locations
-     WHERE availability = 'available'
-       AND timestamp > NOW() - INTERVAL '30 minutes'
-     ORDER BY rider_id, timestamp DESC`
-  );
+  // Only dispatch riders assigned to this restaurant (if restaurantId provided)
+  let sql: string;
+  let params: unknown[];
+
+  if (restaurantId) {
+    sql = `SELECT DISTINCT ON (rl.rider_id) rl.rider_id, rl.latitude, rl.longitude
+           FROM rider_locations rl
+           JOIN restaurant_riders rr ON rr.rider_id = rl.rider_id AND rr.restaurant_id = $1
+           WHERE rl.availability = 'available'
+             AND rl.timestamp > NOW() - INTERVAL '30 minutes'
+           ORDER BY rl.rider_id, rl.timestamp DESC`;
+    params = [restaurantId];
+  } else {
+    sql = `SELECT DISTINCT ON (rider_id) rider_id, latitude, longitude
+           FROM rider_locations
+           WHERE availability = 'available'
+             AND timestamp > NOW() - INTERVAL '30 minutes'
+           ORDER BY rider_id, timestamp DESC`;
+    params = [];
+  }
+
+  const result = await query<{ rider_id: string; latitude: number; longitude: number }>(sql, params);
 
   return result.rows
     .map((r) => ({
@@ -139,7 +154,7 @@ export async function startDispatch(orderId: string, restaurantId: string): Prom
   let riders: NearbyRider[] = [];
   let usedRadius = env.RIDER_SEARCH_RADIUS_KM;
   for (const radius of RADIUS_STEPS_KM) {
-    riders = await findNearbyRiders(restaurant.latitude, restaurant.longitude, radius);
+    riders = await findNearbyRiders(restaurant.latitude, restaurant.longitude, radius, restaurantId);
     usedRadius = radius;
     logger.info('Dispatch: searching riders', {
       orderId, restaurantLat: restaurant.latitude, restaurantLon: restaurant.longitude,
@@ -222,7 +237,7 @@ function scheduleRetry(
     // Try all radius steps again
     let riders: NearbyRider[] = [];
     for (const radius of RADIUS_STEPS_KM) {
-      riders = await findNearbyRiders(restaurant.latitude, restaurant.longitude, radius);
+      riders = await findNearbyRiders(restaurant.latitude, restaurant.longitude, radius, session.restaurantId);
       if (riders.length > 0) break;
     }
 
