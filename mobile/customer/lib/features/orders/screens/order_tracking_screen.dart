@@ -17,7 +17,8 @@ class OrderTrackingScreen extends ConsumerStatefulWidget {
       _OrderTrackingScreenState();
 }
 
-class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
+class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
+    with WidgetsBindingObserver {
   OrderModel? _order;
   double? _riderLat, _riderLon;
   bool _loading = true;
@@ -27,8 +28,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _connect();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh order status and reconnect socket when app comes back to foreground
+      _load();
+      _connect();
+    }
   }
 
   Future<void> _load() async {
@@ -105,6 +116,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _socket?.disconnect();
     super.dispose();
   }
