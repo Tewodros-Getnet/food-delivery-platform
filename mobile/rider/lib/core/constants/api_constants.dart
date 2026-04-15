@@ -13,5 +13,6 @@ class ApiConstants {
   static const String fcmToken = '/users/fcm-token';
   static const String ridersLocation = '/riders/location';
   static const String ridersAvailability = '/riders/availability';
+  static const String ridersEarnings = '/riders/earnings';
   static const String deliveries = '/deliveries';
 }

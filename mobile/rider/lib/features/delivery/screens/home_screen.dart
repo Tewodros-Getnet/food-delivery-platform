@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:go_router/go_router.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/api_constants.dart';
@@ -322,9 +323,13 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Earnings',
+            onPressed: () => context.push('/earnings'),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              // Clear availability on logout
               await ref.read(secureStorageProvider).saveAvailability(false);
               ref.read(authProvider.notifier).logout();
             },

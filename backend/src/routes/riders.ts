@@ -70,6 +70,37 @@ router.get('/available', authenticate, authorize('admin'), async (req: Request, 
   } catch (err) { next(err); }
 });
 
+// GET /riders/earnings
+router.get('/earnings', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query<{
+      id: string;
+      delivery_fee: number;
+      restaurant_name: string;
+      address_line: string;
+      updated_at: Date;
+    }>(
+      `SELECT o.id, o.delivery_fee, r.name as restaurant_name,
+              a.address_line, o.updated_at
+       FROM orders o
+       JOIN restaurants r ON r.id = o.restaurant_id
+       JOIN addresses a ON a.id = o.delivery_address_id
+       WHERE o.rider_id = $1 AND o.status = 'delivered'
+       ORDER BY o.updated_at DESC`,
+      [req.userId]
+    );
+
+    const deliveries = result.rows;
+    const totalEarnings = deliveries.reduce((sum, d) => sum + Number(d.delivery_fee), 0);
+
+    res.json(successResponse({
+      totalDeliveries: deliveries.length,
+      totalEarnings: Math.round(totalEarnings * 100) / 100,
+      deliveries,
+    }));
+  } catch (err) { next(err); }
+});
+
 // GET /riders/profile
 router.get('/profile', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
   try {
