@@ -91,7 +91,7 @@ router.put('/:id/status', authenticate, authorize('restaurant'), [
           [etaDate, order.id]
         );
         // Attach ETA to the updated order for the socket event
-        (updated as Record<string, unknown>).estimated_delivery_time = etaDate;
+        (updated as unknown as Record<string, unknown>).estimated_delivery_time = etaDate;
       }
       emitOrderStatusChanged(updated, order.customer_id);
       const rResult = await query<{ owner_id: string }>(
