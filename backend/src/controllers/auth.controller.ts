@@ -37,6 +37,26 @@ export async function registerHandler(req: Request, res: Response, next: NextFun
   }
 }
 
+export async function verifyOtpHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { userId, code } = req.body as { userId: string; code: string };
+    const result = await authService.verifyOtp(userId, code);
+    res.json(successResponse(result));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resendOtpHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { userId } = req.body as { userId: string };
+    await authService.resendOtp(userId);
+    res.json(successResponse({ message: 'OTP resent' }));
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function loginHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const { email, password } = req.body as { email: string; password: string };

@@ -14,7 +14,7 @@ class AuthService {
   final SecureStorageService _storage;
   AuthService(this._client, this._storage);
 
-  Future<UserModel> register({
+  Future<String> register({
     required String email,
     required String password,
   }) async {
@@ -23,11 +23,27 @@ class AuthService {
       data: {'email': email, 'password': password, 'role': 'restaurant'},
     );
     final data = res.data['data'] as Map<String, dynamic>;
+    return data['userId'] as String;
+  }
+
+  Future<UserModel> verifyOtp({
+    required String userId,
+    required String code,
+  }) async {
+    final res = await _client.dio.post(
+      ApiConstants.verifyOtp,
+      data: {'userId': userId, 'code': code},
+    );
+    final data = res.data['data'] as Map<String, dynamic>;
     await _storage.saveTokens(
       jwt: data['tokens']['jwt'] as String,
       refreshToken: data['tokens']['refreshToken'] as String,
     );
     return UserModel.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  Future<void> resendOtp({required String userId}) async {
+    await _client.dio.post(ApiConstants.resendOtp, data: {'userId': userId});
   }
 
   Future<UserModel> login({
