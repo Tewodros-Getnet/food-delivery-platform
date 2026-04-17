@@ -7,6 +7,7 @@ const links = [
   { href: '/dashboard', label: 'Analytics', icon: '📊' },
   { href: '/dashboard/restaurants', label: 'Restaurants', icon: '🍽️' },
   { href: '/dashboard/users', label: 'Users', icon: '👥' },
+  { href: '/dashboard/orders', label: 'Orders', icon: '📦' },
   { href: '/dashboard/disputes', label: 'Disputes', icon: '⚖️' },
 ];
 
