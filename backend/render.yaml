@@ -2,6 +2,7 @@ services:
   - type: web
     name: food-delivery-backend
     env: node
+    root: backend
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:

@@ -80,8 +80,14 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
       }
     }
 
-    const userResult = await client.query('SELECT email, display_name FROM users WHERE id = $1', [input.customerId]);
-    const user = userResult.rows[0] as { email: string; display_name: string };
+    const userResult = await client.query('SELECT email, display_name, email_verified FROM users WHERE id = $1', [input.customerId]);
+    const user = userResult.rows[0] as { email: string; display_name: string; email_verified: boolean };
+
+    if (!user.email_verified) {
+      const err = new Error('Please verify your email before placing an order') as Error & { statusCode: number };
+      err.statusCode = 403;
+      throw err;
+    }
 
     // Only pass return_url if it's a valid http/https URL — Chapa rejects custom schemes
     const appBase = env.APP_DEEP_LINK_BASE || '';
