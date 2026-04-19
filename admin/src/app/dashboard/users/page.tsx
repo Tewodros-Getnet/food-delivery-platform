@@ -8,6 +8,7 @@ interface User {
   role: string;
   display_name: string | null;
   status: string;
+  email_verified: boolean;
   created_at: string;
   order_count: string;
 }
@@ -59,7 +60,7 @@ export default function UsersPage() {
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
-              <tr>{['Email', 'Name', 'Role', 'Orders', 'Status', 'Joined', 'Actions'].map((h) => (
+              <tr>{['Email', 'Name', 'Role', 'Orders', 'Verified', 'Status', 'Joined', 'Actions'].map((h) => (
                 <th key={h} className="text-left px-4 py-3 font-medium text-gray-600">{h}</th>
               ))}</tr>
             </thead>
@@ -70,6 +71,11 @@ export default function UsersPage() {
                   <td className="px-4 py-3">{u.display_name || '—'}</td>
                   <td className="px-4 py-3 capitalize">{u.role}</td>
                   <td className="px-4 py-3">{u.order_count}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      u.email_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>{u.email_verified ? '✓ Verified' : 'Pending'}</span>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       u.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'

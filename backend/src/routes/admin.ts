@@ -45,7 +45,7 @@ router.get('/users', ...adminAuth, async (req: Request, res: Response, next: Nex
     values.push(limitNum, offset);
 
     const result = await query(
-      `SELECT id, email, role, display_name, phone, status, created_at,
+      `SELECT id, email, role, display_name, phone, status, email_verified, created_at,
               (SELECT COUNT(*) FROM orders WHERE customer_id = users.id) as order_count
        FROM users ${where}
        ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
