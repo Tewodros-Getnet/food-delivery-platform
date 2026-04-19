@@ -1,13 +1,13 @@
-import { Resend } from 'resend';
+import sgMail from '@sendgrid/mail';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
-const resend = new Resend(env.RESEND_API_KEY);
+sgMail.setApiKey(env.SENDGRID_API_KEY);
 
 export async function sendOtpEmail(to: string, otp: string): Promise<void> {
   try {
-    await resend.emails.send({
-      from: env.RESEND_FROM_EMAIL,
+    await sgMail.send({
+      from: env.SENDGRID_FROM_EMAIL,
       to,
       subject: 'Your verification code',
       html: `
