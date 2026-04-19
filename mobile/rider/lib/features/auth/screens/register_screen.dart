@@ -26,6 +26,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final auth = ref.watch(authProvider);
     ref.listen(authProvider, (_, next) {
       if (next.status == AuthStatus.authenticated) context.go('/home');
+      if (next.status == AuthStatus.pendingVerification)
+        context.go('/verify-otp');
     });
 
     return Scaffold(
@@ -70,9 +72,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ? null
                       : () async {
                           if (_formKey.currentState!.validate()) {
-                            await ref
-                                .read(authProvider.notifier)
-                                .register(
+                            await ref.read(authProvider.notifier).register(
                                   _emailCtrl.text.trim(),
                                   _passwordCtrl.text,
                                 );

@@ -26,6 +26,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final auth = ref.watch(authProvider);
     ref.listen(authProvider, (_, next) {
       if (next.status == AuthStatus.authenticated) context.go('/orders');
+      if (next.status == AuthStatus.pendingVerification) context.go('/verify-otp');
     });
 
     return Scaffold(
