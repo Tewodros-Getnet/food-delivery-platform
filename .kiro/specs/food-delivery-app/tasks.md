@@ -731,7 +731,7 @@ Each task references specific requirements and design sections. Property-based t
     - Add "Add to Cart" button for each item
     - _Requirements: 4.6_
 
-- [ ] 22. Customer Flutter App - Cart and Checkout
+- [x] 22. Customer Flutter App - Cart and Checkout
   - [x] 22.1 Implement cart state provider
     - Create CartNotifier with Riverpod
     - Implement addItem, removeItem, updateQuantity, clearCart methods
@@ -762,7 +762,7 @@ Each task references specific requirements and design sections. Property-based t
     - Show payment confirmation screen
     - _Requirements: 6.7_
 
-- [ ] 23. Customer Flutter App - Real-Time Order Tracking
+- [x] 23. Customer Flutter App - Real-Time Order Tracking
   - [x] 23.1 Implement WebSocket service
     - Create SocketService with socket_io_client
     - Connect with JWT authentication
@@ -794,7 +794,7 @@ Each task references specific requirements and design sections. Property-based t
     - Navigate back on success
     - _Requirements: 17.1_
 
-- [ ] 24. Customer Flutter App - Ratings, Profile, and Notifications
+- [x] 24. Customer Flutter App - Ratings, Profile, and Notifications
   - [x] 24.1 Implement rating submission
     - Create RatingService with Dio
     - Build rating dialog with star rating and review text field
@@ -830,7 +830,7 @@ Each task references specific requirements and design sections. Property-based t
     - Show "Rate Order" button for delivered orders without rating
     - _Requirements: 9.2_
 
-- [ ] 25. Restaurant Flutter App - Setup and Order Management
+- [x] 25. Restaurant Flutter App - Setup and Order Management
   - [x] 25.1 Initialize Flutter project for Restaurant app
     - Create new Flutter project with appropriate package name
     - Add same dependencies as Customer app
@@ -864,7 +864,7 @@ Each task references specific requirements and design sections. Property-based t
     - Show success message
     - _Requirements: 7.5_
 
-- [ ] 26. Restaurant Flutter App - Menu Management
+- [x] 26. Restaurant Flutter App - Menu Management
   - [x] 26.1 Implement menu service
     - Create MenuService with Dio
     - Implement getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleAvailability methods
@@ -891,7 +891,7 @@ Each task references specific requirements and design sections. Property-based t
     - Navigate to order detail on tap
     - _Requirements: 15.2_
 
-- [ ] 27. Rider Flutter App - Setup and Delivery Management
+- [x] 27. Rider Flutter App - Setup and Delivery Management
   - [x] 27.1 Initialize Flutter project for Rider app
     - Create new Flutter project with appropriate package name
     - Add same dependencies as Customer app

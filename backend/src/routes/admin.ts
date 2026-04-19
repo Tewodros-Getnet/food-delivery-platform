@@ -132,7 +132,7 @@ router.put('/orders/:id/cancel', ...adminAuth, async (req: Request, res: Respons
 
     // Notify customer
     const updatedResult = await query('SELECT * FROM orders WHERE id = $1', [req.params.id]);
-    const updated = updatedResult.rows[0];
+    const updated = updatedResult.rows[0] as import('../models/order.model').Order | undefined;
     if (updated) {
       const { emitOrderStatusChanged, emitToRestaurant } = await import('../services/socket.service');
       emitOrderStatusChanged(updated, order.customer_id);
