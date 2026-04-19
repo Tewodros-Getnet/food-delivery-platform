@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+import { PoolClient } from 'pg';
 import { query, withTransaction } from '../config/database';
 import { env } from '../config/env';
 import { User, PublicUser, UserRole } from '../models/user.model';
@@ -49,12 +50,15 @@ function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function storeAndSendOtp(userId: string, email: string): Promise<void> {
+async function storeAndSendOtp(userId: string, email: string, client?: PoolClient): Promise<void> {
   const otp = generateOtp();
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+  const run = client
+    ? (text: string, params: unknown[]) => client.query(text, params)
+    : (text: string, params: unknown[]) => query(text, params);
   // Invalidate any previous unused codes
-  await query('UPDATE verification_codes SET used = TRUE WHERE user_id = $1 AND used = FALSE', [userId]);
-  await query(
+  await run('UPDATE verification_codes SET used = TRUE WHERE user_id = $1 AND used = FALSE', [userId]);
+  await run(
     'INSERT INTO verification_codes (user_id, code, expires_at) VALUES ($1, $2, $3)',
     [userId, otp, expiresAt]
   );
@@ -75,7 +79,7 @@ export async function register(
       const existingUser = existing.rows[0] as { id: string; email_verified: boolean };
       // If registered but not verified, resend OTP
       if (!existingUser.email_verified) {
-        await storeAndSendOtp(existingUser.id, email);
+        await storeAndSendOtp(existingUser.id, email, client);
         return { userId: existingUser.id, email, pendingVerification: true };
       }
       const err = new Error('Email already registered') as Error & { statusCode: number };
@@ -90,7 +94,7 @@ export async function register(
       [email, password_hash, role]
     );
     const user = result.rows[0];
-    await storeAndSendOtp(user.id, email);
+    await storeAndSendOtp(user.id, email, client);
     return { userId: user.id, email, pendingVerification: true };
   });
 }
