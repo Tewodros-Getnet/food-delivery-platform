@@ -7,7 +7,6 @@ import '../../../core/constants/api_constants.dart';
 @pragma('vm:entry-point')
 Future<void> _bgHandler(RemoteMessage message) async {
   // Background handler — FCM shows the notification automatically
-  // When user taps it, onMessageOpenedApp fires in the foreground
 }
 
 // Global callback — set by RiderHomeScreen to handle delivery requests
@@ -17,8 +16,6 @@ DeliveryRequestCallback? onDeliveryRequestReceived;
 // Holds a delivery request that arrived before RiderHomeScreen was mounted
 Map<String, dynamic>? pendingDeliveryRequest;
 
-/// Store a pending delivery request and deliver it immediately if the
-/// home screen callback is already registered.
 void storePendingDeliveryRequest(Map<String, dynamic> data) {
   if (onDeliveryRequestReceived != null) {
     onDeliveryRequestReceived!.call(data);
@@ -47,25 +44,35 @@ class FcmService {
       FirebaseMessaging.instance.onTokenRefresh.listen(_registerToken);
     }
 
-    // App in foreground — show snackbar or trigger delivery card
     FirebaseMessaging.onMessage.listen((message) {
       _handleMessage(message, context);
     });
 
-    // App opened from background via notification tap
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       _handleMessage(message, context);
     });
 
-    // App launched from terminated state via notification tap
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) _handleMessage(initial, context);
   }
 
-  void _handleMessage(RemoteMessage message, BuildContext context) {
+  Future<void> _handleMessage(
+      RemoteMessage message, BuildContext context) async {
     final data = message.data;
     if (data['type'] == 'delivery_request') {
-      storePendingDeliveryRequest(data);
+      final orderId = data['orderId'] as String?;
+      if (orderId == null) return;
+      // FCM only carries orderId — fetch full details from backend
+      try {
+        final res = await _client.dio
+            .get('${ApiConstants.deliveries}/$orderId/details');
+        final details = res.data['data'] as Map<String, dynamic>;
+        storePendingDeliveryRequest(details);
+      } catch (_) {
+        // Fallback: pass what we have — Socket.io event will fill in the rest
+        storePendingDeliveryRequest(
+            {'orderId': orderId, 'expiresAt': data['expiresAt']});
+      }
     } else if (context.mounted && message.notification != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

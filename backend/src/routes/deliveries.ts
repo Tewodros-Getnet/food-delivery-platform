@@ -9,6 +9,47 @@ import { successResponse, errorResponse } from '../utils/response';
 
 const router = Router();
 
+// GET /deliveries/:id/details — fetch delivery request card data for a rider
+router.get('/:id/details', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const order = await orderService.getOrderById(req.params.id);
+    if (!order) { res.status(404).json(errorResponse('Order not found')); return; }
+    if (order.status !== 'ready_for_pickup') {
+      res.status(409).json(errorResponse('Order is no longer available'));
+      return;
+    }
+
+    const [restaurantResult, addressResult] = await Promise.all([
+      query<{ name: string; address: string; latitude: number; longitude: number }>(
+        'SELECT name, address, latitude, longitude FROM restaurants WHERE id = $1',
+        [order.restaurant_id]
+      ),
+      query<{ address_line: string; latitude: number; longitude: number }>(
+        'SELECT address_line, latitude, longitude FROM addresses WHERE id = $1',
+        [order.delivery_address_id]
+      ),
+    ]);
+
+    const restaurant = restaurantResult.rows[0];
+    const delivery = addressResult.rows[0];
+
+    // Calculate distance for display
+    const { haversineDistance } = await import('../utils/haversine');
+    const distanceKm = restaurant && delivery
+      ? haversineDistance(restaurant.latitude, restaurant.longitude, delivery.latitude, delivery.longitude)
+      : 0;
+
+    res.json(successResponse({
+      orderId: order.id,
+      restaurantName: restaurant?.name ?? 'Restaurant',
+      restaurantAddress: restaurant?.address ?? '',
+      customerAddress: delivery?.address_line ?? '',
+      deliveryFee: order.delivery_fee,
+      estimatedDistance: Math.round(distanceKm * 10) / 10,
+    }));
+  } catch (err) { next(err); }
+});
+
 // POST /deliveries/:id/accept
 router.post('/:id/accept', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
   try {
