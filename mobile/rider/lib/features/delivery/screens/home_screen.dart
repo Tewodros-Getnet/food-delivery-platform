@@ -49,9 +49,15 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
               'orderId': data['orderId'],
               'restaurantName': data['restaurantName'] ?? 'Restaurant',
               'customerAddress': data['customerAddress'] ?? 'Customer',
-              'deliveryFee': double.tryParse(data['deliveryFee'] ?? '0') ?? 0,
-              'estimatedDistance':
-                  double.tryParse(data['estimatedDistance'] ?? '0') ?? 0,
+              'deliveryFee': (data['deliveryFee'] is num)
+                  ? (data['deliveryFee'] as num).toDouble()
+                  : double.tryParse(data['deliveryFee']?.toString() ?? '0') ??
+                      0.0,
+              'estimatedDistance': (data['estimatedDistance'] is num)
+                  ? (data['estimatedDistance'] as num).toDouble()
+                  : double.tryParse(
+                          data['estimatedDistance']?.toString() ?? '0') ??
+                      0.0,
               'expiresAt': data['expiresAt'],
             });
         _requestTimer?.cancel();
@@ -201,11 +207,17 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
           .build(),
     );
     _socket!.on('delivery:request', (data) {
-      setState(() => _deliveryRequest = data['data'] as Map<String, dynamic>);
-      // Auto-decline after 60 seconds
-      _requestTimer = Timer(const Duration(seconds: 60), () {
-        if (_deliveryRequest != null) _declineDelivery();
-      });
+      final payload = data['data'] as Map<String, dynamic>? ?? {};
+      // Route through the same callback so data is normalized consistently
+      onDeliveryRequestReceived?.call(payload);
+      if (onDeliveryRequestReceived == null) {
+        // Fallback: set directly if callback not registered yet
+        setState(() => _deliveryRequest = payload);
+        _requestTimer?.cancel();
+        _requestTimer = Timer(const Duration(seconds: 60), () {
+          if (_deliveryRequest != null) _declineDelivery();
+        });
+      }
     });
     _socket!.on('connect_error', (err) async {
       debugPrint('Rider socket connect_error: $err');
