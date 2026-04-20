@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
+import 'map_picker_screen.dart';
 
 class RestaurantSetupScreen extends ConsumerStatefulWidget {
   const RestaurantSetupScreen({super.key});
@@ -16,8 +17,8 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
-  final _latCtrl = TextEditingController();
-  final _lonCtrl = TextEditingController();
+  double? _latitude;
+  double? _longitude;
   bool _isLoading = false;
   String? _error;
 
@@ -26,13 +27,29 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
     _nameCtrl.dispose();
     _descCtrl.dispose();
     _addressCtrl.dispose();
-    _latCtrl.dispose();
-    _lonCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickLocation() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(builder: (_) => const RestaurantMapPickerScreen()),
+    );
+    if (result != null) {
+      setState(() {
+        _latitude = result['latitude'] as double;
+        _longitude = result['longitude'] as double;
+      });
+    }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_latitude == null || _longitude == null) {
+      setState(
+          () => _error = 'Please pick your restaurant location on the map');
+      return;
+    }
     setState(() {
       _isLoading = true;
       _error = null;
@@ -45,8 +62,8 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
         'name': _nameCtrl.text,
         'description': _descCtrl.text,
         'address': _addressCtrl.text,
-        'latitude': double.parse(_latCtrl.text),
-        'longitude': double.parse(_lonCtrl.text),
+        'latitude': _latitude,
+        'longitude': _longitude,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -57,7 +74,7 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -69,62 +86,81 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text('Tell us about your restaurant',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            TextFormField(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Tell us about your restaurant',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Restaurant Name', border: OutlineInputBorder()),
-                validator: (v) => v!.isEmpty ? 'Required' : null),
-            const SizedBox(height: 12),
-            TextFormField(
+                validator: (v) => v!.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _descCtrl,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                    labelText: 'Description', border: OutlineInputBorder())),
-            const SizedBox(height: 12),
-            TextFormField(
+                    labelText: 'Description', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _addressCtrl,
                 decoration: const InputDecoration(
-                    labelText: 'Address', border: OutlineInputBorder()),
-                validator: (v) => v!.isEmpty ? 'Required' : null),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                  child: TextFormField(
-                      controller: _latCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          labelText: 'Latitude', border: OutlineInputBorder()),
-                      validator: (v) => v!.isEmpty ? 'Required' : null)),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: TextFormField(
-                      controller: _lonCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          labelText: 'Longitude', border: OutlineInputBorder()),
-                      validator: (v) => v!.isEmpty ? 'Required' : null)),
-            ]),
-            if (_error != null) ...[
-              const SizedBox(height: 8),
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+                    labelText: 'Address (street / area name)',
+                    border: OutlineInputBorder()),
+                validator: (v) => v!.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Map picker button
+              OutlinedButton.icon(
+                onPressed: _pickLocation,
+                icon: Icon(
+                  _latitude != null
+                      ? Icons.location_on
+                      : Icons.add_location_alt_outlined,
+                  color: const Color(0xFF2E7D32),
+                ),
+                label: Text(
+                  _latitude != null
+                      ? 'Location set: ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}'
+                      : 'Pick Location on Map *',
+                  style: TextStyle(
+                    color: _latitude != null
+                        ? const Color(0xFF2E7D32)
+                        : Colors.grey[700],
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide(
+                    color: _latitude != null
+                        ? const Color(0xFF2E7D32)
+                        : Colors.grey,
+                  ),
+                ),
+              ),
+
+              if (_error != null) ...[
+                const SizedBox(height: 8),
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+              ],
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: const Color(0xFF2E7D32)),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Submit for Approval',
+                        style: TextStyle(fontSize: 16, color: Colors.white)),
+              ),
             ],
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: const Color(0xFF2E7D32)),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Submit for Approval',
-                      style: TextStyle(fontSize: 16, color: Colors.white)),
-            ),
-          ]),
+          ),
         ),
       ),
     );
