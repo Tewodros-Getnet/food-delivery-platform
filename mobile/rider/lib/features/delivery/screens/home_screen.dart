@@ -297,6 +297,11 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     final nav = result?['navigation'] as Map<String, dynamic>?;
     final restaurant = nav?['restaurant'] as Map<String, dynamic>?;
     final delivery = nav?['delivery'] as Map<String, dynamic>?;
+    debugPrint('Accept delivery nav: $nav');
+    debugPrint(
+        'Restaurant coords: lat=${restaurant?['latitude']}, lon=${restaurant?['longitude']}');
+    debugPrint(
+        'Customer coords: lat=${delivery?['latitude']}, lon=${delivery?['longitude']}');
     setState(() {
       _deliveryRequest = null;
       _onDelivery = true;
@@ -381,7 +386,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
           ),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -569,33 +574,45 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                       ),
                       const SizedBox(height: 12),
                       // Navigate button — goes to restaurant before pickup, customer after
-                      if (!_pickedUp && _restaurantLat != null)
+                      if (!_pickedUp)
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _openNavigation(
-                                _restaurantLat!, _restaurantLon!),
-                            icon: const Icon(Icons.navigation,
-                                color: Colors.white),
-                            label: const Text('Navigate to Restaurant',
-                                style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1565C0)),
-                          ),
+                          child: _restaurantLat != null
+                              ? ElevatedButton.icon(
+                                  onPressed: () => _openNavigation(
+                                      _restaurantLat!, _restaurantLon!),
+                                  icon: const Icon(Icons.navigation,
+                                      color: Colors.white),
+                                  label: const Text('Navigate to Restaurant',
+                                      style: TextStyle(color: Colors.white)),
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1565C0)),
+                                )
+                              : const Text(
+                                  'Restaurant location unavailable',
+                                  style: TextStyle(color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
                         ),
-                      if (_pickedUp && _customerLat != null)
+                      if (_pickedUp)
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () =>
-                                _openNavigation(_customerLat!, _customerLon!),
-                            icon: const Icon(Icons.navigation,
-                                color: Colors.white),
-                            label: const Text('Navigate to Customer',
-                                style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1565C0)),
-                          ),
+                          child: _customerLat != null
+                              ? ElevatedButton.icon(
+                                  onPressed: () => _openNavigation(
+                                      _customerLat!, _customerLon!),
+                                  icon: const Icon(Icons.navigation,
+                                      color: Colors.white),
+                                  label: const Text('Navigate to Customer',
+                                      style: TextStyle(color: Colors.white)),
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1565C0)),
+                                )
+                              : const Text(
+                                  'Customer location unavailable',
+                                  style: TextStyle(color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
                         ),
                       const SizedBox(height: 8),
                       Row(children: [
@@ -627,18 +644,17 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
               ),
 
             if (!_isAvailable && !_onDelivery)
-              const Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.delivery_dining, size: 80, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('Toggle availability to start receiving orders',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey, fontSize: 16)),
-                    ],
-                  ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.delivery_dining, size: 80, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('Toggle availability to start receiving orders',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  ],
                 ),
               ),
           ],
