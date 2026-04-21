@@ -85,7 +85,7 @@ router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: Ne
     const limitIdx = status ? 2 : 1;
 
     const result = await query(
-      `SELECT o.id, o.status, o.total, o.payment_status, o.cancellation_reason,
+      `SELECT o.id, o.status, o.total, o.payment_status, o.cancellation_reason, o.cancelled_by,
               o.created_at, o.updated_at,
               cu.email as customer_email, cu.display_name as customer_name,
               r.name as restaurant_name,
@@ -121,7 +121,7 @@ router.put('/orders/:id/cancel', ...adminAuth, async (req: Request, res: Respons
 
     await query(
       `UPDATE orders SET status = 'cancelled', cancellation_reason = $1,
-       cancelled_at = NOW(), payment_status = 'refunded', updated_at = NOW()
+       cancelled_by = 'admin', cancelled_at = NOW(), payment_status = 'refunded', updated_at = NOW()
        WHERE id = $2`,
       [reason ?? 'Cancelled by admin', req.params.id]
     );

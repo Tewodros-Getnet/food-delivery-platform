@@ -22,6 +22,7 @@ export interface Order {
   payment_status: string | null;
   cancellation_reason: string | null;
   cancelled_at: Date | null;
+  cancelled_by: 'customer' | 'restaurant' | 'admin' | null;
   estimated_prep_time_minutes: number | null;
   notes?: string | null;
   estimated_delivery_time?: Date | null;

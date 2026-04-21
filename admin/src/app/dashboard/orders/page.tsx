@@ -8,6 +8,7 @@ interface Order {
   total: number;
   payment_status: string | null;
   cancellation_reason: string | null;
+  cancelled_by: 'customer' | 'restaurant' | 'admin' | null;
   created_at: string;
   customer_email: string;
   customer_name: string | null;
@@ -28,6 +29,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STUCK_STATUSES = ['confirmed', 'ready_for_pickup', 'rider_assigned', 'picked_up'];
+
+const CANCELLED_BY_COLORS: Record<string, string> = {
+  customer: 'bg-blue-100 text-blue-700',
+  restaurant: 'bg-orange-100 text-orange-700',
+  admin: 'bg-red-100 text-red-700',
+};
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -91,14 +98,14 @@ export default function OrdersPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {['Order', 'Customer', 'Restaurant', 'Rider', 'Total', 'Status', 'Date', 'Actions'].map((h) => (
+                {['Order', 'Customer', 'Restaurant', 'Rider', 'Total', 'Status', 'Cancelled By', 'Date', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-4 py-3 font-medium text-gray-600">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {orders.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-8 text-gray-400">No orders found</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-gray-400">No orders found</td></tr>
               )}
               {orders.map((o) => (
                 <tr key={o.id} className="border-b last:border-0 hover:bg-gray-50">
@@ -121,6 +128,18 @@ export default function OrdersPage() {
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[o.status] ?? 'bg-gray-100 text-gray-700'}`}>
                       {o.status.replaceAll('_', ' ')}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {o.status === 'cancelled' && o.cancelled_by ? (
+                      <div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${CANCELLED_BY_COLORS[o.cancelled_by]}`}>
+                          {o.cancelled_by}
+                        </span>
+                        {o.cancellation_reason && (
+                          <div className="text-gray-400 text-xs mt-1">{o.cancellation_reason}</div>
+                        )}
+                      </div>
+                    ) : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">
                     {new Date(o.created_at).toLocaleDateString()}

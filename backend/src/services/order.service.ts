@@ -171,6 +171,11 @@ export async function updateOrderStatus(
     idx++;
     values.push(extra.cancelled_at);
   }
+  if (extra?.cancelled_by !== undefined) {
+    fields.push('cancelled_by = $' + idx);
+    idx++;
+    values.push(extra.cancelled_by);
+  }
   if (extra?.estimated_prep_time_minutes !== undefined) {
     fields.push('estimated_prep_time_minutes = $' + idx);
     idx++;

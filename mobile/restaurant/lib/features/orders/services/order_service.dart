@@ -28,4 +28,11 @@ class OrderService {
       },
     );
   }
+
+  Future<void> cancelOrder(String orderId, String reason) async {
+    await _client.dio.put(
+      '${ApiConstants.orders}/$orderId/restaurant-cancel',
+      data: {'reason': reason},
+    );
+  }
 }

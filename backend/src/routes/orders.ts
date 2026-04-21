@@ -7,6 +7,7 @@ import * as orderService from '../services/order.service';
 import { emitOrderStatusChanged, emitToRestaurant } from '../services/socket.service';
 import { calculateDeliveryFee, haversineDistance, estimateMinutes } from '../utils/haversine';
 import { initiateRefund } from '../services/refund.service';
+import { sendPushNotification } from '../services/fcm.service';
 import * as ratingService from '../services/rating.service';
 import { startDispatch } from '../services/rider.service';
 import { query } from '../config/database';
@@ -140,6 +141,46 @@ router.put('/:id/cancel', authenticate, authorize('customer'), [
     void initiateRefund(order.id);
 
     if (updated) emitOrderStatusChanged(updated, order.customer_id);
+    res.json(successResponse(updated));
+  } catch (err) { next(err); }
+});
+
+// PUT /orders/:id/restaurant-cancel
+router.put('/:id/restaurant-cancel', authenticate, authorize('restaurant'), [
+  body('reason').trim().notEmpty(),
+  validate,
+], async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const order = await orderService.getOrderById(req.params.id);
+    if (!order) { res.status(404).json(errorResponse('Order not found')); return; }
+
+    const rResult = await query<{ id: string }>('SELECT id FROM restaurants WHERE owner_id = $1', [req.userId]);
+    const restaurant = rResult.rows[0];
+    if (!restaurant || order.restaurant_id !== restaurant.id) {
+      res.status(403).json(errorResponse('Forbidden'));
+      return;
+    }
+
+    if (!['confirmed', 'ready_for_pickup'].includes(order.status)) {
+      res.status(409).json(errorResponse('Order cannot be cancelled in current status'));
+      return;
+    }
+
+    const reason = req.body.reason as string;
+    const updated = await orderService.updateOrderStatus(order.id, 'cancelled', {
+      cancelled_by: 'restaurant',
+      cancellation_reason: reason,
+      cancelled_at: new Date(),
+    });
+
+    void initiateRefund(order.id);
+
+    if (updated) {
+      emitOrderStatusChanged(updated, order.customer_id);
+      emitToRestaurant(req.userId!, updated);
+      void sendPushNotification(order.customer_id, 'Order Cancelled', reason, { type: 'order_cancelled', orderId: order.id });
+    }
+
     res.json(successResponse(updated));
   } catch (err) { next(err); }
 });

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -224,6 +225,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             .markReady(active[i].id);
                         await _load();
                       },
+                      onCancelled: () async {
+                        await _load();
+                      },
                     ),
                   ),
                 ),
@@ -231,13 +235,132 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 }
 
-class _OrderCard extends StatelessWidget {
+class _OrderCard extends ConsumerStatefulWidget {
   final OrderModel order;
   final VoidCallback onMarkReady;
-  const _OrderCard({required this.order, required this.onMarkReady});
+  final VoidCallback onCancelled;
+
+  const _OrderCard({
+    required this.order,
+    required this.onMarkReady,
+    required this.onCancelled,
+  });
+
+  @override
+  ConsumerState<_OrderCard> createState() => _OrderCardState();
+}
+
+class _OrderCardState extends ConsumerState<_OrderCard> {
+  static const List<String> _cancelReasons = [
+    'Item unavailable',
+    'Kitchen closed',
+    'Too busy',
+    'Ingredient ran out',
+    'Other',
+  ];
+
+  Future<void> _showCancelDialog() async {
+    String? selectedReason;
+    bool isLoading = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text('Cancel Order'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Please select a reason for cancellation:'),
+                  const SizedBox(height: 8),
+                  ..._cancelReasons.map(
+                    (reason) => RadioListTile<String>(
+                      title: Text(reason),
+                      value: reason,
+                      groupValue: selectedReason,
+                      onChanged: isLoading
+                          ? null
+                          : (value) {
+                              setDialogState(() => selectedReason = value);
+                            },
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: (selectedReason == null || isLoading)
+                      ? null
+                      : () async {
+                          setDialogState(() => isLoading = true);
+                          try {
+                            await ref
+                                .read(orderServiceProvider)
+                                .cancelOrder(widget.order.id, selectedReason!);
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                            widget.onCancelled();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Order cancelled')),
+                              );
+                            }
+                          } catch (e) {
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(e.toString())),
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Confirm',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final order = widget.order;
+    final canCancel =
+        order.status == 'confirmed' || order.status == 'ready_for_pickup';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -275,7 +398,7 @@ class _OrderCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: onMarkReady,
+                  onPressed: widget.onMarkReady,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2E7D32),
                   ),
@@ -283,6 +406,20 @@ class _OrderCard extends StatelessWidget {
                     'Mark Ready for Pickup',
                     style: TextStyle(color: Colors.white),
                   ),
+                ),
+              ),
+            ],
+            if (canCancel) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _showCancelDialog,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                  child: const Text('Cancel Order'),
                 ),
               ),
             ],
@@ -300,4 +437,29 @@ class _OrderCard extends StatelessWidget {
         'picked_up': Colors.teal,
       }[s] ??
       Colors.grey;
+}
+
+/// A thin public wrapper around the private [_OrderCard] widget, exposed
+/// only for widget testing.
+@visibleForTesting
+class OrderCardTestWrapper extends StatelessWidget {
+  final OrderModel order;
+  final VoidCallback onMarkReady;
+  final VoidCallback onCancelled;
+
+  const OrderCardTestWrapper({
+    super.key,
+    required this.order,
+    required this.onMarkReady,
+    required this.onCancelled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _OrderCard(
+      order: order,
+      onMarkReady: onMarkReady,
+      onCancelled: onCancelled,
+    );
+  }
 }
