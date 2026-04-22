@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { api } from '@/lib/api';
 
 interface Analytics {
@@ -12,7 +12,34 @@ interface Analytics {
   topRiders: { display_name: string; delivery_count: string }[];
 }
 
-const COLORS = ['#f97316', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#f59e0b'];
+const STATUS_COLORS = ['#f97316', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#f59e0b', '#06b6d4', '#84cc16'];
+
+function StatCard({ label, value, icon, color }: { label: string; value: string | number; icon: React.ReactNode; color: string }) {
+  return (
+    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+      <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl mb-4 ${color}`}>
+        {icon}
+      </div>
+      <div className="text-2xl font-bold text-gray-900">{value}</div>
+      <div className="text-gray-500 text-sm mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-8 w-40 bg-gray-200 rounded-lg" />
+      <div className="grid grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => <div key={i} className="h-32 bg-gray-200 rounded-2xl" />)}
+      </div>
+      <div className="grid grid-cols-2 gap-6">
+        {[1, 2].map((i) => <div key={i} className="h-64 bg-gray-200 rounded-2xl" />)}
+      </div>
+      <div className="h-48 bg-gray-200 rounded-2xl" />
+    </div>
+  );
+}
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<Analytics | null>(null);
@@ -25,71 +52,154 @@ export default function AnalyticsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" /></div>;
-  if (!data) return <p className="text-red-500">Failed to load analytics</p>;
+  if (loading) return <LoadingSkeleton />;
+  if (!data) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-center">
+        <div className="text-red-400 text-4xl mb-3">⚠</div>
+        <p className="text-gray-500">Failed to load analytics</p>
+      </div>
+    </div>
+  );
+
+  const pieData = data.ordersByStatus.map((d) => ({
+    ...d,
+    count: parseInt(d.count, 10),
+  }));
+
+  const barData = data.topRestaurants.map((r) => ({
+    ...r,
+    order_count: parseInt(r.order_count, 10),
+  }));
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Analytics</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+        <p className="text-gray-500 text-sm mt-0.5">Platform overview — last 30 days</p>
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Total Orders', value: data.totalOrders, icon: '📦' },
-          { label: 'Total Revenue', value: `ETB ${data.totalRevenue.toFixed(2)}`, icon: '💰' },
-          { label: 'Active Users', value: data.activeUsers, icon: '👥' },
-        ].map((card) => (
-          <div key={card.label} className="bg-white rounded-xl p-5 shadow-sm border">
-            <div className="text-2xl mb-2">{card.icon}</div>
-            <div className="text-2xl font-bold">{card.value}</div>
-            <div className="text-gray-500 text-sm">{card.label}</div>
-          </div>
-        ))}
+        <StatCard
+          label="Total Orders"
+          value={data.totalOrders.toLocaleString()}
+          color="bg-orange-50"
+          icon={
+            <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Total Revenue"
+          value={`ETB ${data.totalRevenue.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          color="bg-green-50"
+          icon={
+            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+        />
+        <StatCard
+          label="Active Users"
+          value={data.activeUsers.toLocaleString()}
+          color="bg-blue-50"
+          icon={
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          }
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-6">
         {/* Orders by Status */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border">
-          <h2 className="font-semibold mb-4">Orders by Status</h2>
-          <ResponsiveContainer width="100%" height={200}>
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <h2 className="font-semibold text-gray-900 mb-1">Orders by Status</h2>
+          <p className="text-gray-400 text-xs mb-4">Distribution across all statuses</p>
+          <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={data.ordersByStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80}>
-                {data.ordersByStatus.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              <Pie
+                data={pieData}
+                dataKey="count"
+                nameKey="status"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                innerRadius={40}
+              >
+                {pieData.map((_, i) => (
+                  <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip
+                formatter={(value, name) => [value, String(name).replaceAll('_', ' ')]}
+                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+              />
+              <Legend
+                formatter={(value) => String(value).replaceAll('_', ' ')}
+                wrapperStyle={{ fontSize: '11px' }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
         {/* Top Restaurants */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border">
-          <h2 className="font-semibold mb-4">Top Restaurants</h2>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={data.topRestaurants}>
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="order_count" fill="#f97316" />
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <h2 className="font-semibold text-gray-900 mb-1">Top Restaurants</h2>
+          <p className="text-gray-400 text-xs mb-4">By order volume</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={barData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+              <Tooltip
+                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+                cursor={{ fill: '#f9fafb' }}
+              />
+              <Bar dataKey="order_count" fill="#f97316" radius={[4, 4, 0, 0]} name="Orders" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Top Riders */}
-      <div className="bg-white rounded-xl p-5 shadow-sm border">
-        <h2 className="font-semibold mb-4">Top Riders</h2>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50">
+          <h2 className="font-semibold text-gray-900">Top Riders</h2>
+          <p className="text-gray-400 text-xs mt-0.5">By completed deliveries</p>
+        </div>
         <table className="w-full text-sm">
-          <thead><tr className="text-left text-gray-500 border-b">
-            <th className="pb-2">Rider</th>
-            <th className="pb-2">Deliveries</th>
-          </tr></thead>
-          <tbody>
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
+              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Rider</th>
+              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Deliveries</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {data.topRiders.length === 0 && (
+              <tr><td colSpan={3} className="text-center py-8 text-gray-400 text-sm">No data yet</td></tr>
+            )}
             {data.topRiders.map((r, i) => (
-              <tr key={i} className="border-b last:border-0">
-                <td className="py-2">{r.display_name || 'Unknown'}</td>
-                <td className="py-2 font-semibold">{r.delivery_count}</td>
+              <tr key={i} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-3.5 text-gray-400 text-xs font-mono">{i + 1}</td>
+                <td className="px-6 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 text-xs font-bold">
+                      {(r.display_name || 'U')[0].toUpperCase()}
+                    </div>
+                    <span className="font-medium text-gray-800">{r.display_name || 'Unknown'}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-3.5">
+                  <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                    {r.delivery_count} deliveries
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

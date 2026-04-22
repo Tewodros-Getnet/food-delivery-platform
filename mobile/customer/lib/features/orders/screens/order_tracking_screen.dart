@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:go_router/go_router.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'dart:math' as math;
 import '../../../core/constants/api_constants.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../../auth/services/auth_service.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
@@ -21,9 +24,34 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     with WidgetsBindingObserver {
   OrderModel? _order;
   double? _riderLat, _riderLon;
+  double? _destLat, _destLon; // customer delivery coordinates from socket
   bool _loading = true;
   io.Socket? _socket;
-  String? _searchingRiderMessage; // shown when no rider found yet
+  String? _searchingRiderMessage;
+  bool _nearbyNotified = false; // prevent repeated "rider is nearby" messages
+
+  // Haversine distance in km (pure Dart, no external package needed)
+  static double _distanceKm(
+      double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLon = (lon2 - lon1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  // ETA label based on rider's current distance to customer at 30 km/h
+  String? _liveEtaLabel() {
+    if (_riderLat == null || _destLat == null) return null;
+    final distKm = _distanceKm(_riderLat!, _riderLon!, _destLat!, _destLon!);
+    final mins = (distKm / 30 * 60).ceil();
+    if (mins < 1) return 'Arriving now';
+    return '~$mins min away';
+  }
 
   @override
   void initState() {
@@ -48,6 +76,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       setState(() {
         _order = o;
         _loading = false;
+        // Seed destination from order so map is ready before first location update
+        if (o.deliveryLat != null && _destLat == null) {
+          _destLat = o.deliveryLat;
+          _destLon = o.deliveryLon;
+        }
       });
     } catch (_) {
       setState(() => _loading = false);
@@ -89,10 +122,32 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     _socket!.on('rider:location_update', (data) {
       final d = data['data'] as Map<String, dynamic>;
       if (d['orderId'] == widget.orderId) {
+        final newLat = (d['latitude'] as num).toDouble();
+        final newLon = (d['longitude'] as num).toDouble();
+        final dstLat = (d['destinationLat'] as num?)?.toDouble();
+        final dstLon = (d['destinationLon'] as num?)?.toDouble();
         setState(() {
-          _riderLat = (d['latitude'] as num).toDouble();
-          _riderLon = (d['longitude'] as num).toDouble();
+          _riderLat = newLat;
+          _riderLon = newLon;
+          if (dstLat != null) _destLat = dstLat;
+          if (dstLon != null) _destLon = dstLon;
         });
+        // Show "rider is nearby" snackbar once when within 500m
+        if (!_nearbyNotified && _destLat != null) {
+          final dist = _distanceKm(newLat, newLon, _destLat!, _destLon!);
+          if (dist <= 0.5) {
+            _nearbyNotified = true;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('🛵 Your rider is less than 500m away!'),
+                  backgroundColor: Colors.deepOrange,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            }
+          }
+        }
       }
     });
     _socket!.on('connect_error', (err) async {
@@ -129,8 +184,24 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       return Scaffold(
           appBar: AppBar(), body: const Center(child: Text('Order not found')));
 
+    final currentUserId = ref.read(authProvider).user?.id;
+    final showChat = ['rider_assigned', 'picked_up'].contains(_order!.status);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Track Order')),
+      appBar: AppBar(
+        title: const Text('Track Order'),
+        actions: [
+          if (showChat && currentUserId != null)
+            IconButton(
+              icon: const Icon(Icons.chat_bubble_outline),
+              tooltip: 'Chat with rider',
+              onPressed: () => context.push(
+                '/order/${widget.orderId}/chat',
+                extra: currentUserId,
+              ),
+            ),
+        ],
+      ),
       body: Column(children: [
         Container(
           width: double.infinity,
@@ -152,7 +223,29 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                     size: 14, color: Colors.deepOrange),
                 const SizedBox(width: 4),
                 Text(
-                  _etaLabel(_order!.estimatedDeliveryTime!),
+                  // Show live distance-based ETA when rider is moving,
+                  // fall back to the server-calculated ETA otherwise
+                  _order!.status == 'picked_up' && _liveEtaLabel() != null
+                      ? _liveEtaLabel()!
+                      : _etaLabel(_order!.estimatedDeliveryTime!),
+                  style: const TextStyle(
+                      color: Colors.deepOrange,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                ),
+              ]),
+            ],
+            // Show live ETA even if no server ETA was set
+            if (_order!.estimatedDeliveryTime == null &&
+                _order!.status == 'picked_up' &&
+                _liveEtaLabel() != null) ...[
+              const SizedBox(height: 6),
+              Row(children: [
+                const Icon(Icons.access_time,
+                    size: 14, color: Colors.deepOrange),
+                const SizedBox(width: 4),
+                Text(
+                  _liveEtaLabel()!,
                   style: const TextStyle(
                       color: Colors.deepOrange,
                       fontSize: 13,
@@ -179,29 +272,140 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             ],
           ]),
         ),
-        // Live map with rider location — flutter_map + OpenStreetMap (no API key needed)
-        if (_order!.status == 'picked_up' && _riderLat != null)
+        // Order details: restaurant name + item list
+        if (_order!.restaurantName != null || _order!.items.isNotEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_order!.restaurantName != null) ...[
+                  Row(children: [
+                    const Icon(Icons.restaurant,
+                        size: 16, color: Colors.orange),
+                    const SizedBox(width: 6),
+                    Text(
+                      _order!.restaurantName!,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                ],
+                if (_order!.items.isNotEmpty) ...[
+                  ..._order!.items.map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${item.itemName} × ${item.quantity}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                            Text(
+                              'ETB ${(item.unitPrice * item.quantity).toStringAsFixed(2)}',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[700]),
+                            ),
+                          ],
+                        ),
+                      )),
+                  const Divider(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Delivery fee',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      Text('ETB ${_order!.deliveryFee.toStringAsFixed(2)}',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text('ETB ${_order!.total.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        // Live map — shown from rider_assigned onwards (not just picked_up)
+        if (['rider_assigned', 'picked_up'].contains(_order!.status) &&
+            _riderLat != null)
           SizedBox(
-            height: 250,
+            height: 260,
             child: FlutterMap(
               options: MapOptions(
                 initialCenter: LatLng(_riderLat!, _riderLon!),
-                initialZoom: 15,
+                initialZoom: 14,
               ),
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.fooddelivery.customer',
                 ),
-                MarkerLayer(markers: [
-                  Marker(
-                    point: LatLng(_riderLat!, _riderLon!),
-                    width: 48,
-                    height: 48,
-                    child: const Icon(Icons.delivery_dining,
-                        color: Colors.orange, size: 40),
+                // Polyline: rider → customer destination
+                if (_destLat != null)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: [
+                          LatLng(_riderLat!, _riderLon!),
+                          LatLng(_destLat!, _destLon!),
+                        ],
+                        color: Colors.deepOrange,
+                        strokeWidth: 3.5,
+                        isDotted: true,
+                      ),
+                    ],
                   ),
-                ]),
+                MarkerLayer(
+                  markers: [
+                    // Rider marker
+                    Marker(
+                      point: LatLng(_riderLat!, _riderLon!),
+                      width: 48,
+                      height: 48,
+                      child: const Icon(Icons.delivery_dining,
+                          color: Colors.orange, size: 40),
+                    ),
+                    // Restaurant marker
+                    if (_order!.restaurantLat != null)
+                      Marker(
+                        point: LatLng(
+                            _order!.restaurantLat!, _order!.restaurantLon!),
+                        width: 36,
+                        height: 36,
+                        child: const Icon(Icons.restaurant,
+                            color: Color(0xFF2E7D32), size: 28),
+                      ),
+                    // Customer / destination marker
+                    if (_destLat != null)
+                      Marker(
+                        point: LatLng(_destLat!, _destLon!),
+                        width: 36,
+                        height: 36,
+                        child: const Icon(Icons.location_on,
+                            color: Colors.red, size: 32),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

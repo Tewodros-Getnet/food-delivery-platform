@@ -537,9 +537,27 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Active Delivery',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Active Delivery',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.chat_bubble_outline,
+                                color: Color(0xFF1565C0)),
+                            tooltip: 'Chat with customer',
+                            onPressed: () {
+                              final userId =
+                                  ref.read(authProvider).user?.id ?? '';
+                              context.push(
+                                '/chat/${_activeOrderId!}',
+                                extra: userId,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                       Text('Order: ${_activeOrderId!.substring(0, 8)}...'),
                       const SizedBox(height: 12),
                       Container(

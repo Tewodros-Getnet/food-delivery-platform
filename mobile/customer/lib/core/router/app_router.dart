@@ -12,6 +12,8 @@ import '../../features/orders/screens/order_tracking_screen.dart';
 import '../../features/orders/screens/order_history_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/addresses_screen.dart';
+import '../../features/orders/screens/chat_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -48,6 +50,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/orders', builder: (_, __) => const OrderHistoryScreen()),
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
       GoRoute(path: '/addresses', builder: (_, __) => const AddressesScreen()),
+      GoRoute(
+        path: '/order/:id/chat',
+        builder: (_, s) => ChatScreen(
+          orderId: s.pathParameters['id']!,
+          currentUserId: s.extra as String,
+          title: 'Chat with Rider',
+        ),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (_, __) => const NotificationsScreen(),
+      ),
     ],
   );
 });

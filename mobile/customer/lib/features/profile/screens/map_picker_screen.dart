@@ -141,7 +141,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
@@ -157,72 +157,78 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             left: 0,
             right: 0,
             child: Container(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.55,
               ),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black26)],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Pin coordinates indicator
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.shade200),
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 16,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Pin coordinates indicator
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_pin,
+                              color: Colors.orange, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_pinPosition.latitude.toStringAsFixed(5)}, '
+                            '${_pinPosition.longitude.toStringAsFixed(5)}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_pin,
-                            color: Colors.orange, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_pinPosition.latitude.toStringAsFixed(5)}, '
-                          '${_pinPosition.longitude.toStringAsFixed(5)}',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
+                    TextField(
+                      controller: _labelCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Label (e.g. Home, Work, Friend\'s place)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.label_outline),
+                      ),
                     ),
-                  ),
-                  TextField(
-                    controller: _labelCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Label (e.g. Home, Work, Friend\'s place)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.label_outline),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _lineCtrl,
+                      decoration: const InputDecoration(
+                        labelText:
+                            'Address description (street, building, area)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.edit_location_alt_outlined),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _lineCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Address description (street, building, area)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.edit_location_alt_outlined),
+                    const SizedBox(height: 14),
+                    ElevatedButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.check, color: Colors.white),
+                      label: const Text('Save Address',
+                          style: TextStyle(color: Colors.white, fontSize: 16)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  ElevatedButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(Icons.check, color: Colors.white),
-                    label: const Text('Save Address',
-                        style: TextStyle(color: Colors.white, fontSize: 16)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

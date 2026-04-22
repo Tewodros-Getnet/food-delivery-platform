@@ -11,6 +11,8 @@ import disputesRouter from './disputes';
 import adminRouter from './admin';
 import searchRouter from './search';
 
+import chatRouter from './chat';
+
 const router = Router();
 
 router.use('/auth', authRouter);
@@ -25,5 +27,6 @@ router.use('/deliveries', deliveriesRouter);
 router.use('/disputes', disputesRouter);
 router.use('/admin', adminRouter);
 router.use('/search', searchRouter);
+router.use('/chat', chatRouter);
 
 export default router;

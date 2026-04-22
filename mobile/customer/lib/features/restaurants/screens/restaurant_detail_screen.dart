@@ -10,6 +10,9 @@ final _detailProvider = FutureProvider.family<RestaurantModel, String>(
     (ref, id) => ref.read(restaurantServiceProvider).getById(id));
 final _menuProvider = FutureProvider.family<List<MenuItemModel>, String>(
     (ref, id) => ref.read(restaurantServiceProvider).getMenu(id));
+final _ratingsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, id) =>
+        ref.read(restaurantServiceProvider).getRestaurantRatings(id));
 
 class RestaurantDetailScreen extends ConsumerWidget {
   final String restaurantId;
@@ -19,6 +22,7 @@ class RestaurantDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rAsync = ref.watch(_detailProvider(restaurantId));
     final mAsync = ref.watch(_menuProvider(restaurantId));
+    final ratingsAsync = ref.watch(_ratingsProvider(restaurantId));
     final cartCount = ref.watch(cartProvider).totalItems;
 
     return Scaffold(
@@ -103,6 +107,40 @@ class RestaurantDetailScreen extends ConsumerWidget {
                         isRestaurantOpen: r.isOpen),
                     childCount: items.length)),
           ),
+
+          // ── Reviews section ──────────────────────────────────────────────
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Reviews',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          ratingsAsync.when(
+            loading: () => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+            error: (_, __) => const SliverToBoxAdapter(child: SizedBox()),
+            data: (ratings) => ratings.isEmpty
+                ? const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      child: Text('No reviews yet.',
+                          style: TextStyle(color: Colors.grey)),
+                    ),
+                  )
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _ReviewTile(rating: ratings[i]),
+                      childCount: ratings.length,
+                    ),
+                  ),
+          ),
+          // Bottom padding
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ]),
       ),
       floatingActionButton: cartCount > 0
@@ -184,6 +222,83 @@ class _MenuTile extends ConsumerWidget {
                 }
               }
             : null,
+      ),
+    );
+  }
+}
+
+// ── Review tile ───────────────────────────────────────────────────────────────
+
+class _ReviewTile extends StatelessWidget {
+  final Map<String, dynamic> rating;
+  const _ReviewTile({required this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    final score = (rating['rating'] as num?)?.toInt() ?? 0;
+    final review = rating['review'] as String?;
+    final name = rating['customer_name'] as String? ?? 'Customer';
+    final createdAt = rating['created_at'] != null
+        ? DateTime.tryParse(rating['created_at'] as String)
+        : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.orange.shade100,
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                      color: Colors.orange, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    if (createdAt != null)
+                      Text(
+                        '${createdAt.day}/${createdAt.month}/${createdAt.year}',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                      ),
+                  ],
+                ),
+              ),
+              // Star rating
+              Row(
+                children: List.generate(
+                  5,
+                  (i) => Icon(
+                    i < score ? Icons.star : Icons.star_border,
+                    color: Colors.amber,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (review != null && review.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 42),
+              child: Text(
+                review,
+                style: TextStyle(color: Colors.grey[700], fontSize: 13),
+              ),
+            ),
+          ],
+          const Divider(height: 20),
+        ],
       ),
     );
   }

@@ -21,4 +21,5 @@ class ApiConstants {
   static const String orders = '/orders';
   static const String estimateFee = '/payments/estimate-fee';
   static const String disputes = '/disputes';
+  static const String chat = '/chat';
 }

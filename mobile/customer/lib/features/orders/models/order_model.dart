@@ -1,3 +1,45 @@
+import '../../restaurants/models/restaurant_model.dart';
+
+class OrderItemModel {
+  final String id;
+  final String menuItemId;
+  final int quantity;
+  final double unitPrice;
+  final String itemName;
+  final String? itemImageUrl;
+  final bool available; // current availability from menu_items table
+
+  const OrderItemModel({
+    required this.id,
+    required this.menuItemId,
+    required this.quantity,
+    required this.unitPrice,
+    required this.itemName,
+    this.itemImageUrl,
+    required this.available,
+  });
+
+  factory OrderItemModel.fromJson(Map<String, dynamic> json) => OrderItemModel(
+        id: json['id'] as String,
+        menuItemId: json['menu_item_id'] as String,
+        quantity: (json['quantity'] as num).toInt(),
+        unitPrice: double.parse(json['unit_price'].toString()),
+        itemName: json['item_name'] as String,
+        itemImageUrl: json['item_image_url'] as String?,
+        available: json['available'] as bool? ?? false,
+      );
+
+  // Convert to MenuItemModel for cart (requires restaurantId from parent order)
+  MenuItemModel toMenuItemModel(String restaurantId) => MenuItemModel(
+        id: menuItemId,
+        restaurantId: restaurantId,
+        name: itemName,
+        price: unitPrice,
+        imageUrl: itemImageUrl ?? '',
+        available: available,
+      );
+}
+
 class OrderModel {
   final String id;
   final String customerId;
@@ -11,6 +53,14 @@ class OrderModel {
   final DateTime createdAt;
   final DateTime? estimatedDeliveryTime;
   final int? estimatedPrepTimeMinutes;
+  // Coordinates for live tracking map
+  final double? restaurantLat;
+  final double? restaurantLon;
+  final double? deliveryLat;
+  final double? deliveryLon;
+  final List<OrderItemModel> items;
+  final String? restaurantName; // from list endpoint JOIN
+  final String? itemsSummary; // e.g. "Burger x2, Fries x1"
 
   const OrderModel({
     required this.id,
@@ -25,6 +75,13 @@ class OrderModel {
     required this.createdAt,
     this.estimatedDeliveryTime,
     this.estimatedPrepTimeMinutes,
+    this.restaurantLat,
+    this.restaurantLon,
+    this.deliveryLat,
+    this.deliveryLon,
+    this.items = const [],
+    this.restaurantName,
+    this.itemsSummary,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
@@ -42,6 +99,16 @@ class OrderModel {
             ? DateTime.parse(json['estimated_delivery_time'] as String)
             : null,
         estimatedPrepTimeMinutes: json['estimated_prep_time_minutes'] as int?,
+        restaurantLat: (json['restaurant_lat'] as num?)?.toDouble(),
+        restaurantLon: (json['restaurant_lon'] as num?)?.toDouble(),
+        deliveryLat: (json['delivery_lat'] as num?)?.toDouble(),
+        deliveryLon: (json['delivery_lon'] as num?)?.toDouble(),
+        items: (json['items'] as List<dynamic>?)
+                ?.map((e) => OrderItemModel.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
+        restaurantName: json['restaurant_name'] as String?,
+        itemsSummary: json['items_summary'] as String?,
       );
 
   String get statusMessage =>

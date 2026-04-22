@@ -6,6 +6,7 @@ import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
 import '../../features/delivery/screens/home_screen.dart';
 import '../../features/delivery/screens/earnings_screen.dart';
+import '../../features/delivery/screens/chat_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -32,6 +33,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/home', builder: (_, __) => const RiderHomeScreen()),
       GoRoute(path: '/earnings', builder: (_, __) => const EarningsScreen()),
       GoRoute(path: '/profile', builder: (_, __) => const RiderProfileScreen()),
+      GoRoute(
+        path: '/chat/:orderId',
+        builder: (_, s) => RiderChatScreen(
+          orderId: s.pathParameters['orderId']!,
+          currentUserId: s.extra as String,
+        ),
+      ),
     ],
   );
 });

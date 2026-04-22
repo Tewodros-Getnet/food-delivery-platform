@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
@@ -14,6 +16,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Map<String, dynamic>? _profile;
   bool _loading = true;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -34,6 +37,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+      maxWidth: 800,
+    );
+    if (picked == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      await ref.read(dioClientProvider).dio.put(
+        ApiConstants.profile,
+        data: {'photoBase64': base64Image},
+      );
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo updated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload photo: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,15 +92,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ? const Center(child: Text('Failed to load profile'))
               : ListView(padding: const EdgeInsets.all(16), children: [
                   Center(
-                      child: CircleAvatar(
-                    radius: 48,
-                    backgroundImage: _profile!['profile_photo_url'] != null
-                        ? NetworkImage(_profile!['profile_photo_url'] as String)
-                        : null,
-                    child: _profile!['profile_photo_url'] == null
-                        ? const Icon(Icons.person, size: 48)
-                        : null,
-                  )),
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 52,
+                          backgroundImage:
+                              _profile!['profile_photo_url'] != null
+                                  ? NetworkImage(
+                                      _profile!['profile_photo_url'] as String)
+                                  : null,
+                          child: _profile!['profile_photo_url'] == null
+                              ? const Icon(Icons.person, size: 52)
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: _uploadingPhoto ? null : _pickAndUploadPhoto,
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: _uploadingPhoto
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(6),
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.camera_alt,
+                                      color: Colors.white, size: 16),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Center(
                       child: Text(
@@ -70,6 +143,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       child: Text(_profile!['email'] as String? ?? '',
                           style: TextStyle(color: Colors.grey[600]))),
                   const SizedBox(height: 24),
+                  ListTile(
+                      leading: const Icon(Icons.edit_outlined),
+                      title: const Text('Edit Profile'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _showEditProfileDialog(context)),
                   ListTile(
                       leading: const Icon(Icons.location_on),
                       title: const Text('Saved Addresses'),
@@ -86,6 +164,96 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => _showChangePasswordDialog(context)),
                 ]),
+    );
+  }
+
+  void _showEditProfileDialog(BuildContext context) {
+    final nameCtrl =
+        TextEditingController(text: _profile?['display_name'] as String? ?? '');
+    final phoneCtrl =
+        TextEditingController(text: _profile?['phone'] as String? ?? '');
+    bool saving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Edit Profile'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Display Name',
+                  border: OutlineInputBorder(),
+                ),
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  hintText: '+251...',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      setDialogState(() => saving = true);
+                      try {
+                        await ref.read(dioClientProvider).dio.put(
+                          ApiConstants.profile,
+                          data: {
+                            if (nameCtrl.text.trim().isNotEmpty)
+                              'displayName': nameCtrl.text.trim(),
+                            if (phoneCtrl.text.trim().isNotEmpty)
+                              'phone': phoneCtrl.text.trim(),
+                          },
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        await _load();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Profile updated')),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => saving = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to update: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Save', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -38,4 +38,12 @@ class RestaurantService {
         await _client.dio.get(ApiConstants.search, queryParameters: {'q': q});
     return res.data['data'] as Map<String, dynamic>;
   }
+
+  Future<List<Map<String, dynamic>>> getRestaurantRatings(
+      String restaurantId) async {
+    final res = await _client.dio
+        .get('${ApiConstants.restaurants}/$restaurantId/ratings');
+    final list = res.data['data'] as List<dynamic>;
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
 }

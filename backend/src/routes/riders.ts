@@ -26,17 +26,33 @@ router.put('/location', authenticate, authorize('rider'), [
 
     // If rider is on delivery, broadcast location to customer
     if (availability === 'on_delivery') {
-      const activeOrder = await query<{ id: string; customer_id: string }>(
-        `SELECT id, customer_id FROM orders WHERE rider_id = $1 AND status = 'picked_up' LIMIT 1`,
+      const activeOrder = await query<{
+        id: string;
+        customer_id: string;
+        delivery_address_id: string;
+      }>(
+        `SELECT id, customer_id, delivery_address_id
+         FROM orders WHERE rider_id = $1 AND status = 'picked_up' LIMIT 1`,
         [req.userId]
       );
       if (activeOrder.rows[0]) {
+        const { id: orderId, customer_id, delivery_address_id } = activeOrder.rows[0];
+
+        // Fetch customer delivery coordinates so client can compute remaining distance
+        const addrResult = await query<{ latitude: number; longitude: number }>(
+          'SELECT latitude, longitude FROM addresses WHERE id = $1',
+          [delivery_address_id]
+        );
+        const addr = addrResult.rows[0];
+
         emitRiderLocationUpdate({
           riderId: req.userId!,
-          orderId: activeOrder.rows[0].id,
-          customerId: activeOrder.rows[0].customer_id,
+          orderId,
+          customerId: customer_id,
           latitude,
           longitude,
+          destinationLat: addr?.latitude ?? null,
+          destinationLon: addr?.longitude ?? null,
         });
       }
     }

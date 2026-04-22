@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
@@ -13,6 +15,7 @@ class RiderProfileScreen extends ConsumerStatefulWidget {
 class _RiderProfileScreenState extends ConsumerState<RiderProfileScreen> {
   Map<String, dynamic>? _profile;
   bool _loading = true;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -30,6 +33,44 @@ class _RiderProfileScreenState extends ConsumerState<RiderProfileScreen> {
       });
     } catch (_) {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+      maxWidth: 800,
+    );
+    if (picked == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      await ref.read(dioClientProvider).dio.put(
+        ApiConstants.profile,
+        data: {'photoBase64': base64Image},
+      );
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo updated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload photo: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
     }
   }
 
@@ -55,15 +96,47 @@ class _RiderProfileScreenState extends ConsumerState<RiderProfileScreen> {
                   padding: const EdgeInsets.all(16),
                   children: [
                     Center(
-                      child: CircleAvatar(
-                        radius: 48,
-                        backgroundImage: _profile!['profile_photo_url'] != null
-                            ? NetworkImage(
-                                _profile!['profile_photo_url'] as String)
-                            : null,
-                        child: _profile!['profile_photo_url'] == null
-                            ? const Icon(Icons.person, size: 48)
-                            : null,
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 52,
+                            backgroundImage: _profile!['profile_photo_url'] !=
+                                    null
+                                ? NetworkImage(
+                                    _profile!['profile_photo_url'] as String)
+                                : null,
+                            child: _profile!['profile_photo_url'] == null
+                                ? const Icon(Icons.person, size: 52)
+                                : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap:
+                                  _uploadingPhoto ? null : _pickAndUploadPhoto,
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1565C0),
+                                  shape: BoxShape.circle,
+                                  border:
+                                      Border.all(color: Colors.white, width: 2),
+                                ),
+                                child: _uploadingPhoto
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(6),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white),
+                                      )
+                                    : const Icon(Icons.camera_alt,
+                                        color: Colors.white, size: 16),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),

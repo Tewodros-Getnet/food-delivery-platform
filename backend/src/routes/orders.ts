@@ -50,7 +50,42 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next: NextF
   try {
     const order = await orderService.getOrderById(req.params.id);
     if (!order) { res.status(404).json(errorResponse('Order not found')); return; }
-    res.json(successResponse(order));
+
+    // Fetch restaurant and delivery address coordinates for live tracking
+    // Also fetch order items with menu item details for reorder functionality
+    const [coordsResult, itemsResult] = await Promise.all([
+      query<{ r_lat: number; r_lon: number; a_lat: number; a_lon: number }>(
+        `SELECT r.latitude as r_lat, r.longitude as r_lon,
+                a.latitude as a_lat, a.longitude as a_lon
+         FROM restaurants r, addresses a
+         WHERE r.id = $1 AND a.id = $2`,
+        [order.restaurant_id, order.delivery_address_id]
+      ),
+      query<{
+        id: string; menu_item_id: string; quantity: number;
+        unit_price: number; item_name: string; item_image_url: string | null;
+        available: boolean;
+      }>(
+        `SELECT oi.id, oi.menu_item_id, oi.quantity, oi.unit_price,
+                oi.item_name, oi.item_image_url,
+                COALESCE(mi.available, false) as available
+         FROM order_items oi
+         LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
+         WHERE oi.order_id = $1
+         ORDER BY oi.id`,
+        [order.id]
+      ),
+    ]);
+
+    const coords = coordsResult.rows[0];
+    res.json(successResponse({
+      ...order,
+      restaurant_lat: coords?.r_lat ?? null,
+      restaurant_lon: coords?.r_lon ?? null,
+      delivery_lat: coords?.a_lat ?? null,
+      delivery_lon: coords?.a_lon ?? null,
+      items: itemsResult.rows,
+    }));
   } catch (err) { next(err); }
 });
 

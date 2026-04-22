@@ -119,21 +119,30 @@ export async function getOrderItems(orderId: string): Promise<OrderItem[]> {
 }
 
 export async function getOrdersByUser(userId: string, role: string): Promise<Order[]> {
-  let q: string;
+  let result;
   if (role === 'customer') {
-    q = 'SELECT * FROM orders WHERE customer_id = $1 ORDER BY created_at DESC';
+    // Include restaurant name and a comma-separated item summary for display
+    result = await query<Order>(
+      `SELECT o.*,
+              r.name as restaurant_name,
+              (SELECT STRING_AGG(oi.item_name || ' x' || oi.quantity, ', ' ORDER BY oi.id)
+               FROM order_items oi WHERE oi.order_id = o.id) as items_summary
+       FROM orders o
+       JOIN restaurants r ON r.id = o.restaurant_id
+       WHERE o.customer_id = $1
+       ORDER BY o.created_at DESC`,
+      [userId]
+    );
   } else if (role === 'restaurant') {
     const rResult = await query('SELECT id FROM restaurants WHERE owner_id = $1', [userId]);
     if (!rResult.rows[0]) return [];
     const restaurantId = (rResult.rows[0] as { id: string }).id;
-    const result = await query<Order>('SELECT * FROM orders WHERE restaurant_id = $1 ORDER BY created_at DESC', [restaurantId]);
-    return result.rows;
+    result = await query<Order>('SELECT * FROM orders WHERE restaurant_id = $1 ORDER BY created_at DESC', [restaurantId]);
   } else if (role === 'rider') {
-    q = 'SELECT * FROM orders WHERE rider_id = $1 ORDER BY created_at DESC';
+    result = await query<Order>('SELECT * FROM orders WHERE rider_id = $1 ORDER BY created_at DESC', [userId]);
   } else {
-    q = 'SELECT * FROM orders ORDER BY created_at DESC';
+    result = await query<Order>('SELECT * FROM orders ORDER BY created_at DESC', []);
   }
-  const result = await query<Order>(q, [userId]);
   return result.rows;
 }
 

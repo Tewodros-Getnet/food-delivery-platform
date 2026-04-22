@@ -91,6 +91,67 @@ export function initSocketServer(socketServer: Server) {
       logger.info('Socket disconnected', { socketId: socket.id, userId });
       await socket.leave(`user:${userId}`);
     });
+
+    // ── In-app chat ───────────────────────────────────────────────────────────
+    socket.on('chat:send', async (data: {
+      orderId: string;
+      message: string;
+    }) => {
+      try {
+        if (!data?.orderId || !data?.message?.trim()) return;
+
+        const { query } = await import('../config/database');
+
+        // Verify sender is customer or rider of this order and order is active
+        const orderResult = await query<{
+          customer_id: string;
+          rider_id: string | null;
+          status: string;
+        }>(
+          'SELECT customer_id, rider_id, status FROM orders WHERE id = $1',
+          [data.orderId]
+        );
+        const order = orderResult.rows[0];
+        if (!order) return;
+
+        const isCustomer = order.customer_id === userId;
+        const isRider = order.rider_id === userId;
+        if (!isCustomer && !isRider) return;
+
+        const activeStatuses = ['rider_assigned', 'picked_up'];
+        if (!activeStatuses.includes(order.status)) return;
+
+        // Persist message
+        const saved = await query<{
+          id: string; sender_id: string; message: string; created_at: Date;
+        }>(
+          `INSERT INTO chat_messages (order_id, sender_id, message)
+           VALUES ($1, $2, $3) RETURNING *`,
+          [data.orderId, userId, data.message.trim()]
+        );
+        const msg = saved.rows[0];
+        if (!msg) return;
+
+        const payload = {
+          orderId: data.orderId,
+          messageId: msg.id,
+          senderId: userId,
+          message: msg.message,
+          createdAt: msg.created_at.toISOString(),
+        };
+
+        // Echo back to sender so they get the confirmed message with server timestamp
+        socket.emit('chat:message', { event: 'chat:message', data: payload });
+
+        // Deliver to the other participant
+        const recipientId = isCustomer ? order.rider_id : order.customer_id;
+        if (recipientId) {
+          emitChatMessage(recipientId, payload);
+        }
+      } catch (err) {
+        logger.error('chat:send error', { error: String(err), userId });
+      }
+    });
   });
 }
 
@@ -138,6 +199,8 @@ export function emitRiderLocationUpdate(params: {
   customerId: string;
   latitude: number;
   longitude: number;
+  destinationLat?: number | null;
+  destinationLon?: number | null;
 }) {
   if (!io) return;
   const payload = {
@@ -147,6 +210,8 @@ export function emitRiderLocationUpdate(params: {
       orderId: params.orderId,
       latitude: params.latitude,
       longitude: params.longitude,
+      destinationLat: params.destinationLat ?? null,
+      destinationLon: params.destinationLon ?? null,
       timestamp: new Date().toISOString(),
     },
   };
@@ -223,6 +288,22 @@ export function emitDisputeResolved(customerId: string, payload: {
     io.to(`user:${customerId}`).emit('dispute:resolved', wrapped);
   } else {
     queueEvent(customerId, 'dispute:resolved', wrapped);
+  }
+}
+
+export function emitChatMessage(recipientId: string, payload: {
+  orderId: string;
+  messageId: string;
+  senderId: string;
+  message: string;
+  createdAt: string;
+}) {
+  if (!io) return;
+  const wrapped = { event: 'chat:message', data: payload };
+  if (isUserOnline(recipientId)) {
+    io.to(`user:${recipientId}`).emit('chat:message', wrapped);
+  } else {
+    queueEvent(recipientId, 'chat:message', wrapped);
   }
 }
 

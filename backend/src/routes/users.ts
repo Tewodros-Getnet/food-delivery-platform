@@ -112,6 +112,49 @@ router.get('/addresses', authenticate, async (req: Request, res: Response, next:
   } catch (err) { next(err); }
 });
 
+// PUT /users/addresses/:id
+router.put('/addresses/:id', authenticate, [
+  body('addressLine').optional().trim().notEmpty(),
+  body('label').optional().trim(),
+  validate,
+], async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { addressLine, label } = req.body as { addressLine?: string; label?: string };
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+    if (addressLine !== undefined) { fields.push(`address_line = $${idx++}`); values.push(addressLine); }
+    if (label !== undefined) { fields.push(`label = $${idx++}`); values.push(label); }
+    if (fields.length === 0) { res.status(422).json(errorResponse('Nothing to update')); return; }
+    values.push(req.params.id, req.userId);
+    const result = await query(
+      `UPDATE addresses SET ${fields.join(', ')} WHERE id = $${idx} AND user_id = $${idx + 1} RETURNING *`,
+      values
+    );
+    if (!result.rows[0]) { res.status(404).json(errorResponse('Address not found')); return; }
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
+
+// PUT /users/addresses/:id/default
+router.put('/addresses/:id/default', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await withTransaction(async (client) => {
+      await client.query('UPDATE addresses SET is_default = FALSE WHERE user_id = $1', [req.userId]);
+      const result = await client.query(
+        'UPDATE addresses SET is_default = TRUE WHERE id = $1 AND user_id = $2 RETURNING *',
+        [req.params.id, req.userId]
+      );
+      if (!result.rows[0]) {
+        const err = new Error('Address not found') as Error & { statusCode: number };
+        err.statusCode = 404;
+        throw err;
+      }
+      res.json(successResponse(result.rows[0]));
+    });
+  } catch (err) { next(err); }
+});
+
 // DELETE /users/addresses/:id
 router.delete('/addresses/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
