@@ -44,6 +44,12 @@ router.put('/profile', authenticate, [
     if (displayName !== undefined) { fields.push(`display_name = $${idx++}`); values.push(displayName); }
     if (phone !== undefined) { fields.push(`phone = $${idx++}`); values.push(phone); }
     if (profile_photo_url !== undefined) { fields.push(`profile_photo_url = $${idx++}`); values.push(profile_photo_url); }
+
+    if (fields.length === 0) {
+      res.status(422).json(errorResponse('Nothing to update'));
+      return;
+    }
+
     fields.push(`updated_at = NOW()`);
     values.push(req.userId);
 
