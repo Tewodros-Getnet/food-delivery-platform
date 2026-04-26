@@ -15,6 +15,7 @@ class MenuScreen extends ConsumerStatefulWidget {
 class _MenuScreenState extends ConsumerState<MenuScreen> {
   List<dynamic> _items = [];
   bool _loading = true;
+  final Set<String> _togglingIds = {}; // tracks in-flight toggle requests
 
   @override
   void initState() {
@@ -32,6 +33,38 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       });
     } catch (_) {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleAvailability(int index) async {
+    final item = _items[index] as Map<String, dynamic>;
+    final id = item['id'] as String;
+    final originalValue = item['available'] as bool? ?? true;
+
+    // Optimistic update — flip immediately
+    setState(() {
+      _togglingIds.add(id);
+      (_items[index] as Map<String, dynamic>)['available'] = !originalValue;
+    });
+
+    try {
+      final updated =
+          await ref.read(menuServiceProvider).toggleAvailability(id);
+      if (!mounted) return;
+      setState(() {
+        _items[index] = updated; // use server-confirmed value
+      });
+    } catch (_) {
+      // Revert on error
+      if (!mounted) return;
+      setState(() {
+        (_items[index] as Map<String, dynamic>)['available'] = originalValue;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update availability')),
+      );
+    } finally {
+      if (mounted) setState(() => _togglingIds.remove(id));
     }
   }
 
@@ -58,30 +91,50 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                     itemCount: _items.length,
                     itemBuilder: (ctx, i) {
                       final item = _items[i] as Map<String, dynamic>;
+                      final itemId = item['id'] as String;
+                      final isAvailable = item['available'] as bool? ?? true;
+                      final isToggling = _togglingIds.contains(itemId);
+
                       return ListTile(
-                        title: Text(item['name'] as String),
+                        leading: isAvailable
+                            ? null
+                            : const Icon(Icons.block,
+                                color: Colors.red, size: 18),
+                        title: Text(
+                          item['name'] as String,
+                          style: TextStyle(
+                            color: isAvailable ? null : Colors.grey,
+                          ),
+                        ),
                         subtitle: Text(
-                          'ETB ${item['price']} • ${item['category'] ?? ''}',
+                          'ETB ${item['price']} • ${item['category'] ?? ''}${isAvailable ? '' : ' • Sold Out'}',
+                          style: TextStyle(
+                            color: isAvailable ? null : Colors.grey,
+                          ),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Switch(
-                              value: item['available'] as bool? ?? true,
-                              activeThumbColor: const Color(0xFF2E7D32),
-                              onChanged: (_) async {
-                                await ref
-                                    .read(menuServiceProvider)
-                                    .toggleAvailability(item['id'] as String);
-                                await _load();
-                              },
-                            ),
+                            // Availability toggle with optimistic update
+                            isToggling
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Switch(
+                                    value: isAvailable,
+                                    activeColor: const Color(0xFF2E7D32),
+                                    onChanged: (_) => _toggleAvailability(i),
+                                  ),
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () async {
                                 await ref
                                     .read(menuServiceProvider)
-                                    .deleteItem(item['id'] as String);
+                                    .deleteItem(itemId);
                                 await _load();
                               },
                             ),

@@ -165,63 +165,93 @@ class _MenuTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: CachedNetworkImage(
-              imageUrl: item.imageUrl,
-              width: 64,
-              height: 64,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(
-                  width: 64,
-                  height: 64,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.fastfood, color: Colors.grey)))),
-      title:
-          Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (item.description != null)
-          Text(item.description!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-        Text('ETB ${item.price.toStringAsFixed(2)}',
-            style: const TextStyle(
-                color: Colors.orange, fontWeight: FontWeight.bold)),
-      ]),
-      trailing: IconButton(
-        icon: Icon(Icons.add_circle,
-            color: isRestaurantOpen ? Colors.orange : Colors.grey, size: 32),
-        onPressed: isRestaurantOpen
-            ? () {
-                final added =
-                    ref.read(cartProvider.notifier).addItem(item, restaurantId);
-                if (!added) {
-                  showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                            title: const Text('Clear Cart?'),
-                            content: const Text(
-                                'Your cart has items from another restaurant. Clear it?'),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('Cancel')),
-                              TextButton(
-                                  onPressed: () {
-                                    ref
-                                        .read(cartProvider.notifier)
-                                        .clearAndAdd(item, restaurantId);
-                                    Navigator.pop(ctx);
-                                  },
-                                  child: const Text('Clear & Add')),
-                            ],
-                          ));
+    final isAvailable = item.available;
+    final canAdd = isRestaurantOpen && isAvailable;
+
+    return Opacity(
+      opacity: isAvailable ? 1.0 : 0.5,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+                imageUrl: item.imageUrl,
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Container(
+                    width: 64,
+                    height: 64,
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.fastfood, color: Colors.grey)))),
+        title: Text(item.name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (item.description != null)
+            Text(item.description!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          Row(
+            children: [
+              Text('ETB ${item.price.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      color: Colors.orange, fontWeight: FontWeight.bold)),
+              if (!isAvailable) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade700,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Sold Out',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ]),
+        trailing: IconButton(
+          icon: Icon(Icons.add_circle,
+              color: canAdd ? Colors.orange : Colors.grey, size: 32),
+          onPressed: canAdd
+              ? () {
+                  final added = ref
+                      .read(cartProvider.notifier)
+                      .addItem(item, restaurantId);
+                  if (!added) {
+                    showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                              title: const Text('Clear Cart?'),
+                              content: const Text(
+                                  'Your cart has items from another restaurant. Clear it?'),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Cancel')),
+                                TextButton(
+                                    onPressed: () {
+                                      ref
+                                          .read(cartProvider.notifier)
+                                          .clearAndAdd(item, restaurantId);
+                                      Navigator.pop(ctx);
+                                    },
+                                    child: const Text('Clear & Add')),
+                              ],
+                            ));
+                  }
                 }
-              }
-            : null,
+              : null,
+        ),
       ),
     );
   }

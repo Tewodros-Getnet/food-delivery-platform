@@ -18,6 +18,8 @@ class CartNotifier extends StateNotifier<CartState> {
   CartNotifier() : super(const CartState());
 
   bool addItem(MenuItemModel item, String restaurantId) {
+    // Defence-in-depth: never add unavailable items to cart
+    if (!item.available) return false;
     if (state.restaurantId != null && state.restaurantId != restaurantId)
       return false;
     final idx = state.items.indexWhere((i) => i.menuItem.id == item.id);

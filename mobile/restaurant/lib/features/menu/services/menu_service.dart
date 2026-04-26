@@ -35,7 +35,11 @@ class MenuService {
     await _client.dio.delete('${ApiConstants.menu}/$id');
   }
 
-  Future<void> toggleAvailability(String id) async {
-    await _client.dio.put('${ApiConstants.menu}/$id/availability');
+  /// Toggles the `available` field of a menu item.
+  /// Uses PATCH for semantic correctness; returns the updated item map.
+  Future<Map<String, dynamic>> toggleAvailability(String id) async {
+    final res =
+        await _client.dio.patch('${ApiConstants.menu}/$id/availability');
+    return res.data['data'] as Map<String, dynamic>;
   }
 }

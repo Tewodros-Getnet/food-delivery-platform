@@ -20,6 +20,8 @@ const menuRouter = Router();
 menuRouter.put('/:id', authenticate, authorize('restaurant'), updateMenuItemValidation, updateMenuItemHandler);
 menuRouter.delete('/:id', authenticate, authorize('restaurant'), deleteMenuItemHandler);
 menuRouter.put('/:id/availability', authenticate, authorize('restaurant'), toggleAvailabilityHandler);
+// PATCH is the semantically correct verb for a partial update — kept alongside PUT for backward compatibility
+menuRouter.patch('/:id/availability', authenticate, authorize('restaurant'), toggleAvailabilityHandler);
 
 export { menuRouter };
 export default router;
