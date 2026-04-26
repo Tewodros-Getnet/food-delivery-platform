@@ -12,6 +12,12 @@ import * as ratingService from '../services/rating.service';
 import { startDispatch } from '../services/rider.service';
 import { query } from '../config/database';
 import { successResponse, errorResponse } from '../utils/response';
+import {
+  acceptOrderHandler,
+  rejectOrderHandler,
+  acceptValidation,
+  rejectValidation,
+} from '../controllers/order-acceptance.controller';
 
 const router = Router();
 
@@ -238,5 +244,11 @@ router.post('/:id/rate', authenticate, authorize('customer'), [
     res.json(successResponse({ message: 'Rating submitted' }));
   } catch (err) { next(err); }
 });
+
+// PUT /orders/:id/accept (restaurant accepts a pending_acceptance order)
+router.put('/:id/accept', authenticate, authorize('restaurant'), acceptValidation, acceptOrderHandler);
+
+// PUT /orders/:id/reject (restaurant rejects a pending_acceptance order)
+router.put('/:id/reject', authenticate, authorize('restaurant'), rejectValidation, rejectOrderHandler);
 
 export default router;

@@ -307,6 +307,24 @@ export function emitChatMessage(recipientId: string, payload: {
   }
 }
 
+export function emitOrderAcceptanceRequest(restaurantOwnerId: string, order: Order) {
+  if (!io) return;
+  const wrapped = {
+    event: 'order:acceptance_request',
+    data: {
+      orderId: order.id,
+      order,
+      acceptanceDeadline: (order as unknown as Record<string, unknown>).acceptance_deadline ?? null,
+      timestamp: new Date().toISOString(),
+    },
+  };
+  if (isUserOnline(restaurantOwnerId)) {
+    io.to(`user:${restaurantOwnerId}`).emit('order:acceptance_request', wrapped);
+  } else {
+    queueEvent(restaurantOwnerId, 'order:acceptance_request', wrapped);
+  }
+}
+
 export function getIo(): Server {
   return io;
 }

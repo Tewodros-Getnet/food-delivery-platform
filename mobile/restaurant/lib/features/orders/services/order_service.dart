@@ -35,4 +35,22 @@ class OrderService {
       data: {'reason': reason},
     );
   }
+
+  Future<void> acceptOrder(String orderId,
+      {int? estimatedPrepTimeMinutes}) async {
+    await _client.dio.put(
+      '${ApiConstants.orders}/$orderId/accept',
+      data: {
+        if (estimatedPrepTimeMinutes != null)
+          'estimatedPrepTimeMinutes': estimatedPrepTimeMinutes,
+      },
+    );
+  }
+
+  Future<void> rejectOrder(String orderId, String reason) async {
+    await _client.dio.put(
+      '${ApiConstants.orders}/$orderId/reject',
+      data: {'reason': reason},
+    );
+  }
 }

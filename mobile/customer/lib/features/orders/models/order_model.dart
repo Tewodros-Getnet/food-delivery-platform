@@ -113,6 +113,8 @@ class OrderModel {
 
   String get statusMessage =>
       const {
+        'pending_acceptance':
+            'Waiting for the restaurant to confirm your order...',
         'confirmed': 'Your order has been confirmed and is being prepared.',
         'ready_for_pickup':
             'Your food is ready. A rider is on the way to pick it up.',

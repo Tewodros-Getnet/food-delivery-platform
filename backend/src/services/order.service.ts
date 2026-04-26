@@ -13,8 +13,25 @@ export interface CreateOrderInput {
   items: CartItem[];
 }
 
+// ── Helper: read acceptance timeout from platform_config ─────────────────────
+export async function getAcceptanceTimeoutSeconds(): Promise<number> {
+  const result = await query<{ value: string }>(
+    "SELECT value FROM platform_config WHERE key = 'order_acceptance_timeout_seconds'"
+  );
+  return parseInt(result.rows[0]?.value ?? '180', 10);
+}
+
 export async function createOrder(input: CreateOrderInput): Promise<{ order: Order; paymentUrl: string }> {
   return withTransaction(async (client) => {
+    // Check email verification first — before any DB writes
+    const userResult = await client.query('SELECT email, display_name, email_verified FROM users WHERE id = $1', [input.customerId]);
+    const user = userResult.rows[0] as { email: string; display_name: string; email_verified: boolean };
+    if (!user.email_verified) {
+      const err = new Error('Please verify your email before placing an order') as Error & { statusCode: number };
+      err.statusCode = 403;
+      throw err;
+    }
+
     const itemIds = input.items.map((i) => i.menuItemId);
     const menuResult = await client.query(
       `SELECT * FROM menu_items WHERE id = ANY($1::uuid[]) AND restaurant_id = $2`,
@@ -80,15 +97,6 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
       }
     }
 
-    const userResult = await client.query('SELECT email, display_name, email_verified FROM users WHERE id = $1', [input.customerId]);
-    const user = userResult.rows[0] as { email: string; display_name: string; email_verified: boolean };
-
-    if (!user.email_verified) {
-      const err = new Error('Please verify your email before placing an order') as Error & { statusCode: number };
-      err.statusCode = 403;
-      throw err;
-    }
-
     // Only pass return_url if it's a valid http/https URL — Chapa rejects custom schemes
     const appBase = env.APP_DEEP_LINK_BASE || '';
     const returnUrl = appBase.startsWith('http')
@@ -121,7 +129,6 @@ export async function getOrderItems(orderId: string): Promise<OrderItem[]> {
 export async function getOrdersByUser(userId: string, role: string): Promise<Order[]> {
   let result;
   if (role === 'customer') {
-    // Include restaurant name and a comma-separated item summary for display
     result = await query<Order>(
       `SELECT o.*,
               r.name as restaurant_name,
@@ -149,50 +156,47 @@ export async function getOrdersByUser(userId: string, role: string): Promise<Ord
 export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus,
-  extra?: Partial<Order>
+  extra?: Partial<Order & { acceptance_deadline: Date | null }>
 ): Promise<Order | null> {
   const fields: string[] = ['status = $1', 'updated_at = NOW()'];
   const values: unknown[] = [status];
   let idx = 2;
 
   if (extra?.rider_id !== undefined) {
-    fields.push('rider_id = $' + idx);
-    idx++;
+    fields.push(`rider_id = $${idx++}`);
     values.push(extra.rider_id);
   }
   if (extra?.payment_reference !== undefined) {
-    fields.push('payment_reference = $' + idx);
-    idx++;
+    fields.push(`payment_reference = $${idx++}`);
     values.push(extra.payment_reference);
   }
   if (extra?.payment_status !== undefined) {
-    fields.push('payment_status = $' + idx);
-    idx++;
+    fields.push(`payment_status = $${idx++}`);
     values.push(extra.payment_status);
   }
   if (extra?.cancellation_reason !== undefined) {
-    fields.push('cancellation_reason = $' + idx);
-    idx++;
+    fields.push(`cancellation_reason = $${idx++}`);
     values.push(extra.cancellation_reason);
   }
   if (extra?.cancelled_at !== undefined) {
-    fields.push('cancelled_at = $' + idx);
-    idx++;
+    fields.push(`cancelled_at = $${idx++}`);
     values.push(extra.cancelled_at);
   }
   if (extra?.cancelled_by !== undefined) {
-    fields.push('cancelled_by = $' + idx);
-    idx++;
+    fields.push(`cancelled_by = $${idx++}`);
     values.push(extra.cancelled_by);
   }
   if (extra?.estimated_prep_time_minutes !== undefined) {
-    fields.push('estimated_prep_time_minutes = $' + idx);
-    idx++;
+    fields.push(`estimated_prep_time_minutes = $${idx++}`);
     values.push(extra.estimated_prep_time_minutes);
+  }
+  if (extra?.acceptance_deadline !== undefined) {
+    fields.push(`acceptance_deadline = $${idx++}`);
+    values.push(extra.acceptance_deadline);
   }
 
   values.push(orderId);
-  const sql = 'UPDATE orders SET ' + fields.join(', ') + ' WHERE id = $' + idx + ' RETURNING *';
+  const sql = `UPDATE orders SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`;
   const result = await query<Order>(sql, values);
   return result.rows[0] ?? null;
 }
@@ -217,23 +221,35 @@ export async function handleWebhook(payload: string, signature: string): Promise
   if (order.status !== 'pending_payment') return;
 
   if (status === 'success') {
-    const confirmed = await updateOrderStatus(order.id, 'confirmed', {
+    // Transition to pending_acceptance (not confirmed) — restaurant must accept first
+    const timeoutSeconds = await getAcceptanceTimeoutSeconds();
+    const acceptanceDeadline = new Date(Date.now() + timeoutSeconds * 1000);
+
+    const pending = await updateOrderStatus(order.id, 'pending_acceptance', {
       payment_status: 'paid',
       payment_reference: tx_ref,
+      acceptance_deadline: acceptanceDeadline,
     });
-    if (confirmed) {
+
+    if (pending) {
       const rResult = await query<{ owner_id: string }>(
-        'SELECT owner_id FROM restaurants WHERE id = $1', [confirmed.restaurant_id]
+        'SELECT owner_id FROM restaurants WHERE id = $1', [pending.restaurant_id]
       );
+      const { emitOrderStatusChanged, emitOrderAcceptanceRequest } = await import('./socket.service');
+
       if (rResult.rows[0]) {
-        void sendPushNotification(rResult.rows[0].owner_id, 'New Order', 'You have a new order!', { orderId: confirmed.id });
-        const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
-        emitOrderStatusChanged(confirmed, order.customer_id);
-        emitToRestaurant(rResult.rows[0].owner_id, confirmed);
-      } else {
-        const { emitOrderStatusChanged } = await import('./socket.service');
-        emitOrderStatusChanged(confirmed, order.customer_id);
+        const ownerId = rResult.rows[0].owner_id;
+        // Notify restaurant: FCM push + socket acceptance_request event
+        void sendPushNotification(
+          ownerId,
+          'New Order',
+          'You have a new order! Please accept or reject within 3 minutes.',
+          { type: 'order_acceptance_request', orderId: pending.id }
+        );
+        emitOrderAcceptanceRequest(ownerId, pending);
       }
+      // Notify customer: socket status_changed only
+      emitOrderStatusChanged(pending, order.customer_id);
     }
   } else {
     const failed = await updateOrderStatus(order.id, 'payment_failed', { payment_status: 'failed' });
@@ -244,7 +260,119 @@ export async function handleWebhook(payload: string, signature: string): Promise
   }
 }
 
-// Called by rider.service when no rider is found after all retries
+// ── Accept order (restaurant confirms they will fulfill it) ───────────────────
+export async function acceptOrder(
+  orderId: string,
+  restaurantOwnerId: string,
+  estimatedPrepMinutes?: number
+): Promise<Order> {
+  const order = await getOrderById(orderId);
+  if (!order) {
+    const err = new Error('Order not found') as Error & { statusCode: number };
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Verify ownership
+  const rResult = await query<{ id: string }>(
+    'SELECT id FROM restaurants WHERE owner_id = $1', [restaurantOwnerId]
+  );
+  if (!rResult.rows[0] || rResult.rows[0].id !== order.restaurant_id) {
+    const err = new Error('Forbidden') as Error & { statusCode: number };
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (order.status !== 'pending_acceptance') {
+    const err = new Error('Order is not awaiting acceptance') as Error & { statusCode: number };
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const updated = await updateOrderStatus(orderId, 'confirmed', {
+    estimated_prep_time_minutes: estimatedPrepMinutes,
+  });
+  if (!updated) {
+    const err = new Error('Failed to update order') as Error & { statusCode: number };
+    err.statusCode = 500;
+    throw err;
+  }
+
+  const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
+  // Notify customer: FCM + socket
+  void sendPushNotification(
+    order.customer_id,
+    'Order Accepted',
+    'Your order has been accepted and is being prepared!',
+    { type: 'order_accepted', orderId }
+  );
+  emitOrderStatusChanged(updated, order.customer_id);
+  // Notify restaurant owner: socket
+  emitToRestaurant(restaurantOwnerId, updated);
+
+  return updated;
+}
+
+// ── Reject order (restaurant cannot fulfill it) ───────────────────────────────
+export async function rejectOrder(
+  orderId: string,
+  restaurantOwnerId: string,
+  reason: string
+): Promise<Order> {
+  const order = await getOrderById(orderId);
+  if (!order) {
+    const err = new Error('Order not found') as Error & { statusCode: number };
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Verify ownership
+  const rResult = await query<{ id: string }>(
+    'SELECT id FROM restaurants WHERE owner_id = $1', [restaurantOwnerId]
+  );
+  if (!rResult.rows[0] || rResult.rows[0].id !== order.restaurant_id) {
+    const err = new Error('Forbidden') as Error & { statusCode: number };
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (order.status !== 'pending_acceptance') {
+    const err = new Error('Order is not awaiting acceptance') as Error & { statusCode: number };
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const updated = await updateOrderStatus(orderId, 'cancelled', {
+    cancellation_reason: reason,
+    cancelled_by: 'restaurant',
+    cancelled_at: new Date(),
+  });
+  if (!updated) {
+    const err = new Error('Failed to update order') as Error & { statusCode: number };
+    err.statusCode = 500;
+    throw err;
+  }
+
+  // Fire-and-forget refund
+  const { initiateRefund } = await import('./refund.service');
+  void initiateRefund(orderId);
+
+  const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
+  // Notify customer: FCM + socket
+  void sendPushNotification(
+    order.customer_id,
+    'Order Rejected',
+    `Your order was rejected: ${reason}. A refund has been initiated.`,
+    { type: 'order_rejected', orderId, reason }
+  );
+  emitOrderStatusChanged(updated, order.customer_id);
+  // Notify restaurant owner: socket
+  emitToRestaurant(restaurantOwnerId, updated);
+
+  return updated;
+}
+
+// ── Called by rider.service when no rider is found after all retries ──────────
 export async function cancelOrderNoRider(orderId: string): Promise<void> {
   const orderResult = await query<{ customer_id: string; restaurant_id: string; status: string }>(
     'SELECT customer_id, restaurant_id, status FROM orders WHERE id = $1',
@@ -252,7 +380,6 @@ export async function cancelOrderNoRider(orderId: string): Promise<void> {
   );
   const order = orderResult.rows[0];
   if (!order) return;
-  // Only cancel if still waiting for a rider
   if (!['ready_for_pickup', 'confirmed'].includes(order.status)) return;
 
   const cancelled = await updateOrderStatus(orderId, 'cancelled', {
@@ -263,21 +390,18 @@ export async function cancelOrderNoRider(orderId: string): Promise<void> {
 
   if (!cancelled) return;
 
-  // Initiate refund (fire-and-forget — logs success/failure internally)
   const { initiateRefund } = await import('./refund.service');
   void initiateRefund(orderId);
 
-  // Notify customer via socket + FCM
   const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
   emitOrderStatusChanged(cancelled, order.customer_id);
   void sendPushNotification(
     order.customer_id,
     'Order Cancelled',
-    'We couldn\'t find a rider for your order. A refund has been initiated.',
+    "We couldn't find a rider for your order. A refund has been initiated.",
     { type: 'order_cancelled', orderId }
   );
 
-  // Notify restaurant
   const rResult = await query<{ owner_id: string }>(
     'SELECT owner_id FROM restaurants WHERE id = $1', [order.restaurant_id]
   );

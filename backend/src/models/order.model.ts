@@ -1,6 +1,7 @@
 export type OrderStatus =
   | 'pending_payment'
   | 'payment_failed'
+  | 'pending_acceptance'
   | 'confirmed'
   | 'ready_for_pickup'
   | 'rider_assigned'
@@ -23,6 +24,7 @@ export interface Order {
   cancellation_reason: string | null;
   cancelled_at: Date | null;
   cancelled_by: 'customer' | 'restaurant' | 'admin' | null;
+  acceptance_deadline: Date | null;
   estimated_prep_time_minutes: number | null;
   notes?: string | null;
   estimated_delivery_time?: Date | null;

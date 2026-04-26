@@ -105,11 +105,27 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     _socket!.on('order:status_changed', (data) {
       final d = data['data'] as Map<String, dynamic>;
       if (d['orderId'] == widget.orderId) {
+        final updatedOrder =
+            OrderModel.fromJson(d['order'] as Map<String, dynamic>);
+        final previousStatus = _order?.status;
         setState(() {
-          _order = OrderModel.fromJson(d['order'] as Map<String, dynamic>);
-          _searchingRiderMessage =
-              null; // clear searching message on status change
+          _order = updatedOrder;
+          _searchingRiderMessage = null;
         });
+        // Show specific message when order is cancelled from pending_acceptance
+        if (previousStatus == 'pending_acceptance' &&
+            updatedOrder.status == 'cancelled' &&
+            mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Your order was not accepted by the restaurant. A refund has been initiated.',
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 6),
+            ),
+          );
+        }
       }
     });
     _socket!.on('order:searching_rider', (data) {
@@ -215,6 +231,27 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             const SizedBox(height: 4),
             Text(_order!.statusMessage,
                 style: TextStyle(color: Colors.grey[700])),
+            // Pending acceptance: show spinner
+            if (_order!.status == 'pending_acceptance') ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'The restaurant is reviewing your order...',
+                    style: TextStyle(color: Colors.orange[700], fontSize: 13),
+                  ),
+                ],
+              ),
+            ],
             if (_order!.estimatedDeliveryTime != null &&
                 !['delivered', 'cancelled'].contains(_order!.status)) ...[
               const SizedBox(height: 6),
@@ -462,6 +499,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   String _statusLabel(String s) =>
       const {
         'pending_payment': 'Awaiting Payment',
+        'pending_acceptance': 'Waiting for Restaurant',
         'confirmed': 'Order Confirmed',
         'ready_for_pickup': 'Food Ready',
         'rider_assigned': 'Rider Assigned',
@@ -478,6 +516,7 @@ class _Timeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final steps = [
+      'pending_acceptance',
       'confirmed',
       'ready_for_pickup',
       'rider_assigned',
@@ -507,6 +546,7 @@ class _Timeline extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
               const {
+                    'pending_acceptance': 'Restaurant Confirming',
                     'confirmed': 'Order Confirmed',
                     'ready_for_pickup': 'Food Ready',
                     'rider_assigned': 'Rider Assigned',

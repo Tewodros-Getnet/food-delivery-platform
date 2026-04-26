@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,7 @@ import '../../../core/network/dio_client.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
+import '../widgets/pending_acceptance_order_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../notifications/fcm_service.dart';
 
@@ -18,10 +18,11 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
-  List<OrderModel> _orders = [];
+  List<OrderModel> _pendingOrders = []; // pending_acceptance
+  List<OrderModel> _activeOrders = []; // confirmed, ready_for_pickup, etc.
   bool _loading = true;
   String? _restaurantId;
-  bool _isOpen = true; // restaurant open/closed status
+  bool _isOpen = true;
   io.Socket? _socket;
 
   @override
@@ -29,7 +30,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     super.initState();
     _load();
     _connect();
-    // Reload orders when a notification is tapped (background or terminated state)
     onOrdersReloadRequested = () {
       if (mounted) _load();
     };
@@ -44,22 +44,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         _restaurantId = rData?['id'] as String?;
         if (mounted)
           setState(() => _isOpen = (rData?['is_open'] as bool?) ?? true);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not fetch restaurant details: $e')),
-          );
-        }
-      }
+      } catch (_) {}
 
       final orders = await ref.read(orderServiceProvider).getOrders();
       if (!mounted) return;
       setState(() {
-        _orders = orders;
-        // Fallback: get restaurantId from orders if API call failed
         if (_restaurantId == null && orders.isNotEmpty) {
           _restaurantId = orders.first.restaurantId;
         }
+        _pendingOrders =
+            orders.where((o) => o.status == 'pending_acceptance').toList();
+        _activeOrders = orders
+            .where((o) => [
+                  'confirmed',
+                  'ready_for_pickup',
+                  'rider_assigned',
+                  'picked_up'
+                ].contains(o.status))
+            .toList();
         _loading = false;
       });
     } catch (_) {
@@ -84,12 +86,33 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           .setReconnectionDelayMax(10000)
           .build(),
     );
+
+    // New order requiring acceptance
+    _socket!.on('order:acceptance_request', (data) {
+      if (!mounted) return;
+      try {
+        final orderData = (data['data']['order'] as Map<String, dynamic>?) ??
+            (data['data'] as Map<String, dynamic>);
+        final order = OrderModel.fromJson(orderData);
+        setState(() {
+          // Add if not already present
+          if (!_pendingOrders.any((o) => o.id == order.id)) {
+            _pendingOrders.insert(0, order);
+          }
+        });
+      } catch (_) {
+        // Fallback: reload all orders
+        _load();
+      }
+    });
+
+    // Any status change — reload to keep lists in sync
     _socket!.on('order:status_changed', (_) {
       if (mounted) _load();
     });
+
     _socket!.on('order:searching_rider', (data) {
-      // Show a snackbar so restaurant knows the system is still searching
-      final d = (data['data'] as Map<String, dynamic>?);
+      final d = data['data'] as Map<String, dynamic>?;
       if (mounted && d != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -103,6 +126,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         );
       }
     });
+
     _socket!.on('connect_error', (err) async {
       final errStr = err.toString();
       if (errStr.contains('Invalid token') ||
@@ -111,10 +135,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         final rt = await storage.getRefreshToken();
         if (rt != null) {
           try {
-            final res = await ref
-                .read(dioClientProvider)
-                .dio
-                .post(ApiConstants.refresh, data: {'refreshToken': rt});
+            final res = await ref.read(dioClientProvider).dio.post(
+              ApiConstants.refresh,
+              data: {'refreshToken': rt},
+            );
             final newJwt = res.data['data']['jwt'] as String?;
             if (newJwt != null) {
               await storage.saveTokens(jwt: newJwt, refreshToken: rt);
@@ -152,24 +176,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final active = _orders
-        .where(
-          (o) => [
-            'confirmed',
-            'ready_for_pickup',
-            'rider_assigned',
-            'picked_up',
-          ].contains(o.status),
-        )
-        .toList();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Orders'),
         backgroundColor: const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
         actions: [
-          // Open/Closed toggle
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
             child: GestureDetector(
@@ -178,9 +190,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 label: Text(
                   _isOpen ? 'OPEN' : 'CLOSED',
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 backgroundColor: _isOpen ? Colors.green : Colors.red,
                 padding: EdgeInsets.zero,
@@ -210,37 +223,136 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : active.isEmpty
-              ? const Center(child: Text('No active orders'))
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: active.length,
-                    itemBuilder: (ctx, i) => _OrderCard(
-                      order: active[i],
-                      onMarkReady: () async {
-                        await ref
-                            .read(orderServiceProvider)
-                            .markReady(active[i].id);
-                        await _load();
-                      },
-                      onCancelled: () async {
-                        await _load();
-                      },
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // ── New Orders section (pending_acceptance) ──────────────
+                  if (_pendingOrders.isNotEmpty) ...[
+                    _SectionHeader(
+                      title: 'New Orders',
+                      count: _pendingOrders.length,
+                      color: Colors.orange,
+                      icon: Icons.notification_important,
                     ),
-                  ),
-                ),
+                    const SizedBox(height: 8),
+                    ..._pendingOrders.map(
+                      (order) => PendingAcceptanceOrderCard(
+                        key: ValueKey(order.id),
+                        order: order,
+                        onAccepted: _load,
+                        onRejected: _load,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Active Orders section ────────────────────────────────
+                  if (_activeOrders.isNotEmpty) ...[
+                    _SectionHeader(
+                      title: 'Active Orders',
+                      count: _activeOrders.length,
+                      color: const Color(0xFF2E7D32),
+                      icon: Icons.receipt_long,
+                    ),
+                    const SizedBox(height: 8),
+                    ..._activeOrders.map(
+                      (order) => _OrderCard(
+                        key: ValueKey(order.id),
+                        order: order,
+                        onMarkReady: () async {
+                          await ref
+                              .read(orderServiceProvider)
+                              .markReady(order.id);
+                          await _load();
+                        },
+                        onCancelled: _load,
+                      ),
+                    ),
+                  ],
+
+                  if (_pendingOrders.isEmpty && _activeOrders.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 80),
+                        child: Column(
+                          children: [
+                            Icon(Icons.inbox_outlined,
+                                size: 48, color: Colors.black26),
+                            SizedBox(height: 12),
+                            Text(
+                              'No orders right now',
+                              style: TextStyle(color: Colors.black45),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
     );
   }
 }
 
+// ── Section header widget ─────────────────────────────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final int count;
+  final Color color;
+  final IconData icon;
+
+  const _SectionHeader({
+    required this.title,
+    required this.count,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '$count',
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Active order card (confirmed, ready_for_pickup, etc.) ─────────────────────
 class _OrderCard extends ConsumerStatefulWidget {
   final OrderModel order;
   final VoidCallback onMarkReady;
   final VoidCallback onCancelled;
 
   const _OrderCard({
+    super.key,
     required this.order,
     required this.onMarkReady,
     required this.onCancelled,
@@ -284,9 +396,8 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                       groupValue: selectedReason,
                       onChanged: isLoading
                           ? null
-                          : (value) {
-                              setDialogState(() => selectedReason = value);
-                            },
+                          : (value) =>
+                              setDialogState(() => selectedReason = value),
                       contentPadding: EdgeInsets.zero,
                       dense: true,
                     ),
@@ -309,9 +420,8 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                             await ref
                                 .read(orderServiceProvider)
                                 .cancelOrder(widget.order.id, selectedReason!);
-                            if (dialogContext.mounted) {
+                            if (dialogContext.mounted)
                               Navigator.of(dialogContext).pop();
-                            }
                             widget.onCancelled();
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -320,9 +430,8 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                               );
                             }
                           } catch (e) {
-                            if (dialogContext.mounted) {
+                            if (dialogContext.mounted)
                               Navigator.of(dialogContext).pop();
-                            }
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(e.toString())),
@@ -330,22 +439,16 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                             }
                           }
                         },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   child: isLoading
                       ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                              strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text(
-                          'Confirm',
-                          style: TextStyle(color: Colors.white),
-                        ),
+                      : const Text('Confirm',
+                          style: TextStyle(color: Colors.white)),
                 ),
               ],
             );
@@ -374,9 +477,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                 Text(
                   'Order #${order.id.substring(0, 8)}',
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                      fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Chip(
                   label: Text(
@@ -391,8 +492,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
             const SizedBox(height: 8),
             Text('Total: ETB ${order.total.toStringAsFixed(2)}'),
             Text(
-              'Time: ${order.createdAt.toLocal().toString().substring(11, 16)}',
-            ),
+                'Time: ${order.createdAt.toLocal().toString().substring(11, 16)}'),
             if (order.status == 'confirmed') ...[
               const SizedBox(height: 12),
               SizedBox(
@@ -400,12 +500,9 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                 child: ElevatedButton(
                   onPressed: widget.onMarkReady,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                  ),
-                  child: const Text(
-                    'Mark Ready for Pickup',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                      backgroundColor: const Color(0xFF2E7D32)),
+                  child: const Text('Mark Ready for Pickup',
+                      style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
@@ -437,29 +534,4 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
         'picked_up': Colors.teal,
       }[s] ??
       Colors.grey;
-}
-
-/// A thin public wrapper around the private [_OrderCard] widget, exposed
-/// only for widget testing.
-@visibleForTesting
-class OrderCardTestWrapper extends StatelessWidget {
-  final OrderModel order;
-  final VoidCallback onMarkReady;
-  final VoidCallback onCancelled;
-
-  const OrderCardTestWrapper({
-    super.key,
-    required this.order,
-    required this.onMarkReady,
-    required this.onCancelled,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _OrderCard(
-      order: order,
-      onMarkReady: onMarkReady,
-      onCancelled: onCancelled,
-    );
-  }
 }

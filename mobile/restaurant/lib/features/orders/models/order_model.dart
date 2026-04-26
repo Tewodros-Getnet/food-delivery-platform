@@ -7,6 +7,7 @@ class OrderModel {
   final DateTime createdAt;
   final String? cancellationReason;
   final String? cancelledBy;
+  final DateTime? acceptanceDeadline;
 
   const OrderModel({
     required this.id,
@@ -17,6 +18,7 @@ class OrderModel {
     required this.createdAt,
     this.cancellationReason,
     this.cancelledBy,
+    this.acceptanceDeadline,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
@@ -28,5 +30,8 @@ class OrderModel {
         createdAt: DateTime.parse(json['created_at'] as String),
         cancellationReason: json['cancellation_reason'] as String?,
         cancelledBy: json['cancelled_by'] as String?,
+        acceptanceDeadline: json['acceptance_deadline'] != null
+            ? DateTime.parse(json['acceptance_deadline'] as String)
+            : null,
       );
 }

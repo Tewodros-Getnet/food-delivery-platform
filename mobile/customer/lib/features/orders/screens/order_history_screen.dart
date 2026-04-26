@@ -126,11 +126,13 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
     final o = widget.order;
     final canReorder = o.status == 'delivered' || o.status == 'cancelled';
     final isActive = ![
-      'delivered',
-      'cancelled',
-      'payment_failed',
-      'pending_payment'
-    ].contains(o.status);
+          'delivered',
+          'cancelled',
+          'payment_failed',
+          'pending_payment',
+          'pending_acceptance',
+        ].contains(o.status) ||
+        o.status == 'pending_acceptance';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -270,6 +272,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
 
   Color _statusColor(String s) =>
       const {
+        'pending_acceptance': Colors.orange,
         'delivered': Colors.green,
         'cancelled': Colors.red,
         'confirmed': Colors.blue,
