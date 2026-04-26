@@ -5,7 +5,7 @@ import app from './app';
 import { env } from './config/env';
 import { pool } from './config/database';
 import { logger } from './utils/logger';
-import { startPaymentExpiryJob, startAcceptanceTimeoutJob } from './services/scheduler.service';
+import { startPaymentExpiryJob, startAcceptanceTimeoutJob, startOperatingHoursJob } from './services/scheduler.service';
 import { initSocketServer } from './services/socket.service';
 
 const server = http.createServer(app);
@@ -29,6 +29,7 @@ async function start() {
     logger.info(`Server running on port ${env.PORT}`, { env: env.NODE_ENV });
     startPaymentExpiryJob();
     startAcceptanceTimeoutJob();
+    startOperatingHoursJob();
   });
 }
 

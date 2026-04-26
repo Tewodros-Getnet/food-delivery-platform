@@ -107,3 +107,38 @@ export async function suspendRestaurant(id: string): Promise<void> {
     );
   });
 }
+
+// ── Operating hours ───────────────────────────────────────────────────────────
+
+export type DaySchedule =
+  | { closed: true }
+  | { open: string; close: string }; // HH:MM format
+
+export type OperatingHours = Partial<Record<
+  'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday',
+  DaySchedule
+>>;
+
+export async function updateOperatingHours(
+  ownerId: string,
+  hours: OperatingHours
+): Promise<Restaurant | null> {
+  const result = await query<Restaurant>(
+    `UPDATE restaurants
+     SET operating_hours = $1, updated_at = NOW()
+     WHERE owner_id = $2
+     RETURNING *`,
+    [JSON.stringify(hours), ownerId]
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function getRestaurantsWithOperatingHours(): Promise<
+  Array<{ id: string; operating_hours: OperatingHours; is_open: boolean }>
+> {
+  const result = await query<{ id: string; operating_hours: OperatingHours; is_open: boolean }>(
+    `SELECT id, operating_hours, is_open FROM restaurants
+     WHERE operating_hours IS NOT NULL AND status = 'approved'`
+  );
+  return result.rows;
+}

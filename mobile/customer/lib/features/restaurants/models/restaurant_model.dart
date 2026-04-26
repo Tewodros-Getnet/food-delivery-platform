@@ -10,19 +10,22 @@ class RestaurantModel {
   final String? category;
   final double averageRating;
   final bool isOpen;
+  final Map<String, dynamic>? operatingHours;
 
-  const RestaurantModel(
-      {required this.id,
-      required this.name,
-      this.description,
-      this.logoUrl,
-      this.coverImageUrl,
-      required this.address,
-      required this.latitude,
-      required this.longitude,
-      this.category,
-      required this.averageRating,
-      this.isOpen = true});
+  const RestaurantModel({
+    required this.id,
+    required this.name,
+    this.description,
+    this.logoUrl,
+    this.coverImageUrl,
+    required this.address,
+    required this.latitude,
+    required this.longitude,
+    this.category,
+    required this.averageRating,
+    this.isOpen = true,
+    this.operatingHours,
+  });
 
   factory RestaurantModel.fromJson(Map<String, dynamic> json) =>
       RestaurantModel(
@@ -37,6 +40,7 @@ class RestaurantModel {
         category: json['category'] as String?,
         averageRating: double.parse((json['average_rating'] ?? 0).toString()),
         isOpen: (json['is_open'] as bool?) ?? true,
+        operatingHours: json['operating_hours'] as Map<String, dynamic>?,
       );
 }
 

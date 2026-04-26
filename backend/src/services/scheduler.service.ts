@@ -105,3 +105,68 @@ export function startAcceptanceTimeoutJob() {
     }
   });
 }
+
+// ── Operating hours auto open/close job ──────────────────────────────────────
+// Runs every minute — updates is_open for restaurants that have operating_hours set.
+// Uses Addis Ababa timezone (Africa/Addis_Ababa = UTC+3).
+
+function getCurrentAddisAbabaTime(): { dayName: string; currentMinutes: number } {
+  // UTC+3 offset
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+  const addisMs = utcMs + 3 * 60 * 60 * 1000;
+  const addisDate = new Date(addisMs);
+
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayName = days[addisDate.getDay()];
+  const currentMinutes = addisDate.getHours() * 60 + addisDate.getMinutes();
+
+  return { dayName, currentMinutes };
+}
+
+function parseTimeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+export function startOperatingHoursJob() {
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { getRestaurantsWithOperatingHours } = await import('./restaurant.service');
+      const restaurants = await getRestaurantsWithOperatingHours();
+      if (restaurants.length === 0) return;
+
+      const { dayName, currentMinutes } = getCurrentAddisAbabaTime();
+
+      for (const restaurant of restaurants) {
+        const hours = restaurant.operating_hours;
+        const todaySchedule = hours[dayName as keyof typeof hours];
+
+        let shouldBeOpen = false;
+
+        if (todaySchedule && !('closed' in todaySchedule && todaySchedule.closed)) {
+          const schedule = todaySchedule as { open: string; close: string };
+          const openMinutes = parseTimeToMinutes(schedule.open);
+          const closeMinutes = parseTimeToMinutes(schedule.close);
+          shouldBeOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+        }
+
+        // Only update if state needs to change (avoid unnecessary writes)
+        if (shouldBeOpen !== restaurant.is_open) {
+          await query(
+            'UPDATE restaurants SET is_open = $1, updated_at = NOW() WHERE id = $2',
+            [shouldBeOpen, restaurant.id]
+          );
+          logger.info('Auto-updated restaurant open status', {
+            restaurantId: restaurant.id,
+            is_open: shouldBeOpen,
+            day: dayName,
+            currentMinutes,
+          });
+        }
+      }
+    } catch (err) {
+      logger.error('Operating hours job failed', { error: String(err) });
+    }
+  });
+}

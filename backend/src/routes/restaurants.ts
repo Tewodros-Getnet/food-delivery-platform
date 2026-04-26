@@ -121,6 +121,38 @@ router.delete('/my/riders/:riderId', authenticate, authorize('restaurant'), asyn
     res.json(successResponse({ message: 'Rider removed from team' }));
   } catch (err) { next(err); }
 });
+
+// PUT /restaurants/my/hours — set weekly operating hours
+router.put('/my/hours', authenticate, authorize('restaurant'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const hours = req.body as Record<string, unknown>;
+    const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+    // Validate each day entry
+    for (const [day, schedule] of Object.entries(hours)) {
+      if (!DAYS.includes(day)) {
+        res.status(422).json({ success: false, data: null, error: `Invalid day: ${day}` });
+        return;
+      }
+      const s = schedule as Record<string, unknown>;
+      if (s.closed === true) continue; // closed day — valid
+      if (typeof s.open !== 'string' || !TIME_RE.test(s.open) ||
+          typeof s.close !== 'string' || !TIME_RE.test(s.close)) {
+        res.status(422).json({
+          success: false, data: null,
+          error: `Invalid time format for ${day}. Use HH:MM (24-hour).`,
+        });
+        return;
+      }
+    }
+
+    const { updateOperatingHours } = await import('../services/restaurant.service');
+    const updated = await updateOperatingHours(req.userId!, hours as import('../services/restaurant.service').OperatingHours);
+    if (!updated) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+    res.json(successResponse(updated));
+  } catch (err) { next(err); }
+});
 router.get('/', listRestaurantsHandler);
 router.get('/:id', getRestaurantHandler);
 router.get('/:id/ratings', async (req: Request, res: Response, next: NextFunction) => {

@@ -1,7 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
@@ -156,6 +157,14 @@ class _RestaurantProfileScreenState
                       ),
                     ),
                     const SizedBox(height: 24),
+                    ListTile(
+                      leading: const Icon(Icons.access_time),
+                      title: const Text('Operating Hours'),
+                      subtitle:
+                          const Text('Set your weekly open/close schedule'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/hours'),
+                    ),
                     ListTile(
                       leading: const Icon(Icons.lock),
                       title: const Text('Change Password'),

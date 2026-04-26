@@ -90,6 +90,12 @@ class RestaurantDetailScreen extends ConsumerWidget {
                           const SizedBox(height: 8),
                           Text(r.description!)
                         ],
+                        // Operating hours section
+                        if (r.operatingHours != null) ...[
+                          const SizedBox(height: 12),
+                          _OperatingHoursWidget(
+                              operatingHours: r.operatingHours!),
+                        ],
                         const Divider(height: 24),
                         const Text('Menu',
                             style: TextStyle(
@@ -257,9 +263,154 @@ class _MenuTile extends ConsumerWidget {
   }
 }
 
-// ── Review tile ───────────────────────────────────────────────────────────────
+// ── Operating hours widget ────────────────────────────────────────────────────
 
-class _ReviewTile extends StatelessWidget {
+class _OperatingHoursWidget extends StatefulWidget {
+  final Map<String, dynamic> operatingHours;
+  const _OperatingHoursWidget({required this.operatingHours});
+
+  @override
+  State<_OperatingHoursWidget> createState() => _OperatingHoursWidgetState();
+}
+
+class _OperatingHoursWidgetState extends State<_OperatingHoursWidget> {
+  bool _expanded = false;
+
+  static const _days = [
+    'monday', 'tuesday', 'wednesday', 'thursday',
+    'friday', 'saturday', 'sunday',
+  ];
+  static const _dayLabels = [
+    'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+  ];
+  static const _fullDayLabels = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+    'Friday', 'Saturday', 'Sunday',
+  ];
+
+  String _todayName() {
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday',
+        'thursday', 'friday', 'saturday'];
+    return days[DateTime.now().weekday % 7];
+  }
+
+  String _hoursText(String day) {
+    final entry = widget.operatingHours[day] as Map<String, dynamic>?;
+    if (entry == null) return '—';
+    if (entry['closed'] == true) return 'Closed';
+    final open = entry['open'] as String? ?? '';
+    final close = entry['close'] as String? ?? '';
+    return '$open – $close';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final today = _todayName();
+    final todayText = _hoursText(today);
+    final todayLabel = _fullDayLabels[_days.indexOf(today)];
+    final isTodayClosed = todayText == 'Closed' || todayText == '—';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          // Today's hours row (always visible)
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Today ($todayLabel): ',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    todayText,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isTodayClosed ? Colors.red : Colors.green.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Full weekly schedule (collapsible)
+          if (_expanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+              child: Column(
+                children: List.generate(_days.length, (i) {
+                  final day = _days[i];
+                  final label = _dayLabels[i];
+                  final hours = _hoursText(day);
+                  final isClosed = hours == 'Closed' || hours == '—';
+                  final isToday = day == today;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 36,
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isToday
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isToday
+                                  ? Colors.orange
+                                  : Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            hours,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isClosed
+                                  ? Colors.red.shade400
+                                  : Colors.green.shade700,
+                              fontWeight: isToday
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Review tile ───────────────────────────────────────────────────────────────class _ReviewTile extends StatelessWidget {
   final Map<String, dynamic> rating;
   const _ReviewTile({required this.rating});
 
