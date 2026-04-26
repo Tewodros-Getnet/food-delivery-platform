@@ -787,6 +787,48 @@ class _ReviewTile extends StatelessWidget {
               ),
             ),
           ],
+          // Restaurant reply
+          if ((rating['reply'] as String?) != null &&
+              (rating['reply'] as String).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 42),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade100),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.storefront,
+                            size: 13, color: Colors.green.shade700),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Restaurant reply',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      rating['reply'] as String,
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.green.shade900),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const Divider(height: 20),
         ],
       ),

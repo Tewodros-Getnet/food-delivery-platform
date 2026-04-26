@@ -64,6 +64,39 @@ export async function getRestaurantRatings(restaurantId: string, page = 1, limit
   return result.rows;
 }
 
+export async function replyToRating(
+  ratingId: string,
+  restaurantOwnerId: string,
+  reply: string
+): Promise<void> {
+  // Verify the rating belongs to this owner's restaurant
+  const result = await query<{ restaurant_id: string }>(
+    'SELECT restaurant_id FROM ratings WHERE id = $1',
+    [ratingId]
+  );
+  const rating = result.rows[0];
+  if (!rating) {
+    const err = new Error('Rating not found') as Error & { statusCode: number };
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const rResult = await query<{ id: string }>(
+    'SELECT id FROM restaurants WHERE owner_id = $1',
+    [restaurantOwnerId]
+  );
+  if (!rResult.rows[0] || rResult.rows[0].id !== rating.restaurant_id) {
+    const err = new Error('Forbidden') as Error & { statusCode: number };
+    err.statusCode = 403;
+    throw err;
+  }
+
+  await query(
+    'UPDATE ratings SET reply = $1, replied_at = NOW() WHERE id = $2',
+    [reply, ratingId]
+  );
+}
+
 export async function getRiderRatings(riderId: string, page = 1, limit = 20) {
   const offset = (page - 1) * limit;
   const result = await query(

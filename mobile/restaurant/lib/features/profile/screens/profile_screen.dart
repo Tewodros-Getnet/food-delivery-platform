@@ -158,6 +158,13 @@ class _RestaurantProfileScreenState
                     ),
                     const SizedBox(height: 24),
                     ListTile(
+                      leading: const Icon(Icons.star_outline),
+                      title: const Text('Customer Reviews'),
+                      subtitle: const Text('View and reply to reviews'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/reviews'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.bar_chart),
                       title: const Text('Analytics'),
                       subtitle: const Text('Orders, revenue and top items'),

@@ -258,6 +258,20 @@ router.get('/:id/ratings', async (req: Request, res: Response, next: NextFunctio
     res.json(successResponse(ratings));
   } catch (err) { next(err); }
 });
+
+// POST /restaurants/ratings/:ratingId/reply — restaurant owner replies to a review
+router.post('/ratings/:ratingId/reply', authenticate, authorize('restaurant'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { reply } = req.body as { reply?: string };
+    if (!reply || !reply.trim()) {
+      res.status(422).json({ success: false, data: null, error: 'Reply text is required' });
+      return;
+    }
+    const { replyToRating } = await import('../services/rating.service');
+    await replyToRating(req.params.ratingId, req.userId!, reply.trim());
+    res.json(successResponse({ message: 'Reply posted' }));
+  } catch (err) { next(err); }
+});
 router.post('/', authenticate, authorize('restaurant'), createValidation, createRestaurantHandler);
 router.post('/:id/approve', authenticate, authorize('admin'), approveRestaurantHandler);
 router.post('/:id/reject', authenticate, authorize('admin'), rejectRestaurantHandler);
