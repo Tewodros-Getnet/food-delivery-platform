@@ -8,6 +8,7 @@ import '../../../core/storage/secure_storage.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../widgets/pending_acceptance_order_card.dart';
+import '../widgets/elapsed_timer.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../notifications/fcm_service.dart';
 
@@ -493,6 +494,31 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
             Text('Total: ETB ${order.total.toStringAsFixed(2)}'),
             Text(
                 'Time: ${order.createdAt.toLocal().toString().substring(11, 16)}'),
+            // Prep timer — shown only for confirmed orders
+            if (order.status == 'confirmed') ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text(
+                    'Preparing: ',
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                  ElapsedTimer(
+                    since: order.updatedAt ?? order.createdAt,
+                    warnAfterMinutes: 10,
+                    urgentAfterMinutes: 20,
+                  ),
+                  if (order.estimatedPrepTimeMinutes != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '/ ${order.estimatedPrepTimeMinutes}m target',
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.black38),
+                    ),
+                  ],
+                ],
+              ),
+            ],
             if (order.status == 'confirmed') ...[
               const SizedBox(height: 12),
               SizedBox(
