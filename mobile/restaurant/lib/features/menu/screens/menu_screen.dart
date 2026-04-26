@@ -15,7 +15,8 @@ class MenuScreen extends ConsumerStatefulWidget {
 class _MenuScreenState extends ConsumerState<MenuScreen> {
   List<dynamic> _items = [];
   bool _loading = true;
-  final Set<String> _togglingIds = {}; // tracks in-flight toggle requests
+  final Set<String> _togglingIds = {};
+  String? _selectedCategory; // null = show all
 
   @override
   void initState() {
@@ -34,6 +35,23 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     } catch (_) {
       setState(() => _loading = false);
     }
+  }
+
+  List<String> get _categories {
+    final cats = <String>{};
+    for (final item in _items) {
+      final cat = (item as Map<String, dynamic>)['category'] as String?;
+      if (cat != null && cat.isNotEmpty) cats.add(cat);
+    }
+    return cats.toList()..sort();
+  }
+
+  List<dynamic> get _filteredItems {
+    if (_selectedCategory == null) return _items;
+    return _items.where((item) {
+      final cat = (item as Map<String, dynamic>)['category'] as String?;
+      return cat == _selectedCategory;
+    }).toList();
   }
 
   Future<void> _toggleAvailability(int index) async {
@@ -87,61 +105,114 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               ? const Center(child: Text('No menu items yet. Tap + to add.'))
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView.builder(
-                    itemCount: _items.length,
-                    itemBuilder: (ctx, i) {
-                      final item = _items[i] as Map<String, dynamic>;
-                      final itemId = item['id'] as String;
-                      final isAvailable = item['available'] as bool? ?? true;
-                      final isToggling = _togglingIds.contains(itemId);
-
-                      return ListTile(
-                        leading: isAvailable
-                            ? null
-                            : const Icon(Icons.block,
-                                color: Colors.red, size: 18),
-                        title: Text(
-                          item['name'] as String,
-                          style: TextStyle(
-                            color: isAvailable ? null : Colors.grey,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'ETB ${item['price']} • ${item['category'] ?? ''}${isAvailable ? '' : ' • Sold Out'}',
-                          style: TextStyle(
-                            color: isAvailable ? null : Colors.grey,
-                          ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Availability toggle with optimistic update
-                            isToggling
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Switch(
-                                    value: isAvailable,
-                                    activeColor: const Color(0xFF2E7D32),
-                                    onChanged: (_) => _toggleAvailability(i),
+                  child: Column(
+                    children: [
+                      // Category filter chips
+                      if (_categories.isNotEmpty)
+                        SizedBox(
+                          height: 44,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  label: const Text('All'),
+                                  selected: _selectedCategory == null,
+                                  onSelected: (_) =>
+                                      setState(() => _selectedCategory = null),
+                                  selectedColor:
+                                      const Color(0xFF2E7D32).withAlpha(40),
+                                  checkmarkColor: const Color(0xFF2E7D32),
+                                ),
+                              ),
+                              ..._categories.map(
+                                (cat) => Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: FilterChip(
+                                    label: Text(cat),
+                                    selected: _selectedCategory == cat,
+                                    onSelected: (_) =>
+                                        setState(() => _selectedCategory = cat),
+                                    selectedColor:
+                                        const Color(0xFF2E7D32).withAlpha(40),
+                                    checkmarkColor: const Color(0xFF2E7D32),
                                   ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () async {
-                                await ref
-                                    .read(menuServiceProvider)
-                                    .deleteItem(itemId);
-                                await _load();
-                              },
-                            ),
-                          ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      );
-                    },
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: _filteredItems.length,
+                          itemBuilder: (ctx, i) {
+                            final filtered = _filteredItems;
+                            final item = filtered[i] as Map<String, dynamic>;
+                            final itemId = item['id'] as String;
+                            final isAvailable =
+                                item['available'] as bool? ?? true;
+                            final isToggling = _togglingIds.contains(itemId);
+                            // Find the real index in _items for toggle
+                            final realIndex = _items.indexWhere((e) =>
+                                (e as Map<String, dynamic>)['id'] == itemId);
+
+                            return ListTile(
+                              leading: isAvailable
+                                  ? null
+                                  : const Icon(Icons.block,
+                                      color: Colors.red, size: 18),
+                              title: Text(
+                                item['name'] as String,
+                                style: TextStyle(
+                                  color: isAvailable ? null : Colors.grey,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'ETB ${item['price']} • ${item['category'] ?? ''}'
+                                '${isAvailable ? '' : ' • Sold Out'}',
+                                style: TextStyle(
+                                  color: isAvailable ? null : Colors.grey,
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  isToggling
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        )
+                                      : Switch(
+                                          value: isAvailable,
+                                          activeThumbColor:
+                                              const Color(0xFF2E7D32),
+                                          onChanged: realIndex >= 0
+                                              ? (_) =>
+                                                  _toggleAvailability(realIndex)
+                                              : null,
+                                        ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () async {
+                                      await ref
+                                          .read(menuServiceProvider)
+                                          .deleteItem(itemId);
+                                      await _load();
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
     );

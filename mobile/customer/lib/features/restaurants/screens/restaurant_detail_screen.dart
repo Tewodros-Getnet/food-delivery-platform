@@ -105,13 +105,57 @@ class RestaurantDetailScreen extends ConsumerWidget {
             loading: () => const SliverToBoxAdapter(
                 child: Center(child: CircularProgressIndicator())),
             error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
-            data: (items) => SliverList(
-                delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _MenuTile(
-                        item: items[i],
-                        restaurantId: restaurantId,
-                        isRestaurantOpen: r.isOpen),
-                    childCount: items.length)),
+            data: (items) {
+              if (items.isEmpty) {
+                return const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: Text('No menu items yet.',
+                          style: TextStyle(color: Colors.grey)),
+                    ),
+                  ),
+                );
+              }
+
+              // Group items by category
+              final grouped = <String, List<MenuItemModel>>{};
+              for (final item in items) {
+                final cat = item.category ?? 'Other';
+                grouped.putIfAbsent(cat, () => []).add(item);
+              }
+
+              // Build a flat list of category headers + item tiles
+              final sliverItems = <Widget>[];
+              grouped.forEach((category, categoryItems) {
+                // Category header
+                sliverItems.add(
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                    child: Text(
+                      category,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                );
+                // Items in this category
+                for (final item in categoryItems) {
+                  sliverItems.add(_MenuTile(
+                    item: item,
+                    restaurantId: restaurantId,
+                    isRestaurantOpen: r.isOpen,
+                  ));
+                }
+              });
+
+              return SliverList(
+                delegate: SliverChildListDelegate(sliverItems),
+              );
+            },
           ),
 
           // ── Reviews section ──────────────────────────────────────────────
