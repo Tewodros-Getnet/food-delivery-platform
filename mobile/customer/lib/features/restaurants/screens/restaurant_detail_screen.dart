@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../services/restaurant_service.dart';
 import '../models/restaurant_model.dart';
 import '../../cart/providers/cart_provider.dart';
+import '../../cart/models/cart_item.dart';
 
 final _detailProvider = FutureProvider.family<RestaurantModel, String>(
     (ref, id) => ref.read(restaurantServiceProvider).getById(id));
@@ -274,33 +275,276 @@ class _MenuTile extends ConsumerWidget {
               color: canAdd ? Colors.orange : Colors.grey, size: 32),
           onPressed: canAdd
               ? () {
-                  final added = ref
-                      .read(cartProvider.notifier)
-                      .addItem(item, restaurantId);
-                  if (!added) {
-                    showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                              title: const Text('Clear Cart?'),
-                              content: const Text(
-                                  'Your cart has items from another restaurant. Clear it?'),
-                              actions: [
-                                TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Cancel')),
-                                TextButton(
-                                    onPressed: () {
-                                      ref
-                                          .read(cartProvider.notifier)
-                                          .clearAndAdd(item, restaurantId);
-                                      Navigator.pop(ctx);
-                                    },
-                                    child: const Text('Clear & Add')),
-                              ],
-                            ));
+                  if (item.modifiers.isNotEmpty) {
+                    // Show modifier selection sheet
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => _ModifierSheet(
+                        item: item,
+                        restaurantId: restaurantId,
+                      ),
+                    );
+                  } else {
+                    // No modifiers — add directly
+                    final added = ref
+                        .read(cartProvider.notifier)
+                        .addItem(item, restaurantId);
+                    if (!added) {
+                      showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                                title: const Text('Clear Cart?'),
+                                content: const Text(
+                                    'Your cart has items from another restaurant. Clear it?'),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: const Text('Cancel')),
+                                  TextButton(
+                                      onPressed: () {
+                                        ref
+                                            .read(cartProvider.notifier)
+                                            .clearAndAdd(item, restaurantId);
+                                        Navigator.pop(ctx);
+                                      },
+                                      child: const Text('Clear & Add')),
+                                ],
+                              ));
+                    }
                   }
                 }
               : null,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Modifier selection bottom sheet ──────────────────────────────────────────
+
+class _ModifierSheet extends ConsumerStatefulWidget {
+  final MenuItemModel item;
+  final String restaurantId;
+
+  const _ModifierSheet({required this.item, required this.restaurantId});
+
+  @override
+  ConsumerState<_ModifierSheet> createState() => _ModifierSheetState();
+}
+
+class _ModifierSheetState extends ConsumerState<_ModifierSheet> {
+  // group name → selected option name(s)
+  final Map<String, Set<String>> _selections = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-select first option for required single groups
+    for (final group in widget.item.modifiers) {
+      if (group.required &&
+          group.type == 'single' &&
+          group.options.isNotEmpty) {
+        _selections[group.name] = {group.options.first.name};
+      }
+    }
+  }
+
+  bool get _canAdd {
+    for (final group in widget.item.modifiers) {
+      if (group.required) {
+        final sel = _selections[group.name];
+        if (sel == null || sel.isEmpty) return false;
+      }
+    }
+    return true;
+  }
+
+  double get _extraPrice {
+    double extra = 0;
+    for (final group in widget.item.modifiers) {
+      final sel = _selections[group.name] ?? {};
+      for (final optName in sel) {
+        final opt = group.options.firstWhere(
+          (o) => o.name == optName,
+          orElse: () => const ModifierOption(name: '', price: 0),
+        );
+        extra += opt.price;
+      }
+    }
+    return extra;
+  }
+
+  void _addToCart() {
+    final selectedModifiers = <SelectedModifier>[];
+    for (final group in widget.item.modifiers) {
+      final sel = _selections[group.name] ?? {};
+      for (final optName in sel) {
+        final opt = group.options.firstWhere(
+          (o) => o.name == optName,
+          orElse: () => const ModifierOption(name: '', price: 0),
+        );
+        selectedModifiers.add(SelectedModifier(
+          group: group.name,
+          option: optName,
+          price: opt.price,
+        ));
+      }
+    }
+
+    final added = ref.read(cartProvider.notifier).addItem(
+          widget.item,
+          widget.restaurantId,
+          selectedModifiers: selectedModifiers,
+        );
+
+    Navigator.pop(context);
+
+    if (!added) {
+      // Different restaurant — show clear cart dialog
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Clear Cart?'),
+          content: const Text(
+              'Your cart has items from another restaurant. Clear it?'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () {
+                  ref.read(cartProvider.notifier).clearAndAdd(
+                        widget.item,
+                        widget.restaurantId,
+                        selectedModifiers: selectedModifiers,
+                      );
+                  Navigator.pop(ctx);
+                },
+                child: const Text('Clear & Add')),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalPrice = widget.item.price + _extraPrice;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.item.name,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Base price: ETB ${widget.item.price.toStringAsFixed(2)}',
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            ...widget.item.modifiers.map((group) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        group.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      if (group.required) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('Required',
+                              style:
+                                  TextStyle(color: Colors.red, fontSize: 10)),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ...group.options.map((opt) {
+                    final isSelected =
+                        _selections[group.name]?.contains(opt.name) ?? false;
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: group.type == 'single'
+                          ? Radio<String>(
+                              value: opt.name,
+                              groupValue: _selections[group.name]?.firstOrNull,
+                              onChanged: (v) {
+                                if (v != null) {
+                                  setState(() => _selections[group.name] = {v});
+                                }
+                              },
+                            )
+                          : Checkbox(
+                              value: isSelected,
+                              onChanged: (v) {
+                                setState(() {
+                                  _selections.putIfAbsent(group.name, () => {});
+                                  if (v == true) {
+                                    _selections[group.name]!.add(opt.name);
+                                  } else {
+                                    _selections[group.name]!.remove(opt.name);
+                                  }
+                                });
+                              },
+                            ),
+                      title: Text(opt.name),
+                      trailing: opt.price > 0
+                          ? Text(
+                              '+ETB ${opt.price.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.w600),
+                            )
+                          : null,
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                ],
+              );
+            }),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _canAdd ? _addToCart : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(
+                  'Add to Cart — ETB ${totalPrice.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -321,20 +565,43 @@ class _OperatingHoursWidgetState extends State<_OperatingHoursWidget> {
   bool _expanded = false;
 
   static const _days = [
-    'monday', 'tuesday', 'wednesday', 'thursday',
-    'friday', 'saturday', 'sunday',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
   ];
   static const _dayLabels = [
-    'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
   ];
   static const _fullDayLabels = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-    'Friday', 'Saturday', 'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
 
   String _todayName() {
-    const days = ['sunday', 'monday', 'tuesday', 'wednesday',
-        'thursday', 'friday', 'saturday'];
+    const days = [
+      'sunday',
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday'
+    ];
     return days[DateTime.now().weekday % 7];
   }
 
@@ -418,12 +685,9 @@ class _OperatingHoursWidgetState extends State<_OperatingHoursWidget> {
                             label,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: isToday
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isToday
-                                  ? Colors.orange
-                                  : Colors.black87,
+                              fontWeight:
+                                  isToday ? FontWeight.bold : FontWeight.normal,
+                              color: isToday ? Colors.orange : Colors.black87,
                             ),
                           ),
                         ),
@@ -435,9 +699,8 @@ class _OperatingHoursWidgetState extends State<_OperatingHoursWidget> {
                               color: isClosed
                                   ? Colors.red.shade400
                                   : Colors.green.shade700,
-                              fontWeight: isToday
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
+                              fontWeight:
+                                  isToday ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                         ),
@@ -454,7 +717,9 @@ class _OperatingHoursWidgetState extends State<_OperatingHoursWidget> {
   }
 }
 
-// ── Review tile ───────────────────────────────────────────────────────────────class _ReviewTile extends StatelessWidget {
+// ── Review tile ───────────────────────────────────────────────────────────────
+
+class _ReviewTile extends StatelessWidget {
   final Map<String, dynamic> rating;
   const _ReviewTile({required this.rating});
 

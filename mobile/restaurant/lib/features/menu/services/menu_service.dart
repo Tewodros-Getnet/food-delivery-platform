@@ -42,4 +42,18 @@ class MenuService {
         await _client.dio.patch('${ApiConstants.menu}/$id/availability');
     return res.data['data'] as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> getItemById(String id) async {
+    final res = await _client.dio.get('${ApiConstants.menu}/$id');
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateModifiers(
+      String id, List<Map<String, dynamic>> modifiers) async {
+    final res = await _client.dio.put(
+      '${ApiConstants.menu}/$id/modifiers',
+      data: modifiers,
+    );
+    return res.data['data'] as Map<String, dynamic>;
+  }
 }

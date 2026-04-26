@@ -20,7 +20,13 @@ class OrderService {
       'restaurantId': restaurantId,
       'deliveryAddressId': deliveryAddressId,
       'items': items
-          .map((i) => {'menuItemId': i.menuItem.id, 'quantity': i.quantity})
+          .map((i) => {
+                'menuItemId': i.menuItem.id,
+                'quantity': i.quantity,
+                if (i.selectedModifiers.isNotEmpty)
+                  'selectedModifiers':
+                      i.selectedModifiers.map((m) => m.toJson()).toList(),
+              })
           .toList(),
     });
     return res.data['data'] as Map<String, dynamic>;

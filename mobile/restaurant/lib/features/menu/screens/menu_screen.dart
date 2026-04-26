@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -160,6 +161,9 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                 (e as Map<String, dynamic>)['id'] == itemId);
 
                             return ListTile(
+                              onLongPress: () => context.push(
+                                '/menu-item/$itemId/modifiers?name=${Uri.encodeComponent(item['name'] as String)}',
+                              ),
                               leading: isAvailable
                                   ? null
                                   : const Icon(Icons.block,

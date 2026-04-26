@@ -26,13 +26,28 @@ class CartScreen extends ConsumerWidget {
             final item = cart.items[i];
             return ListTile(
               title: Text(item.menuItem.name),
-              subtitle: Text('ETB ${item.menuItem.price.toStringAsFixed(2)}'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('ETB ${item.unitPrice.toStringAsFixed(2)}'),
+                  if (item.selectedModifiers.isNotEmpty)
+                    Text(
+                      item.selectedModifiers
+                          .map((m) =>
+                              '${m.option}${m.price > 0 ? ' +ETB${m.price.toStringAsFixed(0)}' : ''}')
+                          .join(', '),
+                      style:
+                          const TextStyle(fontSize: 11, color: Colors.black54),
+                    ),
+                ],
+              ),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                 IconButton(
                     icon: const Icon(Icons.remove_circle_outline),
                     onPressed: () => ref
                         .read(cartProvider.notifier)
-                        .updateQuantity(item.menuItem.id, item.quantity - 1)),
+                        .updateQuantity(item.cartKey, item.quantity - 1)),
                 Text('${item.quantity}',
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold)),
@@ -40,7 +55,7 @@ class CartScreen extends ConsumerWidget {
                     icon: const Icon(Icons.add_circle_outline),
                     onPressed: () => ref
                         .read(cartProvider.notifier)
-                        .updateQuantity(item.menuItem.id, item.quantity + 1)),
+                        .updateQuantity(item.cartKey, item.quantity + 1)),
               ]),
             );
           },

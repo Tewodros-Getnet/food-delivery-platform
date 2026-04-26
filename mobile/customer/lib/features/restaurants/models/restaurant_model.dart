@@ -44,6 +44,43 @@ class RestaurantModel {
       );
 }
 
+class ModifierOption {
+  final String name;
+  final double price;
+
+  const ModifierOption({required this.name, required this.price});
+
+  factory ModifierOption.fromJson(Map<String, dynamic> json) => ModifierOption(
+        name: json['name'] as String,
+        price: double.parse((json['price'] ?? 0).toString()),
+      );
+
+  Map<String, dynamic> toJson() => {'name': name, 'price': price};
+}
+
+class ModifierGroup {
+  final String name;
+  final String type; // 'single' or 'multi'
+  final bool required;
+  final List<ModifierOption> options;
+
+  const ModifierGroup({
+    required this.name,
+    required this.type,
+    required this.required,
+    required this.options,
+  });
+
+  factory ModifierGroup.fromJson(Map<String, dynamic> json) => ModifierGroup(
+        name: json['name'] as String,
+        type: json['type'] as String? ?? 'single',
+        required: json['required'] as bool? ?? false,
+        options: (json['options'] as List<dynamic>? ?? [])
+            .map((e) => ModifierOption.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class MenuItemModel {
   final String id;
   final String restaurantId;
@@ -53,16 +90,19 @@ class MenuItemModel {
   final String? category;
   final String imageUrl;
   final bool available;
+  final List<ModifierGroup> modifiers;
 
-  const MenuItemModel(
-      {required this.id,
-      required this.restaurantId,
-      required this.name,
-      this.description,
-      required this.price,
-      this.category,
-      required this.imageUrl,
-      required this.available});
+  const MenuItemModel({
+    required this.id,
+    required this.restaurantId,
+    required this.name,
+    this.description,
+    required this.price,
+    this.category,
+    required this.imageUrl,
+    required this.available,
+    this.modifiers = const [],
+  });
 
   factory MenuItemModel.fromJson(Map<String, dynamic> json) => MenuItemModel(
         id: json['id'] as String,
@@ -73,5 +113,8 @@ class MenuItemModel {
         category: json['category'] as String?,
         imageUrl: json['image_url'] as String,
         available: json['available'] as bool? ?? true,
+        modifiers: (json['modifiers'] as List<dynamic>? ?? [])
+            .map((e) => ModifierGroup.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 }

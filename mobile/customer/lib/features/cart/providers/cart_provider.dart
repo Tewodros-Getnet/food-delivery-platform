@@ -17,30 +17,56 @@ class CartState {
 class CartNotifier extends StateNotifier<CartState> {
   CartNotifier() : super(const CartState());
 
-  bool addItem(MenuItemModel item, String restaurantId) {
+  /// Returns false if item is unavailable or from a different restaurant.
+  bool addItem(
+    MenuItemModel item,
+    String restaurantId, {
+    List<SelectedModifier> selectedModifiers = const [],
+  }) {
     // Defence-in-depth: never add unavailable items to cart
     if (!item.available) return false;
-    if (state.restaurantId != null && state.restaurantId != restaurantId)
+    if (state.restaurantId != null && state.restaurantId != restaurantId) {
       return false;
-    final idx = state.items.indexWhere((i) => i.menuItem.id == item.id);
+    }
+
+    final newCartItem = CartItem(
+      menuItem: item,
+      quantity: 1,
+      selectedModifiers: selectedModifiers,
+    );
+    final key = newCartItem.cartKey;
+    final idx = state.items.indexWhere((i) => i.cartKey == key);
     final updated = [...state.items];
-    if (idx >= 0)
+
+    if (idx >= 0) {
       updated[idx] = updated[idx].copyWith(quantity: updated[idx].quantity + 1);
-    else
-      updated.add(CartItem(menuItem: item, quantity: 1));
+    } else {
+      updated.add(newCartItem);
+    }
     state = state.copyWith(items: updated, restaurantId: restaurantId);
     return true;
   }
 
-  void clearAndAdd(MenuItemModel item, String restaurantId) {
+  void clearAndAdd(
+    MenuItemModel item,
+    String restaurantId, {
+    List<SelectedModifier> selectedModifiers = const [],
+  }) {
     state = CartState(
-        items: [CartItem(menuItem: item, quantity: 1)],
-        restaurantId: restaurantId);
+      items: [
+        CartItem(
+          menuItem: item,
+          quantity: 1,
+          selectedModifiers: selectedModifiers,
+        )
+      ],
+      restaurantId: restaurantId,
+    );
   }
 
-  void updateQuantity(String id, int qty) {
+  void updateQuantity(String cartKey, int qty) {
     if (qty <= 0) {
-      final updated = state.items.where((i) => i.menuItem.id != id).toList();
+      final updated = state.items.where((i) => i.cartKey != cartKey).toList();
       state = CartState(
           items: updated,
           restaurantId: updated.isEmpty ? null : state.restaurantId);
@@ -48,7 +74,7 @@ class CartNotifier extends StateNotifier<CartState> {
     }
     state = state.copyWith(
         items: state.items
-            .map((i) => i.menuItem.id == id ? i.copyWith(quantity: qty) : i)
+            .map((i) => i.cartKey == cartKey ? i.copyWith(quantity: qty) : i)
             .toList());
   }
 

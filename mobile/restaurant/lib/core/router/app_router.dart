@@ -6,6 +6,7 @@ import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
 import '../../features/orders/screens/orders_screen.dart';
 import '../../features/menu/screens/menu_screen.dart';
+import '../../features/menu/screens/modifiers_screen.dart';
 import '../../features/restaurant/screens/restaurant_setup_screen.dart';
 import '../../features/restaurant/screens/operating_hours_screen.dart';
 import '../../features/restaurant/screens/analytics_screen.dart';
@@ -44,6 +45,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/menu/:restaurantId',
         builder: (_, s) =>
             MenuScreen(restaurantId: s.pathParameters['restaurantId']!),
+      ),
+      GoRoute(
+        path: '/menu-item/:id/modifiers',
+        builder: (_, s) => ModifiersScreen(
+          menuItemId: s.pathParameters['id']!,
+          menuItemName: s.uri.queryParameters['name'] ?? 'Item',
+        ),
       ),
       GoRoute(
         path: '/hours',
