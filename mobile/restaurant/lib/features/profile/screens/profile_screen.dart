@@ -158,6 +158,13 @@ class _RestaurantProfileScreenState
                     ),
                     const SizedBox(height: 24),
                     ListTile(
+                      leading: const Icon(Icons.bar_chart),
+                      title: const Text('Analytics'),
+                      subtitle: const Text('Orders, revenue and top items'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/analytics'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.access_time),
                       title: const Text('Operating Hours'),
                       subtitle:

@@ -202,6 +202,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Analytics',
+            onPressed: () => context.push('/analytics'),
+          ),
+          IconButton(
             icon: const Icon(Icons.delivery_dining),
             tooltip: 'My Riders',
             onPressed: () => context.push('/riders'),

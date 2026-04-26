@@ -129,14 +129,13 @@ router.put('/my/hours', authenticate, authorize('restaurant'), async (req: Reque
     const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-    // Validate each day entry
     for (const [day, schedule] of Object.entries(hours)) {
       if (!DAYS.includes(day)) {
         res.status(422).json({ success: false, data: null, error: `Invalid day: ${day}` });
         return;
       }
       const s = schedule as Record<string, unknown>;
-      if (s.closed === true) continue; // closed day — valid
+      if (s.closed === true) continue;
       if (typeof s.open !== 'string' || !TIME_RE.test(s.open) ||
           typeof s.close !== 'string' || !TIME_RE.test(s.close)) {
         res.status(422).json({
@@ -151,6 +150,104 @@ router.put('/my/hours', authenticate, authorize('restaurant'), async (req: Reque
     const updated = await updateOperatingHours(req.userId!, hours as import('../services/restaurant.service').OperatingHours);
     if (!updated) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
     res.json(successResponse(updated));
+  } catch (err) { next(err); }
+});
+
+// GET /restaurants/my/analytics — restaurant owner's own analytics
+router.get('/my/analytics', authenticate, authorize('restaurant'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { getRestaurantByOwner } = await import('../services/restaurant.service');
+    const restaurant = await getRestaurantByOwner(req.userId!);
+    if (!restaurant) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+
+    const { query } = await import('../config/database');
+    const restaurantId = restaurant.id;
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const monthStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [todayStats, weekStats, monthStats, topItems, ordersByStatus, recentOrders, avgPrepTime] = await Promise.all([
+      // Today's orders and revenue
+      query(
+        `SELECT COUNT(*) as orders, COALESCE(SUM(total), 0) as revenue
+         FROM orders WHERE restaurant_id = $1 AND created_at >= $2
+         AND status NOT IN ('pending_payment', 'payment_failed', 'cancelled')`,
+        [restaurantId, todayStart]
+      ),
+      // This week
+      query(
+        `SELECT COUNT(*) as orders, COALESCE(SUM(total), 0) as revenue
+         FROM orders WHERE restaurant_id = $1 AND created_at >= $2
+         AND status NOT IN ('pending_payment', 'payment_failed', 'cancelled')`,
+        [restaurantId, weekStart]
+      ),
+      // This month
+      query(
+        `SELECT COUNT(*) as orders, COALESCE(SUM(total), 0) as revenue
+         FROM orders WHERE restaurant_id = $1 AND created_at >= $2
+         AND status NOT IN ('pending_payment', 'payment_failed', 'cancelled')`,
+        [restaurantId, monthStart]
+      ),
+      // Top 5 menu items by order count (last 30 days)
+      query(
+        `SELECT oi.item_name, SUM(oi.quantity) as total_quantity, COUNT(DISTINCT oi.order_id) as order_count
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         WHERE o.restaurant_id = $1 AND o.created_at >= $2
+           AND o.status NOT IN ('pending_payment', 'payment_failed', 'cancelled')
+         GROUP BY oi.item_name
+         ORDER BY total_quantity DESC LIMIT 5`,
+        [restaurantId, monthStart]
+      ),
+      // Orders by status (last 30 days)
+      query(
+        `SELECT status, COUNT(*) as count FROM orders
+         WHERE restaurant_id = $1 AND created_at >= $2
+         GROUP BY status ORDER BY count DESC`,
+        [restaurantId, monthStart]
+      ),
+      // Last 10 orders
+      query(
+        `SELECT o.id, o.status, o.total, o.created_at,
+                (SELECT STRING_AGG(oi.item_name || ' x' || oi.quantity, ', ' ORDER BY oi.id)
+                 FROM order_items oi WHERE oi.order_id = o.id) as items_summary
+         FROM orders o
+         WHERE o.restaurant_id = $1
+         ORDER BY o.created_at DESC LIMIT 10`,
+        [restaurantId]
+      ),
+      // Average prep time for delivered orders (last 30 days)
+      query(
+        `SELECT AVG(estimated_prep_time_minutes) as avg_prep_minutes
+         FROM orders WHERE restaurant_id = $1 AND created_at >= $2
+           AND status = 'delivered' AND estimated_prep_time_minutes IS NOT NULL`,
+        [restaurantId, monthStart]
+      ),
+    ]);
+
+    res.json(successResponse({
+      today: {
+        orders: parseInt(todayStats.rows[0].orders as string, 10),
+        revenue: parseFloat(todayStats.rows[0].revenue as string),
+      },
+      week: {
+        orders: parseInt(weekStats.rows[0].orders as string, 10),
+        revenue: parseFloat(weekStats.rows[0].revenue as string),
+      },
+      month: {
+        orders: parseInt(monthStats.rows[0].orders as string, 10),
+        revenue: parseFloat(monthStats.rows[0].revenue as string),
+      },
+      topItems: topItems.rows,
+      ordersByStatus: ordersByStatus.rows,
+      recentOrders: recentOrders.rows,
+      avgPrepTimeMinutes: avgPrepTime.rows[0]?.avg_prep_minutes
+        ? parseFloat(avgPrepTime.rows[0].avg_prep_minutes as string)
+        : null,
+      restaurantRating: restaurant.average_rating,
+    }));
   } catch (err) { next(err); }
 });
 router.get('/', listRestaurantsHandler);

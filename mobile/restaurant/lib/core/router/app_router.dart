@@ -8,6 +8,7 @@ import '../../features/orders/screens/orders_screen.dart';
 import '../../features/menu/screens/menu_screen.dart';
 import '../../features/restaurant/screens/restaurant_setup_screen.dart';
 import '../../features/restaurant/screens/operating_hours_screen.dart';
+import '../../features/restaurant/screens/analytics_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/riders/screens/my_riders_screen.dart';
 
@@ -47,6 +48,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/hours',
         builder: (_, __) => const OperatingHoursScreen(),
+      ),
+      GoRoute(
+        path: '/analytics',
+        builder: (_, __) => const RestaurantAnalyticsScreen(),
       ),
     ],
   );
