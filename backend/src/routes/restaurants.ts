@@ -272,6 +272,32 @@ router.post('/ratings/:ratingId/reply', authenticate, authorize('restaurant'), a
     res.json(successResponse({ message: 'Reply posted' }));
   } catch (err) { next(err); }
 });
+
+// PUT /restaurants/my/banner — set or clear promotional banner
+router.put('/my/banner', authenticate, authorize('restaurant'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { text, imageBase64 } = req.body as { text?: string; imageBase64?: string };
+    const { getRestaurantByOwner } = await import('../services/restaurant.service');
+    const restaurant = await getRestaurantByOwner(req.userId!);
+    if (!restaurant) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+
+    const { query: dbQuery } = await import('../config/database');
+    let imageUrl: string | null = restaurant.promo_banner_image_url ?? null;
+
+    if (imageBase64) {
+      const { uploadImage } = await import('../services/cloudinary.service');
+      imageUrl = await uploadImage(imageBase64, 'restaurants/banners');
+    }
+
+    const result = await dbQuery(
+      `UPDATE restaurants
+       SET promo_banner_text = $1, promo_banner_image_url = $2, updated_at = NOW()
+       WHERE id = $3 RETURNING *`,
+      [text?.trim() ?? null, imageUrl, restaurant.id]
+    );
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
 router.post('/', authenticate, authorize('restaurant'), createValidation, createRestaurantHandler);
 router.post('/:id/approve', authenticate, authorize('admin'), approveRestaurantHandler);
 router.post('/:id/reject', authenticate, authorize('admin'), rejectRestaurantHandler);

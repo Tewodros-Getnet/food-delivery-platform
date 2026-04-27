@@ -11,6 +11,8 @@ class RestaurantModel {
   final double averageRating;
   final bool isOpen;
   final Map<String, dynamic>? operatingHours;
+  final String? promoBannerText;
+  final String? promoBannerImageUrl;
 
   const RestaurantModel({
     required this.id,
@@ -25,6 +27,8 @@ class RestaurantModel {
     required this.averageRating,
     this.isOpen = true,
     this.operatingHours,
+    this.promoBannerText,
+    this.promoBannerImageUrl,
   });
 
   factory RestaurantModel.fromJson(Map<String, dynamic> json) =>
@@ -41,6 +45,8 @@ class RestaurantModel {
         averageRating: double.parse((json['average_rating'] ?? 0).toString()),
         isOpen: (json['is_open'] as bool?) ?? true,
         operatingHours: json['operating_hours'] as Map<String, dynamic>?,
+        promoBannerText: json['promo_banner_text'] as String?,
+        promoBannerImageUrl: json['promo_banner_image_url'] as String?,
       );
 }
 

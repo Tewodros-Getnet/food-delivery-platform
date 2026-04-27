@@ -11,6 +11,7 @@ import '../../features/restaurant/screens/restaurant_setup_screen.dart';
 import '../../features/restaurant/screens/operating_hours_screen.dart';
 import '../../features/restaurant/screens/analytics_screen.dart';
 import '../../features/restaurant/screens/reviews_screen.dart';
+import '../../features/restaurant/screens/banner_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/riders/screens/my_riders_screen.dart';
 
@@ -65,6 +66,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/reviews',
         builder: (_, __) => const RestaurantReviewsScreen(),
+      ),
+      GoRoute(
+        path: '/banner',
+        builder: (_, __) => const PromoBannerScreen(),
       ),
     ],
   );

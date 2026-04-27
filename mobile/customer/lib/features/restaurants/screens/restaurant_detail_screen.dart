@@ -48,6 +48,15 @@ class RestaurantDetailScreen extends ConsumerWidget {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Promotional banner
+                        if (r.promoBannerText != null ||
+                            r.promoBannerImageUrl != null) ...[
+                          _PromoBanner(
+                            text: r.promoBannerText,
+                            imageUrl: r.promoBannerImageUrl,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         Row(children: [
                           const Icon(Icons.star, color: Colors.amber, size: 18),
                           const SizedBox(width: 4),
@@ -316,6 +325,91 @@ class _MenuTile extends ConsumerWidget {
                 }
               : null,
         ),
+      ),
+    );
+  }
+}
+
+// ── Promo banner widget ───────────────────────────────────────────────────────
+
+class _PromoBanner extends StatelessWidget {
+  final String? text;
+  final String? imageUrl;
+
+  const _PromoBanner({this.text, this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Stack(
+          children: [
+            CachedNetworkImage(
+              imageUrl: imageUrl!,
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => _textOnlyBanner(),
+            ),
+            if (text != null && text!.isNotEmpty)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Colors.black87, Colors.transparent],
+                    ),
+                  ),
+                  child: Text(
+                    text!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    return _textOnlyBanner();
+  }
+
+  Widget _textOnlyBanner() {
+    if (text == null || text!.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.local_offer, color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

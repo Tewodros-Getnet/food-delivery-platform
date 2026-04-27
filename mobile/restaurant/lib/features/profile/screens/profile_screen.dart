@@ -158,6 +158,14 @@ class _RestaurantProfileScreenState
                     ),
                     const SizedBox(height: 24),
                     ListTile(
+                      leading: const Icon(Icons.campaign_outlined),
+                      title: const Text('Promotional Banner'),
+                      subtitle:
+                          const Text('Set a promo message on your listing'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/banner'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.star_outline),
                       title: const Text('Customer Reviews'),
                       subtitle: const Text('View and reply to reviews'),
