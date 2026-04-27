@@ -566,3 +566,27 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       }[s] ??
       Colors.grey;
 }
+
+/// A thin public wrapper around the private [_OrderCard] widget, exposed
+/// only for widget testing via @visibleForTesting.
+class OrderCardTestWrapper extends StatelessWidget {
+  final OrderModel order;
+  final VoidCallback onMarkReady;
+  final VoidCallback onCancelled;
+
+  const OrderCardTestWrapper({
+    super.key,
+    required this.order,
+    required this.onMarkReady,
+    required this.onCancelled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _OrderCard(
+      order: order,
+      onMarkReady: onMarkReady,
+      onCancelled: onCancelled,
+    );
+  }
+}
