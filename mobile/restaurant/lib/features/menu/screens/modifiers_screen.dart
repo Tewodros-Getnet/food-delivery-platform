@@ -254,7 +254,7 @@ class _GroupCard extends StatelessWidget {
                 const Text('Required'),
                 Switch(
                   value: group['required'] as bool,
-                  activeColor: const Color(0xFF2E7D32),
+                  activeThumbColor: const Color(0xFF2E7D32),
                   onChanged: (v) {
                     group['required'] = v;
                     onChanged();

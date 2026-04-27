@@ -10,9 +10,9 @@ class _DaySchedule {
   TimeOfDay closeTime;
 
   _DaySchedule({
-    this.isOpen = true,
-    this.openTime = const TimeOfDay(hour: 8, minute: 0),
-    this.closeTime = const TimeOfDay(hour: 22, minute: 0),
+    required this.isOpen,
+    required this.openTime,
+    required this.closeTime,
   });
 }
 
@@ -46,7 +46,12 @@ class _OperatingHoursScreenState extends ConsumerState<OperatingHoursScreen> {
   ];
 
   final Map<String, _DaySchedule> _schedule = {
-    for (final d in _days) d: _DaySchedule(),
+    for (final d in _days)
+      d: _DaySchedule(
+        isOpen: true,
+        openTime: const TimeOfDay(hour: 8, minute: 0),
+        closeTime: const TimeOfDay(hour: 22, minute: 0),
+      ),
   };
 
   bool _loading = true;
@@ -224,7 +229,7 @@ class _OperatingHoursScreenState extends ConsumerState<OperatingHoursScreen> {
                             // Open/closed toggle
                             Switch(
                               value: s.isOpen,
-                              activeColor: const Color(0xFF2E7D32),
+                              activeThumbColor: const Color(0xFF2E7D32),
                               onChanged: (v) => setState(() => s.isOpen = v),
                             ),
                             const SizedBox(width: 8),
