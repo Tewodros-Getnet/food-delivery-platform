@@ -7,7 +7,8 @@ class OrderItemModel {
   final double unitPrice;
   final String itemName;
   final String? itemImageUrl;
-  final bool available; // current availability from menu_items table
+  final bool available;
+  final List<Map<String, dynamic>> selectedModifiers;
 
   const OrderItemModel({
     required this.id,
@@ -17,6 +18,7 @@ class OrderItemModel {
     required this.itemName,
     this.itemImageUrl,
     required this.available,
+    this.selectedModifiers = const [],
   });
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) => OrderItemModel(
@@ -27,7 +29,19 @@ class OrderItemModel {
         itemName: json['item_name'] as String,
         itemImageUrl: json['item_image_url'] as String?,
         available: json['available'] as bool? ?? false,
+        selectedModifiers: (json['selected_modifiers'] as List<dynamic>?)
+                ?.map((e) => e as Map<String, dynamic>)
+                .toList() ??
+            const [],
       );
+
+  String get modifiersSummary {
+    if (selectedModifiers.isEmpty) return '';
+    return selectedModifiers
+        .map((m) => m['option'] as String? ?? '')
+        .where((s) => s.isNotEmpty)
+        .join(', ');
+  }
 
   // Convert to MenuItemModel for cart (requires restaurantId from parent order)
   MenuItemModel toMenuItemModel(String restaurantId) => MenuItemModel(

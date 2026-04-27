@@ -37,7 +37,11 @@ router.post('/', authenticate, authorize('customer'), createOrderValidation, asy
       customerId: req.userId!,
       restaurantId: req.body.restaurantId as string,
       deliveryAddressId: req.body.deliveryAddressId as string,
-      items: req.body.items as Array<{ menuItemId: string; quantity: number }>,
+      items: (req.body.items as Array<{ menuItemId: string; quantity: number; selectedModifiers?: unknown[] }>).map(i => ({
+        menuItemId: i.menuItemId,
+        quantity: i.quantity,
+        selectedModifiers: i.selectedModifiers ?? [],
+      })),
     });
     res.status(201).json(successResponse(result));
   } catch (err) { next(err); }
@@ -70,10 +74,11 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next: NextF
       query<{
         id: string; menu_item_id: string; quantity: number;
         unit_price: number; item_name: string; item_image_url: string | null;
-        available: boolean;
+        available: boolean; selected_modifiers: unknown[];
       }>(
         `SELECT oi.id, oi.menu_item_id, oi.quantity, oi.unit_price,
                 oi.item_name, oi.item_image_url,
+                COALESCE(oi.selected_modifiers, '[]'::jsonb) as selected_modifiers,
                 COALESCE(mi.available, false) as available
          FROM order_items oi
          LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
@@ -160,7 +165,7 @@ router.put('/:id/cancel', authenticate, authorize('customer'), [
       res.status(409).json(errorResponse('Cannot cancel order after rider has been assigned'));
       return;
     }
-    if (!['confirmed', 'ready_for_pickup'].includes(order.status)) {
+    if (!['pending_acceptance', 'confirmed', 'ready_for_pickup'].includes(order.status)) {
       res.status(409).json(errorResponse('Order cannot be cancelled in current status'));
       return;
     }
@@ -168,18 +173,21 @@ router.put('/:id/cancel', authenticate, authorize('customer'), [
     const updated = await orderService.updateOrderStatus(order.id, 'cancelled', {
       cancellation_reason: req.body.reason as string | undefined,
       cancelled_at: new Date(),
+      cancelled_by: 'customer',
     });
 
-    // Notify restaurant if order was ready_for_pickup
-    if (order.status === 'ready_for_pickup') {
+    // Notify restaurant if order was confirmed or ready_for_pickup
+    if (['confirmed', 'ready_for_pickup'].includes(order.status)) {
       const rResult = await query<{ owner_id: string }>(
         'SELECT owner_id FROM restaurants WHERE id = $1', [order.restaurant_id]
       );
       if (updated && rResult.rows[0]) emitToRestaurant(rResult.rows[0].owner_id, updated);
     }
 
-    // Initiate refund
-    void initiateRefund(order.id);
+    // Only refund if payment was actually made
+    if (order.payment_status === 'paid') {
+      void initiateRefund(order.id);
+    }
 
     if (updated) emitOrderStatusChanged(updated, order.customer_id);
     res.json(successResponse(updated));

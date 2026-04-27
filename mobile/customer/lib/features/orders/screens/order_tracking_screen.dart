@@ -337,20 +337,34 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                 if (_order!.items.isNotEmpty) ...[
                   ..._order!.items.map((item) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                '${item.itemName} × ${item.quantity}',
-                                style: const TextStyle(fontSize: 13),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${item.itemName} × ${item.quantity}',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                Text(
+                                  'ETB ${(item.unitPrice * item.quantity).toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                      fontSize: 13, color: Colors.grey[700]),
+                                ),
+                              ],
+                            ),
+                            if (item.modifiersSummary.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8, top: 1),
+                                child: Text(
+                                  item.modifiersSummary,
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Colors.black45),
+                                ),
                               ),
-                            ),
-                            Text(
-                              'ETB ${(item.unitPrice * item.quantity).toStringAsFixed(2)}',
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.grey[700]),
-                            ),
                           ],
                         ),
                       )),

@@ -13,6 +13,11 @@ export interface CreateOrderInput {
   items: CartItem[];
 }
 
+// Extended cart item that may carry selected modifiers from the Flutter app
+export interface CartItemWithModifiers extends CartItem {
+  selectedModifiers?: Array<{ group: string; option: string; price: number }>;
+}
+
 // ── Helper: read acceptance timeout from platform_config ─────────────────────
 export async function getAcceptanceTimeoutSeconds(): Promise<number> {
   const result = await query<{ value: string }>(
@@ -74,7 +79,11 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
     let subtotal = 0;
     for (const item of input.items) {
       const menuItem = menuMap.get(item.menuItemId) as { price: number } | undefined;
-      if (menuItem) subtotal += menuItem.price * item.quantity;
+      if (menuItem) {
+        const modifierExtra = ((item as CartItemWithModifiers).selectedModifiers ?? [])
+          .reduce((sum, m) => sum + (m.price ?? 0), 0);
+        subtotal += (menuItem.price + modifierExtra) * item.quantity;
+      }
     }
     const total = subtotal + delivery_fee;
     const txRef = uuidv4();
@@ -89,10 +98,13 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
     for (const item of input.items) {
       const menuItem = menuMap.get(item.menuItemId) as { price: number; name: string; image_url: string } | undefined;
       if (menuItem) {
+        const modifiers = (item as CartItemWithModifiers).selectedModifiers ?? [];
+        const modifierExtra = modifiers.reduce((sum, m) => sum + (m.price ?? 0), 0);
         await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, item_name, item_image_url)
-           VALUES ($1,$2,$3,$4,$5,$6)`,
-          [order.id, item.menuItemId, item.quantity, menuItem.price, menuItem.name, menuItem.image_url]
+          `INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, item_name, item_image_url, selected_modifiers)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [order.id, item.menuItemId, item.quantity, menuItem.price + modifierExtra,
+           menuItem.name, menuItem.image_url, JSON.stringify(modifiers)]
         );
       }
     }
