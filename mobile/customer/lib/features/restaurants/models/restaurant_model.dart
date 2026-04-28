@@ -13,6 +13,7 @@ class RestaurantModel {
   final Map<String, dynamic>? operatingHours;
   final String? promoBannerText;
   final String? promoBannerImageUrl;
+  final double? minimumOrderValue;
 
   const RestaurantModel({
     required this.id,
@@ -29,6 +30,7 @@ class RestaurantModel {
     this.operatingHours,
     this.promoBannerText,
     this.promoBannerImageUrl,
+    this.minimumOrderValue,
   });
 
   factory RestaurantModel.fromJson(Map<String, dynamic> json) =>
@@ -47,6 +49,9 @@ class RestaurantModel {
         operatingHours: json['operating_hours'] as Map<String, dynamic>?,
         promoBannerText: json['promo_banner_text'] as String?,
         promoBannerImageUrl: json['promo_banner_image_url'] as String?,
+        minimumOrderValue: json['minimum_order_value'] != null
+            ? double.tryParse(json['minimum_order_value'].toString())
+            : null,
       );
 }
 

@@ -48,16 +48,19 @@ export async function getRestaurants(params: {
   let idx = 1;
 
   if (params.category) {
-    conditions.push(`category ILIKE $${idx++}`);
+    conditions.push('category ILIKE $' + idx);
     values.push(params.category);
+    idx++;
   }
 
   const where = conditions.join(' AND ');
+  const limitParam = '$' + idx;
+  const offsetParam = '$' + (idx + 1);
   values.push(limit, offset);
 
   const [dataResult, countResult] = await Promise.all([
     query<Restaurant>(
-      `SELECT * FROM restaurants WHERE ${where} ORDER BY average_rating DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+      `SELECT * FROM restaurants WHERE ${where} ORDER BY average_rating DESC LIMIT ${limitParam} OFFSET ${offsetParam}`,
       values
     ),
     query<{ count: string }>(
@@ -99,7 +102,6 @@ export async function suspendRestaurant(id: string): Promise<void> {
       `UPDATE restaurants SET status = 'suspended', updated_at = NOW() WHERE id = $1`,
       [id]
     );
-    // Cancel active orders from this restaurant
     await client.query(
       `UPDATE orders SET status = 'cancelled', updated_at = NOW()
        WHERE restaurant_id = $1 AND status NOT IN ('delivered', 'cancelled', 'payment_failed')`,
@@ -112,7 +114,7 @@ export async function suspendRestaurant(id: string): Promise<void> {
 
 export type DaySchedule =
   | { closed: true }
-  | { open: string; close: string }; // HH:MM format
+  | { open: string; close: string };
 
 export type OperatingHours = Partial<Record<
   'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday',

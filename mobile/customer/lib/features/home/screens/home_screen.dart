@@ -400,7 +400,7 @@ class _MenuItemSearchCard extends StatelessWidget {
   }
 }
 
-// ── Restaurant card (unchanged) ───────────────────────────────────────────────
+// ── Restaurant card ───────────────────────────────────────────────────────────
 
 class _RestaurantCard extends StatelessWidget {
   final RestaurantModel r;
@@ -409,40 +409,118 @@ class _RestaurantCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       clipBehavior: Clip.antiAlias,
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: InkWell(
         onTap: () => context.push('/restaurant/${r.id}'),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (r.coverImageUrl != null)
-            CachedNetworkImage(
-                imageUrl: r.coverImageUrl!,
-                height: 140,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (_, __) =>
-                    Container(height: 140, color: Colors.grey[200]),
-                errorWidget: (_, __, ___) => Container(
-                    height: 140,
+          // Cover image with open/closed overlay
+          Stack(children: [
+            r.coverImageUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: r.coverImageUrl!,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) =>
+                        Container(height: 150, color: Colors.grey[200]),
+                    errorWidget: (_, __, ___) => Container(
+                        height: 150,
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.restaurant,
+                            size: 48, color: Colors.grey)))
+                : Container(
+                    height: 150,
                     color: Colors.grey[200],
-                    child: const Icon(Icons.restaurant,
-                        size: 48, color: Colors.grey))),
+                    child: const Center(
+                        child: Icon(Icons.restaurant,
+                            size: 48, color: Colors.grey))),
+            // Closed overlay
+            if (!r.isOpen)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  alignment: Alignment.center,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade700,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text('CLOSED',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            letterSpacing: 1)),
+                  ),
+                ),
+              ),
+            // Category pill (top-left)
+            if (r.category != null)
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(r.category!,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
+          ]),
+          // Info row
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(r.name,
                   style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.bold)),
-              if (r.category != null)
-                Text(r.category!,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-              const SizedBox(height: 4),
+                      fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
               Row(children: [
-                const Icon(Icons.star, size: 15, color: Colors.amber),
+                // Rating
+                const Icon(Icons.star_rounded, size: 15, color: Colors.amber),
                 const SizedBox(width: 3),
                 Text(r.averageRating.toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 13)),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 12),
+                // Minimum order
+                if (r.minimumOrderValue != null &&
+                    r.minimumOrderValue! > 0) ...[
+                  const Icon(Icons.shopping_bag_outlined,
+                      size: 13, color: Colors.grey),
+                  const SizedBox(width: 3),
+                  Text('Min ETB ${r.minimumOrderValue!.toStringAsFixed(0)}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  const SizedBox(width: 12),
+                ],
+                // Open status dot
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: r.isOpen ? Colors.green : Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(r.isOpen ? 'Open' : 'Closed',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: r.isOpen ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.w500)),
               ]),
             ]),
           ),
