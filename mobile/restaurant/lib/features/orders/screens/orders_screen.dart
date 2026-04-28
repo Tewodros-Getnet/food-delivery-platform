@@ -183,8 +183,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         backgroundColor: const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
         actions: [
+          // Open/Closed chip stays in AppBar — it's a primary action
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             child: GestureDetector(
               onTap: _toggleOpen,
               child: Chip(
@@ -201,32 +202,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            tooltip: 'Analytics',
-            onPressed: () => context.push('/analytics'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delivery_dining),
-            tooltip: 'My Riders',
-            onPressed: () => context.push('/riders'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.restaurant_menu),
-            onPressed: () {
-              if (_restaurantId != null) {
-                context.push('/menu/$_restaurantId');
-              } else {
-                context.push('/setup');
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
-          ),
         ],
       ),
+      drawer: _RestaurantDrawer(restaurantId: _restaurantId),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -636,6 +614,170 @@ class OrderCardTestWrapper extends StatelessWidget {
       order: order,
       onMarkReady: onMarkReady,
       onCancelled: onCancelled,
+    );
+  }
+}
+
+// ── Restaurant Drawer ─────────────────────────────────────────────────────────
+
+class _RestaurantDrawer extends ConsumerWidget {
+  final String? restaurantId;
+  const _RestaurantDrawer({this.restaurantId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Drawer(
+      child: Column(
+        children: [
+          // Header
+          DrawerHeader(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.storefront,
+                      color: Colors.white, size: 28),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Restaurant Dashboard',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+          // Nav items
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _DrawerItem(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Orders',
+                  onTap: () => Navigator.pop(context),
+                ),
+                _DrawerItem(
+                  icon: Icons.restaurant_menu_outlined,
+                  label: 'Menu Management',
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (restaurantId != null) {
+                      context.push('/menu/$restaurantId');
+                    } else {
+                      context.push('/setup');
+                    }
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.delivery_dining_outlined,
+                  label: 'My Riders',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/riders');
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.bar_chart_outlined,
+                  label: 'Analytics',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/analytics');
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.star_outline,
+                  label: 'Customer Reviews',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/reviews');
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.access_time_outlined,
+                  label: 'Operating Hours',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/hours');
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.campaign_outlined,
+                  label: 'Promotional Banner',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/banner');
+                  },
+                ),
+                const Divider(indent: 16, endIndent: 16),
+                _DrawerItem(
+                  icon: Icons.person_outline,
+                  label: 'Profile & Settings',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/profile');
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Logout at bottom
+          const Divider(height: 1),
+          _DrawerItem(
+            icon: Icons.logout,
+            label: 'Sign Out',
+            color: Colors.red,
+            onTap: () => ref.read(authProvider.notifier).logout(),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _DrawerItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? Colors.black87;
+    return ListTile(
+      leading: Icon(icon, color: c, size: 22),
+      title: Text(label,
+          style:
+              TextStyle(color: c, fontSize: 14, fontWeight: FontWeight.w500)),
+      onTap: onTap,
+      horizontalTitleGap: 8,
+      dense: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
     );
   }
 }

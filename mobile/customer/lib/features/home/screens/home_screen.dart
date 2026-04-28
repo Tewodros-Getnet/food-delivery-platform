@@ -6,7 +6,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../restaurants/services/restaurant_service.dart';
 import '../../restaurants/models/restaurant_model.dart';
 import '../../cart/providers/cart_provider.dart';
-import '../../notifications/notification_store.dart';
 
 final restaurantsProvider = FutureProvider<List<RestaurantModel>>(
     (ref) => ref.read(restaurantServiceProvider).getRestaurants());
@@ -106,8 +105,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final restaurants = ref.watch(restaurantsProvider);
     final cartCount = ref.watch(cartProvider).totalItems;
-    final unreadCount = ref.watch(notificationStoreProvider
-        .select((list) => list.where((n) => !n.isRead).length));
     final isSearchActive = _query != null && _query!.isNotEmpty;
 
     return Scaffold(
@@ -115,44 +112,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: const Text('Food Delivery'),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
-        actions: [
-          // Cart icon — always visible, badge shows item count
-          Stack(children: [
-            IconButton(
-                icon: const Icon(Icons.shopping_cart_outlined),
-                onPressed: () => context.push('/cart')),
-            if (cartCount > 0)
-              Positioned(
-                  right: 6,
-                  top: 6,
-                  child: CircleAvatar(
-                      radius: 8,
-                      backgroundColor: Colors.red,
-                      child: Text('$cartCount',
-                          style: const TextStyle(
-                              fontSize: 10, color: Colors.white)))),
-          ]),
-          // Bell icon with unread badge
-          Stack(children: [
-            IconButton(
-                icon: const Icon(Icons.notifications_outlined),
-                onPressed: () => context.push('/notifications')),
-            if (unreadCount > 0)
-              Positioned(
-                  right: 6,
-                  top: 6,
-                  child: CircleAvatar(
-                      radius: 8,
-                      backgroundColor: Colors.red,
-                      child: Text('$unreadCount',
-                          style: const TextStyle(
-                              fontSize: 10, color: Colors.white)))),
-          ]),
-          IconButton(
-              icon: const Icon(Icons.person_outline),
-              onPressed: () => context.push('/profile')),
-        ],
       ),
+      floatingActionButton: cartCount > 0
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/cart'),
+              backgroundColor: Colors.orange,
+              icon: const Icon(Icons.shopping_cart, color: Colors.white),
+              label: Text('Cart ($cartCount)',
+                  style: const TextStyle(color: Colors.white)),
+            )
+          : null,
       body: Column(
         children: [
           // Search bar
