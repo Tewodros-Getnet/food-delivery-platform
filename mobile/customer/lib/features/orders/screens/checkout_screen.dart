@@ -27,6 +27,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
   String? _error;
   String? _selectedAddressId;
 
+  // Delivery fee estimate
+  double? _estimatedFee;
+  bool _estimatingFee = false;
+
   // Tracks the pending order while user is on Chapa page
   String? _pendingOrderId;
   bool _awaitingReturn = false;
@@ -43,7 +47,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
     super.dispose();
   }
 
-  // Called when app comes back to foreground after user returns from Chapa
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
@@ -54,18 +57,41 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
     }
   }
 
-  // Bug 4 fix: poll order status after returning from Chapa browser
+  Future<void> _estimateDeliveryFee(String addressId) async {
+    final cart = ref.read(cartProvider);
+    if (cart.restaurantId == null) return;
+    setState(() {
+      _estimatingFee = true;
+      _estimatedFee = null;
+    });
+    try {
+      final res = await ref.read(dioClientProvider).dio.get(
+        ApiConstants.estimateFee,
+        queryParameters: {
+          'restaurant_id': cart.restaurantId,
+          'delivery_address_id': addressId,
+        },
+      );
+      final fee = double.tryParse((res.data['data']['fee'] ?? 0).toString());
+      if (mounted) setState(() => _estimatedFee = fee);
+    } catch (_) {
+      // Non-critical — just don't show the estimate
+    } finally {
+      if (mounted) setState(() => _estimatingFee = false);
+    }
+  }
+
   Future<void> _verifyAndNavigate(String orderId) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      // Poll up to 5 times with 1.5s delay to give webhook time to fire
       for (int i = 0; i < 5; i++) {
         await Future.delayed(const Duration(milliseconds: 1500));
         final order = await ref.read(orderServiceProvider).getById(orderId);
-        if (order.status == 'confirmed') {
+        if (order.status == 'pending_acceptance' ||
+            order.status == 'confirmed') {
           if (mounted) context.push('/order/$orderId/track');
           return;
         }
@@ -75,7 +101,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
           return;
         }
       }
-      // Webhook may still be in flight — navigate anyway, tracking screen will update
       if (mounted) context.push('/order/$orderId/track');
     } catch (e) {
       if (mounted) context.push('/order/$orderId/track');
@@ -112,14 +137,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
           setState(() => _error = 'Could not open payment page. Try again.');
           return;
         }
-        // Bug 4 fix: mark that we're waiting for the user to return from Chapa
         ref.read(cartProvider.notifier).clear();
         setState(() {
           _pendingOrderId = orderId;
           _awaitingReturn = true;
           _isLoading = false;
         });
-        // didChangeAppLifecycleState will handle navigation on return
       }
     } catch (e) {
       setState(() => _error = e.toString());
@@ -132,99 +155,317 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
     final addressesAsync = ref.watch(_addressesProvider);
+    final subtotal = cart.subtotal;
+    final total = subtotal + (_estimatedFee ?? 0);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('Order Summary',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          ...cart.items.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('${item.menuItem.name} x${item.quantity}'),
-                      Text('ETB ${item.subtotal.toStringAsFixed(2)}'),
-                    ]),
-              )),
-          const Divider(height: 24),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Total',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Text('ETB ${cart.subtotal.toStringAsFixed(2)}',
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ]),
-          const SizedBox(height: 20),
-          const Text('Delivery Address',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          addressesAsync.when(
-            loading: () => const CircularProgressIndicator(),
-            error: (e, _) => Text('Failed to load addresses: $e',
-                style: const TextStyle(color: Colors.red)),
-            data: (addresses) => addresses.isEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                        const Text('No saved addresses.',
-                            style: TextStyle(color: Colors.grey)),
-                        TextButton(
-                          onPressed: () => context.push('/addresses'),
-                          child: const Text('Add an address first'),
-                        ),
-                      ])
-                : Column(
-                    children: addresses
-                        .map((a) => RadioListTile<String>(
-                              title: Text(a['label'] as String? ?? 'Address'),
-                              subtitle: Text(a['address_line'] as String),
-                              value: a['id'] as String,
-                              groupValue: _selectedAddressId,
-                              onChanged: (v) =>
-                                  setState(() => _selectedAddressId = v),
-                            ))
-                        .toList(),
-                  ),
-          ),
-          if (_awaitingReturn) ...[
-            const SizedBox(height: 16),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 12),
-                Text('Waiting for payment confirmation...'),
-              ],
-            ),
-          ],
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
-            if (_pendingOrderId != null)
-              TextButton(
-                onPressed: () => _verifyAndNavigate(_pendingOrderId!),
-                child: const Text('Check payment status'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Order summary ──────────────────────────────────────────────
+            _SectionHeader(title: 'Order Summary'),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
               ),
-          ],
-          const Spacer(),
-          if (!_awaitingReturn)
-            ElevatedButton(
-              onPressed: _isLoading ? null : _placeOrder,
-              style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.orange),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Pay with Chapa',
-                      style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: Column(
+                children: [
+                  ...cart.items.map((item) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${item.menuItem.name} × ${item.quantity}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                  if (item.selectedModifiers.isNotEmpty)
+                                    Text(
+                                      item.selectedModifiers
+                                          .map((m) => m.option)
+                                          .join(', '),
+                                      style: const TextStyle(
+                                          fontSize: 11, color: Colors.black45),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              'ETB ${item.subtotal.toStringAsFixed(2)}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      )),
+                  const Divider(height: 1),
+                  // Subtotal
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Subtotal',
+                            style: TextStyle(color: Colors.grey[600])),
+                        Text('ETB ${subtotal.toStringAsFixed(2)}'),
+                      ],
+                    ),
+                  ),
+                  // Delivery fee
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Delivery fee',
+                            style: TextStyle(color: Colors.grey[600])),
+                        _estimatingFee
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2))
+                            : Text(
+                                _estimatedFee != null
+                                    ? 'ETB ${_estimatedFee!.toStringAsFixed(2)}'
+                                    : '—',
+                                style: TextStyle(
+                                    color: _estimatedFee != null
+                                        ? Colors.black87
+                                        : Colors.grey[400]),
+                              ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  // Total
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text(
+                          _estimatedFee != null
+                              ? 'ETB ${total.toStringAsFixed(2)}'
+                              : 'ETB ${subtotal.toStringAsFixed(2)}+',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Colors.orange),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-        ]),
+
+            const SizedBox(height: 24),
+
+            // ── Delivery address ───────────────────────────────────────────
+            _SectionHeader(title: 'Delivery Address'),
+            const SizedBox(height: 10),
+            addressesAsync.when(
+              loading: () => const Center(
+                  child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              )),
+              error: (e, _) => Text('Failed to load addresses: $e',
+                  style: const TextStyle(color: Colors.red)),
+              data: (addresses) => addresses.isEmpty
+                  ? Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('No saved addresses.',
+                              style: TextStyle(fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
+                          GestureDetector(
+                            onTap: () => context.push('/addresses'),
+                            child: const Text('Add a delivery address →',
+                                style: TextStyle(
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Column(
+                      children: addresses.map((a) {
+                        final isSelected =
+                            _selectedAddressId == a['id'] as String;
+                        return GestureDetector(
+                          onTap: () {
+                            final id = a['id'] as String;
+                            setState(() => _selectedAddressId = id);
+                            _estimateDeliveryFee(id);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.orange.shade50
+                                  : Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.orange
+                                    : Colors.grey.shade200,
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(children: [
+                              Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_unchecked,
+                                color: isSelected ? Colors.orange : Colors.grey,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if ((a['label'] as String?)?.isNotEmpty ==
+                                        true)
+                                      Text(a['label'] as String,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13)),
+                                    Text(
+                                      a['address_line'] as String,
+                                      style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ]),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── Awaiting payment return ────────────────────────────────────
+            if (_awaitingReturn) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 12),
+                    Text('Waiting for payment confirmation...'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── Error ──────────────────────────────────────────────────────
+            if (_error != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                    if (_pendingOrderId != null)
+                      TextButton(
+                        onPressed: () => _verifyAndNavigate(_pendingOrderId!),
+                        child: const Text('Check payment status'),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── Pay button ─────────────────────────────────────────────────
+            if (!_awaitingReturn)
+              ElevatedButton(
+                onPressed: _isLoading ? null : _placeOrder,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Colors.orange,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.5))
+                    : Text(
+                        _estimatedFee != null
+                            ? 'Pay ETB ${total.toStringAsFixed(2)} with Chapa'
+                            : 'Pay with Chapa',
+                        style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold),
+                      ),
+              ),
+
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold));
   }
 }

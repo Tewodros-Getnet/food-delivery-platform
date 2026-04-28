@@ -116,11 +116,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
         actions: [
-          if (cartCount > 0)
-            Stack(children: [
-              IconButton(
-                  icon: const Icon(Icons.shopping_cart),
-                  onPressed: () => context.push('/cart')),
+          // Cart icon — always visible, badge shows item count
+          Stack(children: [
+            IconButton(
+                icon: const Icon(Icons.shopping_cart_outlined),
+                onPressed: () => context.push('/cart')),
+            if (cartCount > 0)
               Positioned(
                   right: 6,
                   top: 6,
@@ -130,10 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Text('$cartCount',
                           style: const TextStyle(
                               fontSize: 10, color: Colors.white)))),
-            ]),
-          IconButton(
-              icon: const Icon(Icons.receipt_long),
-              onPressed: () => context.push('/orders')),
+          ]),
           // Bell icon with unread badge
           Stack(children: [
             IconButton(
@@ -151,7 +149,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               fontSize: 10, color: Colors.white)))),
           ]),
           IconButton(
-              icon: const Icon(Icons.person),
+              icon: const Icon(Icons.person_outline),
               onPressed: () => context.push('/profile')),
         ],
       ),
