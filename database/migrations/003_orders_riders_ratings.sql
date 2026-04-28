@@ -8,7 +8,7 @@ CREATE TABLE orders (
   rider_id UUID REFERENCES users(id),
   delivery_address_id UUID NOT NULL REFERENCES addresses(id),
   status VARCHAR(30) NOT NULL CHECK (status IN (
-    'pending_payment', 'payment_failed', 'confirmed',
+    'pending_payment', 'pending_acceptance', 'payment_failed', 'confirmed',
     'ready_for_pickup', 'rider_assigned', 'picked_up',
     'delivered', 'cancelled'
   )),
@@ -37,7 +37,8 @@ CREATE TABLE order_items (
   quantity INT NOT NULL CHECK (quantity > 0),
   unit_price DECIMAL(10, 2) NOT NULL,
   item_name VARCHAR(255) NOT NULL,
-  item_image_url TEXT
+  item_image_url TEXT,
+  selected_modifiers JSONB DEFAULT '[]'
 );
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 

@@ -19,6 +19,7 @@ interface Order {
 
 const STATUS_STYLES: Record<string, string> = {
   pending_payment: 'bg-gray-100 text-gray-600',
+  pending_acceptance: 'bg-yellow-50 text-yellow-700',
   confirmed: 'bg-blue-50 text-blue-700',
   ready_for_pickup: 'bg-amber-50 text-amber-700',
   rider_assigned: 'bg-purple-50 text-purple-700',
@@ -32,9 +33,10 @@ const CANCELLED_BY_STYLES: Record<string, string> = {
   customer: 'bg-blue-50 text-blue-700',
   restaurant: 'bg-orange-50 text-orange-700',
   admin: 'bg-red-50 text-red-700',
+  system: 'bg-gray-100 text-gray-600',
 };
 
-const STUCK_STATUSES = ['confirmed', 'ready_for_pickup', 'rider_assigned', 'picked_up'];
+const STUCK_STATUSES = ['pending_acceptance', 'confirmed', 'ready_for_pickup', 'rider_assigned', 'picked_up'];
 
 function TableSkeleton() {
   return (
@@ -105,7 +107,7 @@ export default function OrdersPage() {
           className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
         >
           <option value="">All Statuses</option>
-          {['pending_payment', 'confirmed', 'ready_for_pickup', 'rider_assigned', 'picked_up', 'delivered', 'cancelled', 'payment_failed'].map((s) => (
+          {['pending_payment', 'pending_acceptance', 'confirmed', 'ready_for_pickup', 'rider_assigned', 'picked_up', 'delivered', 'cancelled', 'payment_failed'].map((s) => (
             <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
           ))}
         </select>
