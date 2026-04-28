@@ -32,7 +32,7 @@ router.put('/location', authenticate, authorize('rider'), [
         delivery_address_id: string;
       }>(
         `SELECT id, customer_id, delivery_address_id
-         FROM orders WHERE rider_id = $1 AND status = 'picked_up' LIMIT 1`,
+         FROM orders WHERE rider_id = $1 AND status IN ('rider_assigned', 'picked_up') LIMIT 1`,
         [req.userId]
       );
       if (activeOrder.rows[0]) {

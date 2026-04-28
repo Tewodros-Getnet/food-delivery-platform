@@ -461,7 +461,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             ),
           ),
         Expanded(child: _Timeline(status: _order!.status)),
-        if (['confirmed', 'ready_for_pickup'].contains(_order!.status))
+        if (['confirmed', 'ready_for_pickup', 'pending_acceptance']
+            .contains(_order!.status))
           Padding(
             padding: const EdgeInsets.all(16),
             child: OutlinedButton(
