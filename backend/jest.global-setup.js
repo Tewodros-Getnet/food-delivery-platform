@@ -19,6 +19,7 @@ module.exports = async function globalSetup() {
     '../database/migrations/010_menu_modifiers.sql',
     '../database/migrations/011_rating_replies.sql',
     '../database/migrations/012_promotional_banners.sql',
+    '../database/migrations/013_favorites.sql',
   ];
 
   for (const rel of migrations) {
