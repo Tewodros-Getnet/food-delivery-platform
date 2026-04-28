@@ -10,6 +10,7 @@ export interface User {
   phone: string | null;
   profile_photo_url: string | null;
   status: UserStatus;
+  email_verified: boolean;
   created_at: Date;
   updated_at: Date;
 }

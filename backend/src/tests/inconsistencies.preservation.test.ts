@@ -26,6 +26,9 @@ jest.mock('../services/fcm.service', () => ({
   sendPushNotification: jest.fn().mockResolvedValue(undefined),
   registerFcmToken: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('../services/email.service', () => ({
+  sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+}));
 
 let restaurantToken: string;
 let restaurantId: string;
@@ -34,9 +37,11 @@ let riderToken: string;
 let riderId: string;
 
 beforeAll(async () => {
-  const restaurant = await authService.register(`pres_rest_${Date.now()}@test.com`, 'Password123!', 'restaurant');
-  restaurantToken = restaurant.tokens.jwt;
-  restaurantOwnerId = restaurant.user.id;
+  const restaurantReg = await authService.register(`pres_rest_${Date.now()}@test.com`, 'Password123!', 'restaurant');
+  restaurantOwnerId = restaurantReg.userId;
+  await pool.query('UPDATE users SET email_verified = TRUE WHERE id = $1', [restaurantOwnerId]);
+  const restaurantLogin = await authService.login(restaurantReg.email, 'Password123!');
+  restaurantToken = restaurantLogin.tokens.jwt;
 
   const rResult = await pool.query(
     `INSERT INTO restaurants (owner_id, name, address, latitude, longitude, status)
@@ -45,9 +50,11 @@ beforeAll(async () => {
   );
   restaurantId = (rResult.rows[0] as { id: string }).id;
 
-  const rider = await authService.register(`pres_rider_${Date.now()}@test.com`, 'Password123!', 'rider');
-  riderToken = rider.tokens.jwt;
-  riderId = rider.user.id;
+  const riderReg = await authService.register(`pres_rider_${Date.now()}@test.com`, 'Password123!', 'rider');
+  riderId = riderReg.userId;
+  await pool.query('UPDATE users SET email_verified = TRUE WHERE id = $1', [riderId]);
+  const riderLogin = await authService.login(riderReg.email, 'Password123!');
+  riderToken = riderLogin.tokens.jwt;
 });
 
 afterAll(async () => {
@@ -116,22 +123,31 @@ describe('Preservation 3.2: All pre-existing env keys remain defined', () => {
 
 describe('Preservation 3.3: riderAccepted clears dispatch session', () => {
   test('riderAccepted should clear session and cancel timeout', async () => {
-    const customer = await authService.register(`pres_cust_${Date.now()}@test.com`, 'Password123!', 'customer');
+    const customerReg = await authService.register(`pres_cust_${Date.now()}@test.com`, 'Password123!', 'customer');
     const addrResult = await pool.query(
       `INSERT INTO addresses (user_id, address_line, latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING id`,
-      [customer.user.id, '456 Customer St', 9.04, 38.75]
+      [customerReg.userId, '456 Customer St', 9.04, 38.75]
     );
     const addressId = (addrResult.rows[0] as { id: string }).id;
 
     await pool.query(
-      `INSERT INTO rider_locations (rider_id, latitude, longitude, availability) VALUES ($1, 9.03, 38.74, 'available')`,
+      `INSERT INTO rider_locations (rider_id, latitude, longitude, availability)
+       VALUES ($1, 9.03, 38.74, 'available')
+       ON CONFLICT (rider_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, availability=EXCLUDED.availability`,
       [riderId]
+    );
+
+    // Assign rider to restaurant so startDispatch can find them via restaurant_riders JOIN
+    await pool.query(
+      `INSERT INTO restaurant_riders (rider_id, restaurant_id) VALUES ($1, $2)
+       ON CONFLICT (rider_id) DO UPDATE SET restaurant_id = EXCLUDED.restaurant_id`,
+      [riderId, restaurantId]
     );
 
     const orderResult = await pool.query(
       `INSERT INTO orders (customer_id, restaurant_id, delivery_address_id, status, subtotal, delivery_fee, total, payment_reference, payment_status)
        VALUES ($1, $2, $3, 'confirmed', 50.00, 10.00, 60.00, 'pres_ref', 'paid') RETURNING id`,
-      [customer.user.id, restaurantId, addressId]
+      [customerReg.userId, restaurantId, addressId]
     );
     const orderId = (orderResult.rows[0] as { id: string }).id;
 
@@ -146,9 +162,10 @@ describe('Preservation 3.3: riderAccepted clears dispatch session', () => {
     // Cleanup
     await pool.query(`DELETE FROM orders WHERE id = $1`, [orderId]);
     await pool.query(`DELETE FROM addresses WHERE id = $1`, [addressId]);
+    await pool.query(`DELETE FROM restaurant_riders WHERE rider_id = $1`, [riderId]);
     await pool.query(`DELETE FROM rider_locations WHERE rider_id = $1`, [riderId]);
-    await pool.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [customer.user.id]);
-    await pool.query(`DELETE FROM users WHERE id = $1`, [customer.user.id]);
+    await pool.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [customerReg.userId]);
+    await pool.query(`DELETE FROM users WHERE id = $1`, [customerReg.userId]);
   });
 });
 
@@ -187,6 +204,8 @@ describe('Preservation 3.6: All pre-existing Order fields are present in the int
       payment_status: null,
       cancellation_reason: null,
       cancelled_at: null,
+      cancelled_by: null,
+      acceptance_deadline: null,
       estimated_prep_time_minutes: null,
       created_at: new Date(),
       updated_at: new Date(),
@@ -291,7 +310,8 @@ describe('Preservation 3.10: Events to connected users are delivered immediately
       id: 'test', customer_id: 'c', restaurant_id: 'r', rider_id: null,
       delivery_address_id: 'a', status: 'confirmed', subtotal: 50,
       delivery_fee: 10, total: 60, payment_reference: null, payment_status: null,
-      cancellation_reason: null, cancelled_at: null, estimated_prep_time_minutes: null,
+      cancellation_reason: null, cancelled_at: null, cancelled_by: null,
+      acceptance_deadline: null, estimated_prep_time_minutes: null,
       created_at: new Date(), updated_at: new Date(),
     };
     expect(() => emitOrderStatusChanged(mockOrder, 'user-id')).not.toThrow();

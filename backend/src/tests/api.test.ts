@@ -10,14 +10,25 @@ import app from '../app';
 import * as authService from '../services/auth.service';
 import { pool } from '../config/database';
 
+// Mock email service to avoid real SendGrid calls in tests
+jest.mock('../services/email.service', () => ({
+  sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+}));
+
 let customerToken: string;
 let restaurantToken: string;
 
 beforeAll(async () => {
-  const c = await authService.register(`api_cust_${Date.now()}@test.com`, 'Password123!', 'customer');
-  const r = await authService.register(`api_rest_${Date.now()}@test.com`, 'Password123!', 'restaurant');
-  customerToken = c.tokens.jwt;
-  restaurantToken = r.tokens.jwt;
+  const cReg = await authService.register(`api_cust_${Date.now()}@test.com`, 'Password123!', 'customer');
+  const rReg = await authService.register(`api_rest_${Date.now()}@test.com`, 'Password123!', 'restaurant');
+  // Verify emails so login works
+  await pool.query('UPDATE users SET email_verified = TRUE WHERE id IN ($1, $2)', [cReg.userId, rReg.userId]);
+  const cEmail = (await pool.query<{ email: string }>('SELECT email FROM users WHERE id = $1', [cReg.userId])).rows[0].email;
+  const rEmail = (await pool.query<{ email: string }>('SELECT email FROM users WHERE id = $1', [rReg.userId])).rows[0].email;
+  const cLogin = await authService.login(cEmail, 'Password123!');
+  const rLogin = await authService.login(rEmail, 'Password123!');
+  customerToken = cLogin.tokens.jwt;
+  restaurantToken = rLogin.tokens.jwt;
 });
 
 afterAll(async () => {

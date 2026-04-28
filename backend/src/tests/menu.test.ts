@@ -20,9 +20,14 @@ jest.mock('../services/cloudinary.service', () => ({
   deleteImage: jest.fn().mockResolvedValue(undefined),
 }));
 
+// Mock email service to avoid real SendGrid calls in tests
+jest.mock('../services/email.service', () => ({
+  sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+}));
+
 beforeAll(async () => {
-  const { user } = await authService.register(`menu_owner_${Date.now()}@test.com`, 'Password123!', 'restaurant');
-  ownerId = user.id;
+  const reg = await authService.register(`menu_owner_${Date.now()}@test.com`, 'Password123!', 'restaurant');
+  ownerId = reg.userId;
   const r = await restaurantService.createRestaurant({
     ownerId,
     name: 'Test Restaurant',
@@ -61,9 +66,9 @@ function makeItem(overrides = {}) {
 
 describe('Property 10: Pending restaurants cannot publish menu items', () => {
   test('creating menu item for pending restaurant is rejected', async () => {
-    const { user } = await authService.register(`pending_owner_${Date.now()}@test.com`, 'Password123!', 'restaurant');
+    const reg = await authService.register(`pending_owner_${Date.now()}@test.com`, 'Password123!', 'restaurant');
     const r = await restaurantService.createRestaurant({
-      ownerId: user.id,
+      ownerId: reg.userId,
       name: 'Pending Restaurant',
       address: '456 St',
       latitude: 9.0,
@@ -72,7 +77,7 @@ describe('Property 10: Pending restaurants cannot publish menu items', () => {
     // status is 'pending' — controller checks this, so we test the service guard via controller logic
     expect(r.status).toBe('pending');
     await pool.query('DELETE FROM restaurants WHERE id = $1', [r.id]);
-    await pool.query('DELETE FROM users WHERE id = $1', [user.id]);
+    await pool.query('DELETE FROM users WHERE id = $1', [reg.userId]);
   });
 });
 

@@ -5,8 +5,9 @@ import app from './app';
 import { env } from './config/env';
 import { pool } from './config/database';
 import { logger } from './utils/logger';
-import { startPaymentExpiryJob, startAcceptanceTimeoutJob, startOperatingHoursJob } from './services/scheduler.service';
+import { startPaymentExpiryJob, startAcceptanceTimeoutJob, startOperatingHoursJob, startTokenCleanupJob } from './services/scheduler.service';
 import { initSocketServer } from './services/socket.service';
+import { recoverDispatchSessions } from './services/rider.service';
 
 const server = http.createServer(app);
 
@@ -25,11 +26,14 @@ async function start() {
     process.exit(1);
   }
 
+  await recoverDispatchSessions();
+
   server.listen(env.PORT, () => {
     logger.info(`Server running on port ${env.PORT}`, { env: env.NODE_ENV });
     startPaymentExpiryJob();
     startAcceptanceTimeoutJob();
     startOperatingHoursJob();
+    startTokenCleanupJob();
   });
 }
 

@@ -8,4 +8,5 @@ module.exports = {
   },
   testTimeout: 30000,
   setupFiles: ['<rootDir>/jest.setup.js'],
+  globalSetup: '<rootDir>/jest.global-setup.js',
 };

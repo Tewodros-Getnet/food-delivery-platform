@@ -5,6 +5,7 @@ import { calculateDeliveryFee } from '../utils/haversine';
 import { env } from '../config/env';
 import * as chapaService from './chapa.service';
 import { sendPushNotification } from './fcm.service';
+import { logger } from '../utils/logger';
 
 export interface CreateOrderInput {
   customerId: string;
@@ -57,11 +58,11 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
     }
 
     const [rResult, aResult] = await Promise.all([
-      client.query('SELECT latitude, longitude, is_open FROM restaurants WHERE id = $1', [input.restaurantId]),
+      client.query('SELECT latitude, longitude, is_open, minimum_order_value FROM restaurants WHERE id = $1', [input.restaurantId]),
       client.query('SELECT latitude, longitude FROM addresses WHERE id = $1', [input.deliveryAddressId]),
     ]);
 
-    const r = rResult.rows[0] as { latitude: number; longitude: number; is_open: boolean };
+    const r = rResult.rows[0] as { latitude: number; longitude: number; is_open: boolean; minimum_order_value: number | null };
     const a = aResult.rows[0] as { latitude: number; longitude: number };
 
     if (r.is_open === false) {
@@ -85,6 +86,16 @@ export async function createOrder(input: CreateOrderInput): Promise<{ order: Ord
         subtotal += (menuItem.price + modifierExtra) * item.quantity;
       }
     }
+    const minimumOrderValue = r.minimum_order_value ?? 0;
+    if (subtotal < minimumOrderValue) {
+      const err = new Error(
+        `Order subtotal ETB ${subtotal.toFixed(2)} is below the minimum order value of ETB ${minimumOrderValue.toFixed(2)}`
+      ) as Error & { statusCode: number; minimumOrderValue: number };
+      err.statusCode = 422;
+      err.minimumOrderValue = minimumOrderValue;
+      throw err;
+    }
+
     const total = subtotal + delivery_fee;
     const txRef = uuidv4();
 
@@ -367,7 +378,11 @@ export async function rejectOrder(
 
   // Fire-and-forget refund
   const { initiateRefund } = await import('./refund.service');
-  void initiateRefund(orderId);
+  try {
+    await initiateRefund(orderId);
+  } catch {
+    logger.error('Refund failed for rejected order', { orderId });
+  }
 
   const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
   // Notify customer: FCM + socket
@@ -396,14 +411,19 @@ export async function cancelOrderNoRider(orderId: string): Promise<void> {
 
   const cancelled = await updateOrderStatus(orderId, 'cancelled', {
     cancellation_reason: 'No rider available',
+    cancelled_by: 'system',
     cancelled_at: new Date(),
-    payment_status: 'refunded',
+    // payment_status is set by initiateRefund (refund.service.ts)
   });
 
   if (!cancelled) return;
 
   const { initiateRefund } = await import('./refund.service');
-  void initiateRefund(orderId);
+  try {
+    await initiateRefund(orderId);
+  } catch {
+    logger.error('Refund failed for cancelled order (no rider)', { orderId });
+  }
 
   const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
   emitOrderStatusChanged(cancelled, order.customer_id);

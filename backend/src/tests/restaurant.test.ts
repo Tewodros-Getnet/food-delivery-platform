@@ -10,16 +10,25 @@ import * as restaurantService from '../services/restaurant.service';
 import * as authService from '../services/auth.service';
 import { pool } from '../config/database';
 
+// Mock email service to avoid real SendGrid calls in tests
+jest.mock('../services/email.service', () => ({
+  sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+}));
+
 let ownerUserId: string;
 
 beforeAll(async () => {
+  await pool.query('DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE restaurant_id IN (SELECT id FROM restaurants))');
+  await pool.query('DELETE FROM orders WHERE restaurant_id IN (SELECT id FROM restaurants)');
   await pool.query('DELETE FROM restaurants');
   await pool.query('DELETE FROM users WHERE role = $1', ['restaurant']);
-  const { user } = await authService.register(`owner_${Date.now()}@test.com`, 'Password123!', 'restaurant');
-  ownerUserId = user.id;
+  const reg = await authService.register(`owner_${Date.now()}@test.com`, 'Password123!', 'restaurant');
+  ownerUserId = reg.userId;
 });
 
 afterAll(async () => {
+  await pool.query('DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE restaurant_id IN (SELECT id FROM restaurants))');
+  await pool.query('DELETE FROM orders WHERE restaurant_id IN (SELECT id FROM restaurants)');
   await pool.query('DELETE FROM restaurants');
   await pool.query('DELETE FROM users WHERE id = $1', [ownerUserId]);
   await pool.end();

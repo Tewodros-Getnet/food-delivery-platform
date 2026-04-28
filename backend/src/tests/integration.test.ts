@@ -21,6 +21,9 @@ jest.mock('../services/fcm.service', () => ({
   sendPushNotification: jest.fn().mockResolvedValue(undefined),
   registerFcmToken: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('../services/email.service', () => ({
+  sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+}));
 
 let customerToken: string;
 let restaurantToken: string;
@@ -33,17 +36,25 @@ let orderId: string;
 
 beforeAll(async () => {
   // Create test users
-  const customer = await authService.register(`int_cust_${Date.now()}@test.com`, 'Password123!', 'customer');
-  const restaurant = await authService.register(`int_rest_${Date.now()}@test.com`, 'Password123!', 'restaurant');
-  const rider = await authService.register(`int_rider_${Date.now()}@test.com`, 'Password123!', 'rider');
+  const customerReg = await authService.register(`int_cust_${Date.now()}@test.com`, 'Password123!', 'customer');
+  const restaurantReg = await authService.register(`int_rest_${Date.now()}@test.com`, 'Password123!', 'restaurant');
+  const riderReg = await authService.register(`int_rider_${Date.now()}@test.com`, 'Password123!', 'rider');
 
-  customerToken = customer.tokens.jwt;
-  restaurantToken = restaurant.tokens.jwt;
-  riderToken = rider.tokens.jwt;
+  // Verify emails so login works
+  await pool.query('UPDATE users SET email_verified = TRUE WHERE id IN ($1, $2, $3)',
+    [customerReg.userId, restaurantReg.userId, riderReg.userId]);
+
+  const customerLogin = await authService.login(customerReg.email, 'Password123!');
+  const restaurantLogin = await authService.login(restaurantReg.email, 'Password123!');
+  const riderLogin = await authService.login(riderReg.email, 'Password123!');
+
+  customerToken = customerLogin.tokens.jwt;
+  restaurantToken = restaurantLogin.tokens.jwt;
+  riderToken = riderLogin.tokens.jwt;
 
   // Create admin user directly
   const adminResult = await pool.query(
-    `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'admin') RETURNING *`,
+    `INSERT INTO users (email, password_hash, role, email_verified) VALUES ($1, $2, 'admin', TRUE) RETURNING *`,
     [`int_admin_${Date.now()}@test.com`, '$2b$10$test']
   );
   const adminUser = adminResult.rows[0] as { id: string };
@@ -52,7 +63,7 @@ beforeAll(async () => {
 
   // Create restaurant
   const r = await restaurantService.createRestaurant({
-    ownerId: restaurant.user.id,
+    ownerId: restaurantReg.userId,
     name: 'Integration Test Restaurant',
     address: '123 Test St',
     latitude: 9.03,
@@ -64,7 +75,7 @@ beforeAll(async () => {
   // Create address for customer
   const addrResult = await pool.query(
     `INSERT INTO addresses (user_id, address_line, latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING id`,
-    [customer.user.id, '456 Customer St', 9.04, 38.75]
+    [customerReg.userId, '456 Customer St', 9.04, 38.75]
   );
   addressId = (addrResult.rows[0] as { id: string }).id;
 

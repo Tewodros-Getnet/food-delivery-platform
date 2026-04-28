@@ -31,6 +31,9 @@ jest.mock('../services/fcm.service', () => ({
   sendPushNotification: jest.fn().mockResolvedValue(undefined),
   registerFcmToken: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('../services/email.service', () => ({
+  sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+}));
 
 let restaurantToken: string;
 let restaurantId: string;
@@ -38,9 +41,12 @@ let restaurantOwnerId: string;
 
 beforeAll(async () => {
   // Create test restaurant user
-  const restaurant = await authService.register(`bug_rest_${Date.now()}@test.com`, 'Password123!', 'restaurant');
-  restaurantToken = restaurant.tokens.jwt;
-  restaurantOwnerId = restaurant.user.id;
+  const restaurantReg = await authService.register(`bug_rest_${Date.now()}@test.com`, 'Password123!', 'restaurant');
+  restaurantOwnerId = restaurantReg.userId;
+  // Verify email so JWT can be obtained via login
+  await pool.query('UPDATE users SET email_verified = TRUE WHERE id = $1', [restaurantOwnerId]);
+  const restaurantLogin = await authService.login(restaurantReg.email, 'Password123!');
+  restaurantToken = restaurantLogin.tokens.jwt;
 
   // Create restaurant
   const rResult = await pool.query(
@@ -109,28 +115,42 @@ describe('Bug 2: Missing env vars (CHAPA_PUBLIC_KEY, USE_CLOUDINARY, CHAPA_BASE_
 describe('Bug 4: Broken re-dispatch (riderDeclined should call emitDeliveryRequest for next rider)', () => {
   test('riderDeclined should trigger delivery request to next rider', async () => {
     // Create two test riders
-    const rider1 = await authService.register(`bug_rider1_${Date.now()}@test.com`, 'Password123!', 'rider');
-    const rider2 = await authService.register(`bug_rider2_${Date.now()}@test.com`, 'Password123!', 'rider');
+    const rider1Reg = await authService.register(`bug_rider1_${Date.now()}@test.com`, 'Password123!', 'rider');
+    const rider2Reg = await authService.register(`bug_rider2_${Date.now()}@test.com`, 'Password123!', 'rider');
 
-    // Set both riders as available near the restaurant
+    // Set both riders as available near the restaurant (use UPSERT for UNIQUE constraint on rider_id)
     await pool.query(
       `INSERT INTO rider_locations (rider_id, latitude, longitude, availability)
-       VALUES ($1, 9.03, 38.74, 'available'), ($2, 9.04, 38.75, 'available')`,
-      [rider1.user.id, rider2.user.id]
+       VALUES ($1, 9.03, 38.74, 'available')
+       ON CONFLICT (rider_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, availability=EXCLUDED.availability`,
+      [rider1Reg.userId]
+    );
+    await pool.query(
+      `INSERT INTO rider_locations (rider_id, latitude, longitude, availability)
+       VALUES ($1, 9.04, 38.75, 'available')
+       ON CONFLICT (rider_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, availability=EXCLUDED.availability`,
+      [rider2Reg.userId]
+    );
+
+    // Assign riders to the restaurant so startDispatch can find them via restaurant_riders JOIN
+    await pool.query(
+      `INSERT INTO restaurant_riders (rider_id, restaurant_id) VALUES ($1, $2), ($3, $2)
+       ON CONFLICT (rider_id) DO UPDATE SET restaurant_id = EXCLUDED.restaurant_id`,
+      [rider1Reg.userId, restaurantId, rider2Reg.userId]
     );
 
     // Create an order
-    const customer = await authService.register(`bug_cust_${Date.now()}@test.com`, 'Password123!', 'customer');
+    const customerReg = await authService.register(`bug_cust_${Date.now()}@test.com`, 'Password123!', 'customer');
     const addrResult = await pool.query(
       `INSERT INTO addresses (user_id, address_line, latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING id`,
-      [customer.user.id, '456 Customer St', 9.04, 38.75]
+      [customerReg.userId, '456 Customer St', 9.04, 38.75]
     );
     const addressId = (addrResult.rows[0] as { id: string }).id;
 
     const orderResult = await pool.query(
       `INSERT INTO orders (customer_id, restaurant_id, delivery_address_id, status, subtotal, delivery_fee, total, payment_reference, payment_status)
        VALUES ($1, $2, $3, 'confirmed', 50.00, 10.00, 60.00, 'test_ref', 'paid') RETURNING id`,
-      [customer.user.id, restaurantId, addressId]
+      [customerReg.userId, restaurantId, addressId]
     );
     const orderId = (orderResult.rows[0] as { id: string }).id;
 
@@ -162,9 +182,10 @@ describe('Bug 4: Broken re-dispatch (riderDeclined should call emitDeliveryReque
     emitSpy.mockRestore();
     await pool.query(`DELETE FROM orders WHERE id = $1`, [orderId]);
     await pool.query(`DELETE FROM addresses WHERE id = $1`, [addressId]);
-    await pool.query(`DELETE FROM rider_locations WHERE rider_id IN ($1, $2)`, [rider1.user.id, rider2.user.id]);
-    await pool.query(`DELETE FROM refresh_tokens WHERE user_id IN ($1, $2, $3)`, [rider1.user.id, rider2.user.id, customer.user.id]);
-    await pool.query(`DELETE FROM users WHERE id IN ($1, $2, $3)`, [rider1.user.id, rider2.user.id, customer.user.id]);
+    await pool.query(`DELETE FROM restaurant_riders WHERE rider_id IN ($1, $2)`, [rider1Reg.userId, rider2Reg.userId]);
+    await pool.query(`DELETE FROM rider_locations WHERE rider_id IN ($1, $2)`, [rider1Reg.userId, rider2Reg.userId]);
+    await pool.query(`DELETE FROM refresh_tokens WHERE user_id IN ($1, $2, $3)`, [rider1Reg.userId, rider2Reg.userId, customerReg.userId]);
+    await pool.query(`DELETE FROM users WHERE id IN ($1, $2, $3)`, [rider1Reg.userId, rider2Reg.userId, customerReg.userId]);
   });
 });
 
@@ -251,8 +272,11 @@ describe('Bug 11: No retry (refund with transient error should retry and succeed
 describe('Bug 12: Missed events lost (offline user should receive queued events on reconnect)', () => {
   test('events emitted while offline should be delivered on reconnect', async () => {
     // Create a test user
-    const user = await authService.register(`socket_${Date.now()}@test.com`, 'Password123!', 'customer');
-    const userId = user.user.id;
+    const userReg = await authService.register(`socket_${Date.now()}@test.com`, 'Password123!', 'customer');
+    const userId = userReg.userId;
+    await pool.query('UPDATE users SET email_verified = TRUE WHERE id = $1', [userId]);
+    const userLogin = await authService.login(userReg.email, 'Password123!');
+    const userJwt = userLogin.tokens.jwt;
 
     // Create HTTP server and Socket.io server
     const httpServer = http.createServer(app);
@@ -267,7 +291,7 @@ describe('Bug 12: Missed events lost (offline user should receive queued events 
 
     // Connect client
     const client: ClientSocket = ioClientFactory(`http://localhost:${port}`, {
-      auth: { token: user.tokens.jwt },
+      auth: { token: userJwt },
     });
 
     await new Promise<void>((resolve) => {
@@ -287,7 +311,7 @@ describe('Bug 12: Missed events lost (offline user should receive queued events 
 
     // Reconnect client
     const client2: ClientSocket = ioClientFactory(`http://localhost:${port}`, {
-      auth: { token: user.tokens.jwt },
+      auth: { token: userJwt },
     });
 
     const receivedEvents: any[] = [];
@@ -319,8 +343,11 @@ describe('Bug 12: Missed events lost (offline user should receive queued events 
 describe('Bug 13: Room leak (disconnected socket room should be empty)', () => {
   test('user room should be cleaned up on disconnect', async () => {
     // Create a test user
-    const user = await authService.register(`roomleak_${Date.now()}@test.com`, 'Password123!', 'customer');
-    const userId = user.user.id;
+    const userReg = await authService.register(`roomleak_${Date.now()}@test.com`, 'Password123!', 'customer');
+    const userId = userReg.userId;
+    await pool.query('UPDATE users SET email_verified = TRUE WHERE id = $1', [userId]);
+    const userLogin = await authService.login(userReg.email, 'Password123!');
+    const userJwt = userLogin.tokens.jwt;
 
     // Create HTTP server and Socket.io server
     const httpServer = http.createServer(app);
@@ -335,7 +362,7 @@ describe('Bug 13: Room leak (disconnected socket room should be empty)', () => {
 
     // Connect client
     const client: ClientSocket = ioClientFactory(`http://localhost:${port}`, {
-      auth: { token: user.tokens.jwt },
+      auth: { token: userJwt },
     });
 
     await new Promise<void>((resolve) => {

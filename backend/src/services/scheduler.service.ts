@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { query } from '../config/database';
 import { logger } from '../utils/logger';
+import { cleanupExpiredTokens } from './auth.service';
 
 // Runs every 5 minutes — marks expired pending_payment orders as payment_failed
 export function startPaymentExpiryJob() {
@@ -167,6 +168,18 @@ export function startOperatingHoursJob() {
       }
     } catch (err) {
       logger.error('Operating hours job failed', { error: String(err) });
+    }
+  });
+}
+
+// ── Expired refresh token cleanup job ────────────────────────────────────────
+// Runs once per day at midnight — removes expired rows from refresh_tokens (Bug 13)
+export function startTokenCleanupJob() {
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      await cleanupExpiredTokens();
+    } catch (err) {
+      logger.error('Token cleanup job failed', { error: String(err) });
     }
   });
 }

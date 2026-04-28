@@ -41,12 +41,20 @@ export async function initiateRefund(orderId: string, amount?: number): Promise<
         }
       );
       logger.info('Chapa refund response', { orderId, status: response.status, data: response.data });
+      await query(
+        "UPDATE orders SET payment_status = 'refunded', updated_at = NOW() WHERE id = $1",
+        [orderId]
+      );
       return;
     } catch (err) {
       const axiosErr = err as AxiosError;
       // Don't retry on 4xx client errors
       if (axiosErr.response && axiosErr.response.status >= 400 && axiosErr.response.status < 500) {
         logger.error('Chapa refund client error (no retry)', { orderId, status: axiosErr.response.status });
+        await query(
+          "UPDATE orders SET payment_status = 'refund_failed', updated_at = NOW() WHERE id = $1",
+          [orderId]
+        );
         throw err;
       }
       lastError = err;
@@ -58,5 +66,9 @@ export async function initiateRefund(orderId: string, amount?: number): Promise<
   }
 
   logger.error('Chapa refund failed after all retries', { orderId, error: String(lastError) });
+  await query(
+    "UPDATE orders SET payment_status = 'refund_failed', updated_at = NOW() WHERE id = $1",
+    [orderId]
+  );
   throw lastError;
 }

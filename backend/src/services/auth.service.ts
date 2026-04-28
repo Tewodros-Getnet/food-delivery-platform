@@ -7,6 +7,7 @@ import { query, withTransaction } from '../config/database';
 import { env } from '../config/env';
 import { User, PublicUser, UserRole } from '../models/user.model';
 import { sendOtpEmail } from './email.service';
+import { logger } from '../utils/logger';
 
 const BCRYPT_ROUNDS = 10;
 const OTP_EXPIRY_MINUTES = 10;
@@ -136,6 +137,8 @@ export async function verifyOtp(userId: string, code: string): Promise<AuthResul
   const { raw, hash } = generateRefreshToken();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
+  // Delete all existing tokens for this user before inserting new one (Bug 13)
+  await query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
   await query(
     'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
     [user.id, hash, expiresAt]
@@ -182,12 +185,21 @@ export async function login(email: string, password: string): Promise<AuthResult
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) throw unauthorized;
 
+  // Email verification check AFTER password validation (to avoid leaking account existence)
+  if (!user.email_verified) {
+    const err = new Error('Please verify your email before logging in') as Error & { statusCode: number };
+    err.statusCode = 403;
+    throw err;
+  }
+
   const jwtToken = generateJwt(user.id, user.role);
   const { raw, hash } = generateRefreshToken();
 
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
+  // Delete all existing tokens for this user before inserting new one (Bug 13)
+  await query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
   await query(
     `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
      VALUES ($1, $2, $3)`,
@@ -227,4 +239,9 @@ export async function refresh(rawToken: string): Promise<{ jwt: string }> {
 export async function logout(rawToken: string): Promise<void> {
   const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
   await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [hash]);
+}
+
+export async function cleanupExpiredTokens(): Promise<void> {
+  const result = await query('DELETE FROM refresh_tokens WHERE expires_at < NOW()');
+  logger.info('Cleaned up expired refresh tokens', { deleted: result.rowCount ?? 0 });
 }

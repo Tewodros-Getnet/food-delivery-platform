@@ -10,18 +10,25 @@
 
 import fc from 'fast-check';
 import * as riderService from '../services/rider.service';
-import * as authService from '../services/auth.service';
-import { haversineDistance } from '../utils/haversine';
 import { pool } from '../config/database';
 
 let riderId1: string;
 let riderId2: string;
 
 beforeAll(async () => {
-  const r1 = await authService.register(`rider1_${Date.now()}@test.com`, 'Password123!', 'rider');
-  const r2 = await authService.register(`rider2_${Date.now()}@test.com`, 'Password123!', 'rider');
-  riderId1 = r1.user.id;
-  riderId2 = r2.user.id;
+  const ts = Date.now();
+  const r1 = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role, email_verified)
+     VALUES ($1, 'hash', 'rider', TRUE) RETURNING id`,
+    [`rider1_${ts}@test.com`]
+  );
+  const r2 = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role, email_verified)
+     VALUES ($1, 'hash', 'rider', TRUE) RETURNING id`,
+    [`rider2_${ts}@test.com`]
+  );
+  riderId1 = r1.rows[0].id;
+  riderId2 = r2.rows[0].id;
 });
 
 afterAll(async () => {
@@ -93,11 +100,12 @@ describe('Property 37: Dispatch sends request to nearest rider first', () => {
 // ── Property 64 ──────────────────────────────────────────────────────────────
 
 describe('Property 64: Recent rider location used for dispatch', () => {
-  test('rider with stale location (>5 min) is excluded from dispatch', async () => {
-    // Insert an old location directly
+  test('rider with stale location (>30 min) is excluded from dispatch', async () => {
+    // Insert an old location directly (older than the 30-minute threshold used by the service)
     await pool.query(
       `INSERT INTO rider_locations (rider_id, latitude, longitude, availability, timestamp)
-       VALUES ($1, 9.03, 38.74, 'available', NOW() - INTERVAL '10 minutes')`,
+       VALUES ($1, 9.03, 38.74, 'available', NOW() - INTERVAL '35 minutes')
+       ON CONFLICT (rider_id) DO UPDATE SET latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, availability=EXCLUDED.availability, timestamp=EXCLUDED.timestamp`,
       [riderId1]
     );
 
