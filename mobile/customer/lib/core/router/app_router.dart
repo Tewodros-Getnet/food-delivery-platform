@@ -7,6 +7,7 @@ import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/restaurants/screens/restaurant_detail_screen.dart';
+import '../../features/restaurants/screens/favorites_screen.dart';
 import '../../features/cart/screens/cart_screen.dart';
 import '../../features/orders/screens/checkout_screen.dart';
 import '../../features/orders/screens/order_tracking_screen.dart';
@@ -130,6 +131,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/addresses',
         builder: (_, __) => const AddressesScreen(),
+      ),
+      GoRoute(
+        path: '/favorites',
+        builder: (_, __) => const FavoritesScreen(),
       ),
 
       // ── Shell route with bottom nav (4 tabs) ────────────────────────────

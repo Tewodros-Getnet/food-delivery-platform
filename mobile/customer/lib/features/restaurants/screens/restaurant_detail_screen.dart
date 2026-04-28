@@ -6,6 +6,7 @@ import '../services/restaurant_service.dart';
 import '../models/restaurant_model.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../cart/models/cart_item.dart';
+import '../providers/favorites_provider.dart';
 
 final _detailProvider = FutureProvider.family<RestaurantModel, String>(
     (ref, id) => ref.read(restaurantServiceProvider).getById(id));
@@ -34,6 +35,22 @@ class RestaurantDetailScreen extends ConsumerWidget {
           SliverAppBar(
               expandedHeight: 200,
               pinned: true,
+              actions: [
+                // Favorite heart in the AppBar
+                Consumer(builder: (ctx, ref, _) {
+                  final isFav = ref.watch(favoritesProvider
+                      .select((s) => s.contains(restaurantId)));
+                  return IconButton(
+                    icon: Icon(
+                      isFav ? Icons.favorite : Icons.favorite_border,
+                      color: isFav ? Colors.red : Colors.white,
+                    ),
+                    onPressed: () => ref
+                        .read(favoritesProvider.notifier)
+                        .toggle(restaurantId),
+                  );
+                }),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(r.name,
                     style: const TextStyle(shadows: [Shadow(blurRadius: 4)])),

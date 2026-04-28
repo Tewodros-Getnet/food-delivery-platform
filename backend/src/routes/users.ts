@@ -193,4 +193,44 @@ router.get('/riders/:id/ratings', async (req: Request, res: Response, next: Next
   } catch (err) { next(err); }
 });
 
+// ── Favorites ─────────────────────────────────────────────────────────────────
+
+// GET /users/favorites — list all favorited restaurants
+router.get('/favorites', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `SELECT r.* FROM favorites f
+       JOIN restaurants r ON r.id = f.restaurant_id
+       WHERE f.user_id = $1
+       ORDER BY f.created_at DESC`,
+      [req.userId]
+    );
+    res.json(successResponse(result.rows));
+  } catch (err) { next(err); }
+});
+
+// POST /users/favorites/:restaurantId — add to favorites
+router.post('/favorites/:restaurantId', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await query(
+      `INSERT INTO favorites (user_id, restaurant_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, restaurant_id) DO NOTHING`,
+      [req.userId, req.params.restaurantId]
+    );
+    res.json(successResponse({ message: 'Added to favorites' }));
+  } catch (err) { next(err); }
+});
+
+// DELETE /users/favorites/:restaurantId — remove from favorites
+router.delete('/favorites/:restaurantId', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await query(
+      'DELETE FROM favorites WHERE user_id = $1 AND restaurant_id = $2',
+      [req.userId, req.params.restaurantId]
+    );
+    res.json(successResponse({ message: 'Removed from favorites' }));
+  } catch (err) { next(err); }
+});
+
 export default router;

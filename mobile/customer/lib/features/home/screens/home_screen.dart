@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../restaurants/services/restaurant_service.dart';
 import '../../restaurants/models/restaurant_model.dart';
 import '../../cart/providers/cart_provider.dart';
+import '../../restaurants/providers/favorites_provider.dart';
 
 final restaurantsProvider = FutureProvider<List<RestaurantModel>>(
     (ref) => ref.read(restaurantServiceProvider).getRestaurants());
@@ -369,12 +370,14 @@ class _MenuItemSearchCard extends StatelessWidget {
 
 // ── Restaurant card ───────────────────────────────────────────────────────────
 
-class _RestaurantCard extends StatelessWidget {
+class _RestaurantCard extends ConsumerWidget {
   final RestaurantModel r;
   const _RestaurantCard({required RestaurantModel restaurant}) : r = restaurant;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFav = ref.watch(favoritesProvider.select((s) => s.contains(r.id)));
+
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       clipBehavior: Clip.antiAlias,
@@ -445,6 +448,32 @@ class _RestaurantCard extends StatelessWidget {
                           fontWeight: FontWeight.w600)),
                 ),
               ),
+            // Favorite heart button (top-right)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () => ref.read(favoritesProvider.notifier).toggle(r.id),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 4)
+                    ],
+                  ),
+                  child: Icon(
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    color: isFav ? Colors.red : Colors.grey[600],
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
           ]),
           // Info row
           Padding(

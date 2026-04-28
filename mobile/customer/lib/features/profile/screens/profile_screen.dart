@@ -149,6 +149,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => _showEditProfileDialog(context)),
                   ListTile(
+                      leading:
+                          const Icon(Icons.favorite_border, color: Colors.red),
+                      title: const Text('Saved Restaurants'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/favorites')),
+                  ListTile(
                       leading: const Icon(Icons.location_on),
                       title: const Text('Saved Addresses'),
                       trailing: const Icon(Icons.chevron_right),
