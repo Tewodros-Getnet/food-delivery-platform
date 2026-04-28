@@ -55,6 +55,8 @@ OrderModel _makeOrder(String status) => OrderModel(
       id: 'aaaabbbb-cccc-dddd-eeee-ffffffffffff',
       restaurantId: 'rest-1',
       status: status,
+      subtotal: 90.0,
+      deliveryFee: 10.0,
       total: 100.0,
       createdAt: DateTime(2024, 1, 1, 12, 0),
     );
