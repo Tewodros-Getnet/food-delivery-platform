@@ -167,7 +167,23 @@ export async function getOrdersByUser(userId: string, role: string): Promise<Ord
     const rResult = await query('SELECT id FROM restaurants WHERE owner_id = $1', [userId]);
     if (!rResult.rows[0]) return [];
     const restaurantId = (rResult.rows[0] as { id: string }).id;
-    result = await query<Order>('SELECT * FROM orders WHERE restaurant_id = $1 ORDER BY created_at DESC', [restaurantId]);
+    result = await query<Order>(
+      `SELECT o.*,
+              (SELECT JSON_AGG(JSON_BUILD_OBJECT(
+                'id', oi.id,
+                'menu_item_id', oi.menu_item_id,
+                'quantity', oi.quantity,
+                'unit_price', oi.unit_price,
+                'item_name', oi.item_name,
+                'item_image_url', oi.item_image_url,
+                'selected_modifiers', COALESCE(oi.selected_modifiers, '[]'::jsonb)
+              ) ORDER BY oi.id)
+               FROM order_items oi WHERE oi.order_id = o.id) as items
+       FROM orders o
+       WHERE o.restaurant_id = $1
+       ORDER BY o.created_at DESC`,
+      [restaurantId]
+    );
   } else if (role === 'rider') {
     result = await query<Order>('SELECT * FROM orders WHERE rider_id = $1 ORDER BY created_at DESC', [userId]);
   } else {

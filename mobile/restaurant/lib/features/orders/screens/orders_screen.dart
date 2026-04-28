@@ -496,10 +496,59 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
               ],
             ),
             const SizedBox(height: 8),
-            Text('Total: ETB ${order.total.toStringAsFixed(2)}'),
+            // Items list
+            if (order.items.isNotEmpty) ...[
+              ...order.items.map((item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${item.itemName} × ${item.quantity}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        Text(
+                          'ETB ${(item.unitPrice * item.quantity).toStringAsFixed(2)}',
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  )),
+              const Divider(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Subtotal',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text('ETB ${order.subtotal.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Delivery fee',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text('ETB ${order.deliveryFee.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('ETB ${order.total.toStringAsFixed(2)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ] else
+              Text('Total: ETB ${order.total.toStringAsFixed(2)}'),
             Text(
-                'Time: ${order.createdAt.toLocal().toString().substring(11, 16)}'),
-            // Prep timer — shown only for confirmed orders
+                'Time: ${order.createdAt.toLocal().toString().substring(11, 16)}'), // Prep timer — shown only for confirmed orders
             if (order.status == 'confirmed') ...[
               const SizedBox(height: 8),
               Row(
