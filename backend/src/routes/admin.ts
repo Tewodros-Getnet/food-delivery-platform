@@ -38,8 +38,16 @@ router.get('/users', ...adminAuth, async (req: Request, res: Response, next: Nex
     const values: unknown[] = [];
     let idx = 1;
 
-    if (search) { conditions.push(`(email ILIKE $${idx} OR display_name ILIKE $${idx})`); values.push(`%${search}%`); idx++; }
-    if (role) { conditions.push(`role = $${idx++}`); values.push(role); }
+    if (search) {
+      conditions.push(`(email ILIKE $${idx} OR display_name ILIKE $${idx})`);
+      values.push(`%${search}%`);
+      idx++;
+    }
+    if (role) {
+      conditions.push(`role = $${idx}`);
+      values.push(role);
+      idx++;
+    }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     values.push(limitNum, offset);
@@ -119,18 +127,23 @@ router.put('/orders/:id/cancel', ...adminAuth, async (req: Request, res: Respons
       return;
     }
 
+    // Cancel the order — payment_status will be set by initiateRefund
     await query(
       `UPDATE orders SET status = 'cancelled', cancellation_reason = $1,
-       cancelled_by = 'admin', cancelled_at = NOW(), payment_status = 'refunded', updated_at = NOW()
+       cancelled_by = 'admin', cancelled_at = NOW(), updated_at = NOW()
        WHERE id = $2`,
       [reason ?? 'Cancelled by admin', req.params.id]
     );
 
-    // Initiate refund
+    // Await refund so payment_status is set correctly (refunded or refund_failed)
     const { initiateRefund } = await import('../services/refund.service');
-    void initiateRefund(req.params.id);
+    try {
+      await initiateRefund(req.params.id);
+    } catch {
+      // payment_status already set to refund_failed by initiateRefund
+    }
 
-    // Notify customer
+    // Notify customer and restaurant
     const updatedResult = await query('SELECT * FROM orders WHERE id = $1', [req.params.id]);
     const updated = updatedResult.rows[0] as import('../models/order.model').Order | undefined;
     if (updated) {
@@ -159,20 +172,17 @@ router.put('/orders/:id/reassign-rider', ...adminAuth, async (req: Request, res:
       return;
     }
 
-    // If a rider was assigned, free them up
     if (order.rider_id) {
       const { setRiderAvailability } = await import('../services/rider.service');
       await setRiderAvailability(order.rider_id, 'available');
     }
 
-    // Reset order to ready_for_pickup with no rider
     await query(
       `UPDATE orders SET status = 'ready_for_pickup', rider_id = NULL, updated_at = NOW()
        WHERE id = $1`,
       [req.params.id]
     );
 
-    // Restart dispatch
     const { startDispatch, cancelRetrySession } = await import('../services/rider.service');
     cancelRetrySession(req.params.id);
     void startDispatch(req.params.id, order.restaurant_id);
