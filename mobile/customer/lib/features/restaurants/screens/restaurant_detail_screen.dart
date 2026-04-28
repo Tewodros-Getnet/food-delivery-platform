@@ -141,15 +141,22 @@ class RestaurantDetailScreen extends ConsumerWidget {
                 // Category header
                 sliverItems.add(
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                    child: Text(
-                      category,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                    child: Row(children: [
+                      Text(
+                        category,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          letterSpacing: 0.2,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child:
+                              Divider(color: Colors.grey[300], thickness: 1)),
+                    ]),
                   ),
                 );
                 // Items in this category
@@ -223,107 +230,219 @@ class _MenuTile extends ConsumerWidget {
       required this.restaurantId,
       required this.isRestaurantOpen});
 
+  void _handleAdd(BuildContext context, WidgetRef ref) {
+    if (item.modifiers.isNotEmpty) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _ModifierSheet(item: item, restaurantId: restaurantId),
+      );
+    } else {
+      final added = ref.read(cartProvider.notifier).addItem(item, restaurantId);
+      if (!added) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Clear Cart?'),
+            content: const Text(
+                'Your cart has items from another restaurant. Clear it?'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel')),
+              TextButton(
+                  onPressed: () {
+                    ref
+                        .read(cartProvider.notifier)
+                        .clearAndAdd(item, restaurantId);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Clear & Add',
+                      style: TextStyle(color: Colors.orange))),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isAvailable = item.available;
     final canAdd = isRestaurantOpen && isAvailable;
 
+    // Count how many of this item are in the cart (any modifier variant)
+    final cartItems = ref.watch(cartProvider).items;
+    final qtyInCart = cartItems
+        .where((ci) => ci.menuItem.id == item.id)
+        .fold(0, (sum, ci) => sum + ci.quantity);
+
     return Opacity(
-      opacity: isAvailable ? 1.0 : 0.5,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: CachedNetworkImage(
-                imageUrl: item.imageUrl,
-                width: 64,
-                height: 64,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
-                    width: 64,
-                    height: 64,
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.fastfood, color: Colors.grey)))),
-        title: Text(item.name,
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle:
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (item.description != null)
-            Text(item.description!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-          Row(
-            children: [
-              Text('ETB ${item.price.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      color: Colors.orange, fontWeight: FontWeight.bold)),
-              if (!isAvailable) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade700,
-                    borderRadius: BorderRadius.circular(4),
+      opacity: isAvailable ? 1.0 : 0.55,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left: name, description, price, badges
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14),
                   ),
-                  child: const Text(
-                    'Sold Out',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold),
+                  if (item.description != null &&
+                      item.description!.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      item.description!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12.5),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Text(
+                      'ETB ${item.price.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
+                    ),
+                    if (!isAvailable) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade700,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('Sold Out',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                    if (item.modifiers.isNotEmpty && isAvailable) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: const Text('Customisable',
+                            style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Right: image + add button
+            Column(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: CachedNetworkImage(
+                    imageUrl: item.imageUrl,
+                    width: 88,
+                    height: 88,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(
+                      width: 88,
+                      height: 88,
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.fastfood,
+                          color: Colors.grey, size: 32),
+                    ),
                   ),
                 ),
-              ],
-            ],
-          ),
-        ]),
-        trailing: IconButton(
-          icon: Icon(Icons.add_circle,
-              color: canAdd ? Colors.orange : Colors.grey, size: 32),
-          onPressed: canAdd
-              ? () {
-                  if (item.modifiers.isNotEmpty) {
-                    // Show modifier selection sheet
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (_) => _ModifierSheet(
-                        item: item,
-                        restaurantId: restaurantId,
+                const SizedBox(height: 6),
+                // Add / quantity control
+                if (!canAdd)
+                  const SizedBox(height: 32)
+                else if (qtyInCart == 0)
+                  // First add — pill button
+                  GestureDetector(
+                    onTap: () => _handleAdd(context, ref),
+                    child: Container(
+                      width: 88,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    );
-                  } else {
-                    // No modifiers — add directly
-                    final added = ref
-                        .read(cartProvider.notifier)
-                        .addItem(item, restaurantId);
-                    if (!added) {
-                      showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                                title: const Text('Clear Cart?'),
-                                content: const Text(
-                                    'Your cart has items from another restaurant. Clear it?'),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('Cancel')),
-                                  TextButton(
-                                      onPressed: () {
-                                        ref
-                                            .read(cartProvider.notifier)
-                                            .clearAndAdd(item, restaurantId);
-                                        Navigator.pop(ctx);
-                                      },
-                                      child: const Text('Clear & Add')),
-                                ],
-                              ));
-                    }
-                  }
-                }
-              : null,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add, color: Colors.white, size: 16),
+                          SizedBox(width: 4),
+                          Text('Add',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  // Already in cart — stepper
+                  Container(
+                    width: 88,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            // Remove one unit of the base item (first match)
+                            final match = cartItems.firstWhere(
+                              (ci) => ci.menuItem.id == item.id,
+                              orElse: () => cartItems.first,
+                            );
+                            ref.read(cartProvider.notifier).updateQuantity(
+                                match.cartKey, match.quantity - 1);
+                          },
+                          child: const Icon(Icons.remove,
+                              color: Colors.white, size: 16),
+                        ),
+                        Text('$qtyInCart',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14)),
+                        GestureDetector(
+                          onTap: () => _handleAdd(context, ref),
+                          child: const Icon(Icons.add,
+                              color: Colors.white, size: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );
