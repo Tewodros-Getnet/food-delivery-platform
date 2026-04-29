@@ -22,13 +22,21 @@ function queueEvent(userId: string, event: string, payload: unknown) {
   if (!missedEventQueue.has(userId)) {
     missedEventQueue.set(userId, []);
   }
-  missedEventQueue.get(userId)!.push({ event, payload, ts: now });
+  const queue = missedEventQueue.get(userId)!;
+
+  // Bug 9 fix: cap queue at 50 events per user to prevent memory spike
+  const MAX_QUEUE_SIZE = 50;
+  if (queue.length >= MAX_QUEUE_SIZE) {
+    queue.shift(); // drop oldest event
+  }
+
+  queue.push({ event, payload, ts: now });
 
   // Schedule TTL cleanup
   setTimeout(() => {
-    const queue = missedEventQueue.get(userId);
-    if (!queue) return;
-    const fresh = queue.filter(e => Date.now() - e.ts < MISSED_EVENT_TTL_MS);
+    const q = missedEventQueue.get(userId);
+    if (!q) return;
+    const fresh = q.filter(e => Date.now() - e.ts < MISSED_EVENT_TTL_MS);
     if (fresh.length === 0) {
       missedEventQueue.delete(userId);
     } else {

@@ -64,7 +64,12 @@ router.get('/users', ...adminAuth, async (req: Request, res: Response, next: Nex
 
     const result = await query(
       `SELECT id, email, role, display_name, phone, status, email_verified, created_at,
-              (SELECT COUNT(*) FROM orders WHERE customer_id = users.id) as order_count
+              CASE
+                WHEN role = 'customer' THEN (SELECT COUNT(*) FROM orders WHERE customer_id = users.id)::text
+                WHEN role = 'rider'    THEN (SELECT COUNT(*) FROM orders WHERE rider_id = users.id AND status = 'delivered')::text
+                WHEN role = 'restaurant' THEN (SELECT COUNT(*) FROM restaurants WHERE owner_id = users.id)::text
+                ELSE '—'
+              END as order_count
        FROM users ${where}
        ORDER BY created_at DESC LIMIT ${limitParam} OFFSET ${offsetParam}`,
       values

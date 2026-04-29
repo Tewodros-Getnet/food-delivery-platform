@@ -112,15 +112,23 @@ export function startAcceptanceTimeoutJob() {
 // Uses Addis Ababa timezone (Africa/Addis_Ababa = UTC+3).
 
 function getCurrentAddisAbabaTime(): { dayName: string; currentMinutes: number } {
-  // UTC+3 offset
+  // Use Intl API for correct timezone handling — no manual UTC offset
+  const tz = 'Africa/Addis_Ababa';
   const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-  const addisMs = utcMs + 3 * 60 * 60 * 1000;
-  const addisDate = new Date(addisMs);
 
-  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const dayName = days[addisDate.getDay()];
-  const currentMinutes = addisDate.getHours() * 60 + addisDate.getMinutes();
+  const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: tz })
+    .format(now)
+    .toLowerCase();
+
+  const hours = parseInt(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: tz }).format(now),
+    10
+  );
+  const minutes = parseInt(
+    new Intl.DateTimeFormat('en-US', { minute: 'numeric', timeZone: tz }).format(now),
+    10
+  );
+  const currentMinutes = hours * 60 + minutes;
 
   return { dayName, currentMinutes };
 }
