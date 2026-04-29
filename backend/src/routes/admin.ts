@@ -236,6 +236,74 @@ router.put('/restaurants/:id/unsuspend', ...adminAuth, async (req: Request, res:
   } catch (err) { next(err); }
 });
 
+// ── Platform Config (Medium #7) ───────────────────────────────────────────────
+
+// GET /admin/config
+router.get('/config', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query('SELECT key, value, updated_at FROM platform_config ORDER BY key');
+    res.json(successResponse(result.rows));
+  } catch (err) { next(err); }
+});
+
+// PUT /admin/config/:key
+router.put('/config/:key', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { value } = req.body as { value: string };
+    if (value === undefined || value === null) {
+      res.status(422).json({ success: false, data: null, error: 'value is required' });
+      return;
+    }
+    const result = await query(
+      `INSERT INTO platform_config (key, value, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+       RETURNING *`,
+      [req.params.key, String(value)]
+    );
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
+
+// ── Riders (Medium #8) ────────────────────────────────────────────────────────
+
+// GET /admin/riders
+router.get('/riders', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page, limit } = req.query as Record<string, string>;
+    const pageNum = parseInt(page ?? '1', 10);
+    const limitNum = Math.min(parseInt(limit ?? '20', 10), 100);
+    const offset = (pageNum - 1) * limitNum;
+
+    const countResult = await query(
+      `SELECT COUNT(*) as total FROM users WHERE role = 'rider'`
+    );
+    const total = parseInt(countResult.rows[0].total as string, 10);
+
+    const result = await query(
+      `SELECT u.id, u.email, u.display_name, u.phone, u.status, u.created_at,
+              rl.availability, rl.timestamp as last_seen,
+              rr.restaurant_id,
+              r.name as restaurant_name,
+              (SELECT COUNT(*) FROM orders WHERE rider_id = u.id AND status = 'delivered') as total_deliveries,
+              (SELECT AVG(rating) FROM ratings WHERE rider_id = u.id) as average_rating
+       FROM users u
+       LEFT JOIN rider_locations rl ON rl.rider_id = u.id
+       LEFT JOIN restaurant_riders rr ON rr.rider_id = u.id
+       LEFT JOIN restaurants r ON r.id = rr.restaurant_id
+       WHERE u.role = 'rider'
+       ORDER BY u.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limitNum, offset]
+    );
+
+    res.json(successResponse({
+      riders: result.rows,
+      pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+    }));
+  } catch (err) { next(err); }
+});
+
 // GET /admin/analytics — Fix 3: date range picker support (already had it, now documented)
 router.get('/analytics', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {

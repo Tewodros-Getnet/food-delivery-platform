@@ -122,6 +122,15 @@ export default function OrdersPage() {
   const applyFilters = () => { setPage(1); load(1); };
   const goToPage = (p: number) => { setPage(p); load(p); };
 
+  const retryRefund = async (orderId: string) => {
+    setActionLoading(orderId);
+    try {
+      await api.post('/payments/refund', { orderId });
+      load(page);
+    } catch (e) { console.error(e); }
+    finally { setActionLoading(null); }
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -271,6 +280,15 @@ export default function OrdersPage() {
                             </button>
                           )}
                         </>
+                      )}
+                      {o.payment_status === 'refund_failed' && (
+                        <button
+                          onClick={() => retryRefund(o.id)}
+                          disabled={actionLoading === o.id}
+                          className="text-xs bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                        >
+                          {actionLoading === o.id ? '…' : 'Retry Refund'}
+                        </button>
                       )}
                     </div>
                   </td>
