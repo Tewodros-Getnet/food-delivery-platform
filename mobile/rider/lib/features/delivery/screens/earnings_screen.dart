@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
 
-final _earningsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+// Exposed for testing — override in ProviderScope to avoid real network calls.
+final earningsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final res =
       await ref.read(dioClientProvider).dio.get(ApiConstants.ridersEarnings);
   return res.data['data'] as Map<String, dynamic>;
@@ -14,7 +15,7 @@ class EarningsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final earningsAsync = ref.watch(_earningsProvider);
+    final earningsAsync = ref.watch(earningsProvider);
 
     return Scaffold(
       appBar: AppBar(
