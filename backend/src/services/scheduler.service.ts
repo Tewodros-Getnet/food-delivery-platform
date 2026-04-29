@@ -191,3 +191,42 @@ export function startTokenCleanupJob() {
     }
   });
 }
+
+// ── Stuck order alert job ─────────────────────────────────────────────────────
+// Runs every 2 minutes — finds orders stuck at ready_for_pickup for 10+ minutes
+// with no rider assigned, then emits admin:stuck_order to all admin sockets.
+export function startStuckOrderAlertJob() {
+  cron.schedule('*/2 * * * *', async () => {
+    try {
+      const stuck = await query<{
+        id: string;
+        restaurant_name: string;
+        created_at: Date;
+        minutes_waiting: number;
+      }>(
+        `SELECT o.id, r.name as restaurant_name, o.updated_at as created_at,
+                EXTRACT(EPOCH FROM (NOW() - o.updated_at)) / 60 AS minutes_waiting
+         FROM orders o
+         JOIN restaurants r ON r.id = o.restaurant_id
+         WHERE o.status = 'ready_for_pickup'
+           AND o.rider_id IS NULL
+           AND o.updated_at < NOW() - INTERVAL '10 minutes'`
+      );
+
+      if (!stuck.rowCount || stuck.rowCount === 0) return;
+
+      const { emitAdminAlert } = await import('./socket.service');
+      for (const order of stuck.rows) {
+        emitAdminAlert({
+          type: 'stuck_order',
+          orderId: order.id,
+          message: `Order from ${order.restaurant_name} has been waiting for a rider for ${Math.round(order.minutes_waiting)} minutes`,
+        });
+      }
+
+      logger.info('Stuck order alerts emitted', { count: stuck.rowCount });
+    } catch (err) {
+      logger.error('Stuck order alert job failed', { error: String(err) });
+    }
+  });
+}

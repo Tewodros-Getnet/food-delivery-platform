@@ -5,7 +5,7 @@ import app from './app';
 import { env } from './config/env';
 import { pool } from './config/database';
 import { logger } from './utils/logger';
-import { startPaymentExpiryJob, startAcceptanceTimeoutJob, startOperatingHoursJob, startTokenCleanupJob } from './services/scheduler.service';
+import { startPaymentExpiryJob, startAcceptanceTimeoutJob, startOperatingHoursJob, startTokenCleanupJob, startStuckOrderAlertJob } from './services/scheduler.service';
 import { initSocketServer } from './services/socket.service';
 import { recoverDispatchSessions } from './services/rider.service';
 
@@ -34,6 +34,7 @@ async function start() {
     startAcceptanceTimeoutJob();
     startOperatingHoursJob();
     startTokenCleanupJob();
+    startStuckOrderAlertJob();
   });
 }
 

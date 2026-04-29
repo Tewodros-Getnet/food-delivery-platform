@@ -88,8 +88,13 @@ export function initSocketServer(socketServer: Server) {
 
   io.on('connection', async (socket: Socket) => {
     const userId = socket.data.userId as string;
+    const role = socket.data.role as string;
     // Await join so the room exists before we flush queued events
     await socket.join(`user:${userId}`);
+    // Join role room so admin broadcasts work
+    if (role === 'admin') {
+      await socket.join('role:admin');
+    }
     logger.info('Socket connected', { socketId: socket.id, userId });
 
     // Deliver any events missed while offline
@@ -331,6 +336,23 @@ export function emitOrderAcceptanceRequest(restaurantOwnerId: string, order: Ord
   } else {
     queueEvent(restaurantOwnerId, 'order:acceptance_request', wrapped);
   }
+}
+
+// ── Admin broadcast ───────────────────────────────────────────────────────────
+// Emits to all connected sockets whose role is 'admin'
+
+export function emitAdminAlert(payload: {
+  type: 'stuck_order' | 'dispute_opened';
+  orderId?: string;
+  message: string;
+}) {
+  if (!io) return;
+  const wrapped = {
+    event: 'admin:alert',
+    data: { ...payload, timestamp: new Date().toISOString() },
+  };
+  // Broadcast to all sockets in the admin role room
+  io.to('role:admin').emit('admin:alert', wrapped);
 }
 
 export function getIo(): Server {
