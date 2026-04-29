@@ -1,6 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:food_delivery_customer/features/cart/providers/cart_provider.dart';
 import 'package:food_delivery_customer/features/restaurants/models/restaurant_model.dart';
 
