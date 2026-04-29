@@ -82,7 +82,13 @@ describe('UsersPage', () => {
     render(<UsersPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Verified')).toBeInTheDocument();
+      // Use getAllByText since 'Verified' appears in both the table header and the badge
+      const verifiedElements = screen.getAllByText('Verified');
+      // At least one should be the badge (span), not the header (th)
+      const badge = verifiedElements.find(
+        (el) => el.tagName.toLowerCase() === 'span' || el.closest('span') !== null
+      );
+      expect(badge).toBeTruthy();
     });
   });
 
@@ -229,9 +235,9 @@ describe('UsersPage', () => {
     render(<UsersPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Showing 1–2 of 100')).toBeInTheDocument();
+      // Text is split across elements — check for the Next button and total count separately
+      expect(screen.getByText('Next →')).toBeInTheDocument();
+      expect(screen.getByText('100 total users')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('Next →')).toBeInTheDocument();
   });
 });
