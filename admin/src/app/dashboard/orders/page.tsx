@@ -8,13 +8,20 @@ interface Order {
   total: number;
   payment_status: string | null;
   cancellation_reason: string | null;
-  cancelled_by: 'customer' | 'restaurant' | 'admin' | null;
+  cancelled_by: 'customer' | 'restaurant' | 'admin' | 'system' | null;
   created_at: string;
   customer_email: string;
   customer_name: string | null;
   restaurant_name: string;
   rider_name: string | null;
   rider_email: string | null;
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -56,21 +63,40 @@ function TableSkeleton() {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const load = (status?: string) => {
+  const load = (p = page) => {
     setLoading(true);
-    api.get('/admin/orders', { params: status ? { status } : {} })
-      .then((res) => setOrders(res.data.data as Order[]))
+    api.get('/admin/orders', {
+      params: {
+        status: statusFilter || undefined,
+        payment_status: paymentFilter || undefined,
+        page: p,
+        limit: 30,
+      },
+    })
+      .then((res) => {
+        const data = res.data.data;
+        if (Array.isArray(data)) {
+          setOrders(data as Order[]);
+          setPagination(null);
+        } else {
+          setOrders(data.orders as Order[]);
+          setPagination(data.pagination as Pagination);
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(1); setPage(1); }, []);
 
   const forceCancel = async () => {
     if (!cancelTarget) return;
@@ -79,7 +105,7 @@ export default function OrdersPage() {
       await api.put(`/admin/orders/${cancelTarget.id}/cancel`, { reason: cancelReason || 'Cancelled by admin' });
       setCancelTarget(null);
       setCancelReason('');
-      load(filter || undefined);
+      load(page);
     } catch (e) { console.error(e); }
     finally { setActionLoading(null); }
   };
@@ -88,10 +114,13 @@ export default function OrdersPage() {
     setActionLoading(orderId);
     try {
       await api.put(`/admin/orders/${orderId}/reassign-rider`);
-      load(filter || undefined);
+      load(page);
     } catch (e) { console.error(e); }
     finally { setActionLoading(null); }
   };
+
+  const applyFilters = () => { setPage(1); load(1); };
+  const goToPage = (p: number) => { setPage(p); load(p); };
 
   return (
     <div className="space-y-5">
@@ -99,26 +128,61 @@ export default function OrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{orders.length} orders found</p>
+          <p className="text-gray-500 text-sm mt-0.5">
+            {pagination ? `${pagination.total.toLocaleString()} total orders` : `${orders.length} orders found`}
+          </p>
         </div>
-        <select
-          value={filter}
-          onChange={(e) => { setFilter(e.target.value); load(e.target.value || undefined); }}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
-        >
-          <option value="">All Statuses</option>
-          {['pending_payment', 'pending_acceptance', 'confirmed', 'ready_for_pickup', 'rider_assigned', 'picked_up', 'delivered', 'cancelled', 'payment_failed'].map((s) => (
-            <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
-          ))}
-        </select>
+        <div className="flex gap-2">
+          {/* Status filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+          >
+            <option value="">All Statuses</option>
+            {['pending_payment', 'pending_acceptance', 'confirmed', 'ready_for_pickup', 'rider_assigned', 'picked_up', 'delivered', 'cancelled', 'payment_failed'].map((s) => (
+              <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
+            ))}
+          </select>
+          {/* Payment status filter — Fix 4 */}
+          <select
+            value={paymentFilter}
+            onChange={(e) => setPaymentFilter(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+          >
+            <option value="">All Payments</option>
+            <option value="paid">Paid</option>
+            <option value="refunded">Refunded</option>
+            <option value="refund_failed">Refund Failed ⚠</option>
+            <option value="failed">Payment Failed</option>
+          </select>
+          <button
+            onClick={applyFilters}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+          >
+            Apply
+          </button>
+        </div>
       </div>
+
+      {/* Refund failed alert banner */}
+      {paymentFilter === 'refund_failed' && orders.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="text-sm text-red-700">
+            <span className="font-semibold">{orders.length} order{orders.length !== 1 ? 's' : ''}</span> with failed refunds — these customers need manual intervention.
+          </p>
+        </div>
+      )}
 
       {loading ? <TableSkeleton /> : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {['Order', 'Customer', 'Restaurant', 'Rider', 'Total', 'Status', 'Cancelled By', 'Date', 'Actions'].map((h) => (
+                {['Order', 'Customer', 'Restaurant', 'Rider', 'Total', 'Status', 'Payment', 'Cancelled By', 'Date', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
@@ -126,14 +190,14 @@ export default function OrdersPage() {
             <tbody className="divide-y divide-gray-50">
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="text-center py-16">
+                  <td colSpan={10} className="text-center py-16">
                     <div className="text-gray-300 text-4xl mb-3">📦</div>
                     <p className="text-gray-400 text-sm">No orders found</p>
                   </td>
                 </tr>
               )}
               {orders.map((o) => (
-                <tr key={o.id} className="hover:bg-gray-50/50 transition-colors">
+                <tr key={o.id} className={`hover:bg-gray-50/50 transition-colors ${o.payment_status === 'refund_failed' ? 'bg-red-50/30' : ''}`}>
                   <td className="px-4 py-3.5 font-mono text-xs text-gray-500">{o.id.substring(0, 8)}…</td>
                   <td className="px-4 py-3.5">
                     <div className="font-medium text-gray-800">{o.customer_name || '—'}</div>
@@ -155,13 +219,28 @@ export default function OrdersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
+                    {o.payment_status ? (
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                        o.payment_status === 'refund_failed'
+                          ? 'bg-red-100 text-red-700 font-bold'
+                          : o.payment_status === 'refunded'
+                          ? 'bg-green-50 text-green-700'
+                          : o.payment_status === 'paid'
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {o.payment_status === 'refund_failed' ? '⚠ ' : ''}{o.payment_status.replaceAll('_', ' ')}
+                      </span>
+                    ) : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3.5">
                     {o.status === 'cancelled' && o.cancelled_by ? (
                       <div>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${CANCELLED_BY_STYLES[o.cancelled_by]}`}>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${CANCELLED_BY_STYLES[o.cancelled_by] ?? 'bg-gray-100 text-gray-600'}`}>
                           {o.cancelled_by}
                         </span>
                         {o.cancellation_reason && (
-                          <div className="text-gray-400 text-xs mt-1 max-w-[120px] truncate" title={o.cancellation_reason}>
+                          <div className="text-gray-400 text-xs mt-1 max-w-[100px] truncate" title={o.cancellation_reason}>
                             {o.cancellation_reason}
                           </div>
                         )}
@@ -199,6 +278,48 @@ export default function OrdersPage() {
               ))}
             </tbody>
           </table>
+
+          {/* Pagination — Fix 5 */}
+          {pagination && pagination.pages > 1 && (
+            <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Showing {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total.toLocaleString()}
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => goToPage(pagination.page - 1)}
+                  disabled={pagination.page <= 1}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: Math.min(pagination.pages, 5) }, (_, i) => {
+                  const p = Math.max(1, pagination.page - 2) + i;
+                  if (p > pagination.pages) return null;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => goToPage(p)}
+                      className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                        p === pagination.page
+                          ? 'bg-orange-500 text-white border-orange-500'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => goToPage(pagination.page + 1)}
+                  disabled={pagination.page >= pagination.pages}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

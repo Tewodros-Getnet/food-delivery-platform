@@ -56,13 +56,14 @@ export default function RestaurantsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const doAction = async (id: string, action: 'approve' | 'reject' | 'suspend') => {
+  const doAction = async (id: string, action: 'approve' | 'reject' | 'suspend' | 'unsuspend') => {
     const endpoints: Record<string, string> = {
       approve: `/restaurants/${id}/approve`,
       reject: `/restaurants/${id}/reject`,
       suspend: `/restaurants/${id}/suspend`,
+      unsuspend: `/admin/restaurants/${id}/unsuspend`,
     };
-    const methods: Record<string, 'post' | 'put'> = { approve: 'post', reject: 'post', suspend: 'put' };
+    const methods: Record<string, 'post' | 'put'> = { approve: 'post', reject: 'post', suspend: 'put', unsuspend: 'put' };
     await api[methods[action]](endpoints[action]);
     load(filter || undefined);
   };
@@ -170,7 +171,12 @@ export default function RestaurantsPage() {
                         </button>
                       )}
                       {r.status === 'suspended' && (
-                        <span className="text-xs text-gray-400 italic">Suspended</span>
+                        <button
+                          onClick={() => doAction(r.id, 'unsuspend')}
+                          className="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
+                        >
+                          Reactivate
+                        </button>
                       )}
                     </div>
                   </td>

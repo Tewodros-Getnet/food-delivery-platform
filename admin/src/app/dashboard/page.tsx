@@ -7,9 +7,11 @@ interface Analytics {
   totalOrders: number;
   totalRevenue: number;
   activeUsers: number;
+  refundFailedCount: number;
   ordersByStatus: { status: string; count: string }[];
   topRestaurants: { name: string; order_count: string }[];
   topRiders: { display_name: string; delivery_count: string }[];
+  dateRange: { start: string; end: string };
 }
 
 const STATUS_COLORS = ['#f97316', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#f59e0b', '#06b6d4', '#84cc16'];
@@ -44,13 +46,18 @@ function LoadingSkeleton() {
 export default function AnalyticsPage() {
   const [data, setData] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  useEffect(() => {
-    api.get('/admin/analytics')
+  const load = (start?: string, end?: string) => {
+    setLoading(true);
+    api.get('/admin/analytics', { params: { startDate: start || undefined, endDate: end || undefined } })
       .then((res) => setData(res.data.data as Analytics))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
 
   if (loading) return <LoadingSkeleton />;
   if (!data) return (
@@ -78,6 +85,55 @@ export default function AnalyticsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
         <p className="text-gray-500 text-sm mt-0.5">Platform overview — last 30 days</p>
       </div>
+
+      {/* Date range picker — Fix 3 */}
+      <div className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3">
+        <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="text-sm border-0 outline-none text-gray-700"
+        />
+        <span className="text-gray-400 text-sm">→</span>
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          className="text-sm border-0 outline-none text-gray-700"
+        />
+        <button
+          onClick={() => load(startDate || undefined, endDate || undefined)}
+          className="ml-auto bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+        >
+          Apply
+        </button>
+        {(startDate || endDate) && (
+          <button
+            onClick={() => { setStartDate(''); setEndDate(''); load(); }}
+            className="text-gray-400 hover:text-gray-600 text-sm transition-colors"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+
+      {/* Refund failed alert — Fix 4 */}
+      {data.refundFailedCount > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="text-sm text-red-700 flex-1">
+            <span className="font-semibold">{data.refundFailedCount} order{data.refundFailedCount !== 1 ? 's' : ''}</span> have failed refunds and need manual intervention.
+          </p>
+          <a href="/dashboard/orders?payment_status=refund_failed" className="text-sm font-semibold text-red-700 hover:underline whitespace-nowrap">
+            View orders →
+          </a>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-4">

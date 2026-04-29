@@ -13,6 +13,13 @@ interface User {
   order_count: string;
 }
 
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
 const ROLE_STYLES: Record<string, string> = {
   customer: 'bg-blue-50 text-blue-700',
   restaurant: 'bg-orange-50 text-orange-700',
@@ -37,34 +44,51 @@ function TableSkeleton() {
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
+  const [page, setPage] = useState(1);
 
-  const load = () => {
+  const load = (p = page) => {
     setLoading(true);
-    api.get('/admin/users', { params: { search: search || undefined, role: role || undefined } })
-      .then((res) => setUsers(res.data.data as User[]))
+    api.get('/admin/users', { params: { search: search || undefined, role: role || undefined, page: p, limit: 20 } })
+      .then((res) => {
+        // Handle both old (array) and new (object with pagination) response shapes
+        const data = res.data.data;
+        if (Array.isArray(data)) {
+          setUsers(data as User[]);
+          setPagination(null);
+        } else {
+          setUsers(data.users as User[]);
+          setPagination(data.pagination as Pagination);
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(1); setPage(1); }, []);
 
   const toggleSuspend = async (user: User) => {
     const endpoint = user.status === 'active'
       ? `/admin/users/${user.id}/suspend`
       : `/admin/users/${user.id}/reactivate`;
     await api.put(endpoint);
-    load();
+    load(page);
   };
+
+  const handleSearch = () => { setPage(1); load(1); };
+
+  const goToPage = (p: number) => { setPage(p); load(p); };
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-        <p className="text-gray-500 text-sm mt-0.5">{users.length} users loaded</p>
+        <p className="text-gray-500 text-sm mt-0.5">
+          {pagination ? `${pagination.total.toLocaleString()} total users` : `${users.length} users loaded`}
+        </p>
       </div>
 
       {/* Search bar */}
@@ -76,7 +100,7 @@ export default function UsersPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && load()}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder="Search by email or name..."
             className="w-full border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
@@ -92,7 +116,7 @@ export default function UsersPage() {
           ))}
         </select>
         <button
-          onClick={load}
+          onClick={handleSearch}
           className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
         >
           Search
@@ -176,6 +200,48 @@ export default function UsersPage() {
               ))}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {pagination && pagination.pages > 1 && (
+            <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Showing {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total.toLocaleString()}
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => goToPage(pagination.page - 1)}
+                  disabled={pagination.page <= 1}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: Math.min(pagination.pages, 5) }, (_, i) => {
+                  const p = Math.max(1, pagination.page - 2) + i;
+                  if (p > pagination.pages) return null;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => goToPage(p)}
+                      className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                        p === pagination.page
+                          ? 'bg-orange-500 text-white border-orange-500'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => goToPage(pagination.page + 1)}
+                  disabled={pagination.page >= pagination.pages}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

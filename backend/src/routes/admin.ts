@@ -26,12 +26,12 @@ router.get('/restaurants', ...adminAuth, async (req: Request, res: Response, nex
   } catch (err) { next(err); }
 });
 
-// GET /admin/users
+// GET /admin/users — Fix 1: correct LIMIT/OFFSET parameterization + Fix 5: pagination metadata
 router.get('/users', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { search, role, page, limit } = req.query as Record<string, string>;
     const pageNum = parseInt(page ?? '1', 10);
-    const limitNum = parseInt(limit ?? '20', 10);
+    const limitNum = Math.min(parseInt(limit ?? '20', 10), 100);
     const offset = (pageNum - 1) * limitNum;
 
     const conditions: string[] = [];
@@ -39,27 +39,41 @@ router.get('/users', ...adminAuth, async (req: Request, res: Response, next: Nex
     let idx = 1;
 
     if (search) {
-      conditions.push(`(email ILIKE $${idx} OR display_name ILIKE $${idx})`);
+      conditions.push('(email ILIKE $' + idx + ' OR display_name ILIKE $' + idx + ')');
       values.push(`%${search}%`);
       idx++;
     }
     if (role) {
-      conditions.push(`role = $${idx}`);
+      conditions.push('role = $' + idx);
       values.push(role);
       idx++;
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Count total for pagination
+    const countResult = await query(
+      `SELECT COUNT(*) as total FROM users ${where}`,
+      values.slice()
+    );
+    const total = parseInt(countResult.rows[0].total as string, 10);
+
     values.push(limitNum, offset);
+    const limitParam = '$' + idx;
+    const offsetParam = '$' + (idx + 1);
 
     const result = await query(
       `SELECT id, email, role, display_name, phone, status, email_verified, created_at,
               (SELECT COUNT(*) FROM orders WHERE customer_id = users.id) as order_count
        FROM users ${where}
-       ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+       ORDER BY created_at DESC LIMIT ${limitParam} OFFSET ${offsetParam}`,
       values
     );
-    res.json(successResponse(result.rows));
+
+    res.json(successResponse({
+      users: result.rows,
+      pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+    }));
   } catch (err) { next(err); }
 });
 
@@ -80,17 +94,40 @@ router.put('/users/:id/reactivate', ...adminAuth, async (req: Request, res: Resp
   } catch (err) { next(err); }
 });
 
-// GET /admin/orders
+// GET /admin/orders — Fix 4: refund_failed filter + Fix 5: pagination metadata
 router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { status, page, limit } = req.query as Record<string, string>;
+    const { status, payment_status, page, limit } = req.query as Record<string, string>;
     const pageNum = parseInt(page ?? '1', 10);
-    const limitNum = parseInt(limit ?? '30', 10);
+    const limitNum = Math.min(parseInt(limit ?? '30', 10), 100);
     const offset = (pageNum - 1) * limitNum;
 
-    const conditions = status ? 'WHERE o.status = $1' : '';
-    const values: unknown[] = status ? [status, limitNum, offset] : [limitNum, offset];
-    const limitIdx = status ? 2 : 1;
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (status) {
+      conditions.push('o.status = $' + idx);
+      values.push(status);
+      idx++;
+    }
+    if (payment_status) {
+      conditions.push('o.payment_status = $' + idx);
+      values.push(payment_status);
+      idx++;
+    }
+
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    const countResult = await query(
+      `SELECT COUNT(*) as total FROM orders o ${where}`,
+      values.slice()
+    );
+    const total = parseInt(countResult.rows[0].total as string, 10);
+
+    values.push(limitNum, offset);
+    const limitParam = '$' + idx;
+    const offsetParam = '$' + (idx + 1);
 
     const result = await query(
       `SELECT o.id, o.status, o.total, o.payment_status, o.cancellation_reason, o.cancelled_by,
@@ -102,12 +139,16 @@ router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: Ne
        JOIN users cu ON cu.id = o.customer_id
        JOIN restaurants r ON r.id = o.restaurant_id
        LEFT JOIN users ru ON ru.id = o.rider_id
-       ${conditions}
+       ${where}
        ORDER BY o.created_at DESC
-       LIMIT $${limitIdx} OFFSET $${limitIdx + 1}`,
+       LIMIT ${limitParam} OFFSET ${offsetParam}`,
       values
     );
-    res.json(successResponse(result.rows));
+
+    res.json(successResponse({
+      orders: result.rows,
+      pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+    }));
   } catch (err) { next(err); }
 });
 
@@ -127,7 +168,6 @@ router.put('/orders/:id/cancel', ...adminAuth, async (req: Request, res: Respons
       return;
     }
 
-    // Cancel the order — payment_status will be set by initiateRefund
     await query(
       `UPDATE orders SET status = 'cancelled', cancellation_reason = $1,
        cancelled_by = 'admin', cancelled_at = NOW(), updated_at = NOW()
@@ -135,15 +175,9 @@ router.put('/orders/:id/cancel', ...adminAuth, async (req: Request, res: Respons
       [reason ?? 'Cancelled by admin', req.params.id]
     );
 
-    // Await refund so payment_status is set correctly (refunded or refund_failed)
     const { initiateRefund } = await import('../services/refund.service');
-    try {
-      await initiateRefund(req.params.id);
-    } catch {
-      // payment_status already set to refund_failed by initiateRefund
-    }
+    try { await initiateRefund(req.params.id); } catch { /* payment_status set by initiateRefund */ }
 
-    // Notify customer and restaurant
     const updatedResult = await query('SELECT * FROM orders WHERE id = $1', [req.params.id]);
     const updated = updatedResult.rows[0] as import('../models/order.model').Order | undefined;
     if (updated) {
@@ -157,7 +191,7 @@ router.put('/orders/:id/cancel', ...adminAuth, async (req: Request, res: Respons
   } catch (err) { next(err); }
 });
 
-// PUT /admin/orders/:id/reassign-rider — clear rider and restart dispatch
+// PUT /admin/orders/:id/reassign-rider
 router.put('/orders/:id/reassign-rider', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderResult = await query<{ status: string; restaurant_id: string; rider_id: string | null }>(
@@ -178,8 +212,7 @@ router.put('/orders/:id/reassign-rider', ...adminAuth, async (req: Request, res:
     }
 
     await query(
-      `UPDATE orders SET status = 'ready_for_pickup', rider_id = NULL, updated_at = NOW()
-       WHERE id = $1`,
+      `UPDATE orders SET status = 'ready_for_pickup', rider_id = NULL, updated_at = NOW() WHERE id = $1`,
       [req.params.id]
     );
 
@@ -191,22 +224,33 @@ router.put('/orders/:id/reassign-rider', ...adminAuth, async (req: Request, res:
   } catch (err) { next(err); }
 });
 
-// GET /admin/analytics
+// PUT /admin/restaurants/:id/unsuspend — Fix 2: reactivate suspended restaurants
+router.put('/restaurants/:id/unsuspend', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `UPDATE restaurants SET status = 'approved', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+    if (!result.rows[0]) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
+
+// GET /admin/analytics — Fix 3: date range picker support (already had it, now documented)
 router.get('/analytics', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
     const start = startDate ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const end = endDate ?? new Date().toISOString();
 
-    const [totals, byStatus, topRestaurants, topRiders, activeUsers] = await Promise.all([
+    const [totals, byStatus, topRestaurants, topRiders, activeUsers, refundFailed] = await Promise.all([
       query(
         `SELECT COUNT(*) as total_orders, COALESCE(SUM(total), 0) as total_revenue
          FROM orders WHERE created_at BETWEEN $1 AND $2 AND status NOT IN ('pending_payment','payment_failed')`,
         [start, end]
       ),
       query(
-        `SELECT status, COUNT(*) as count FROM orders
-         WHERE created_at BETWEEN $1 AND $2 GROUP BY status`,
+        `SELECT status, COUNT(*) as count FROM orders WHERE created_at BETWEEN $1 AND $2 GROUP BY status`,
         [start, end]
       ),
       query(
@@ -224,9 +268,13 @@ router.get('/analytics', ...adminAuth, async (req: Request, res: Response, next:
         [start, end]
       ),
       query(
-        `SELECT COUNT(DISTINCT customer_id) as active_customers FROM orders
-         WHERE created_at BETWEEN $1 AND $2`,
+        `SELECT COUNT(DISTINCT customer_id) as active_customers FROM orders WHERE created_at BETWEEN $1 AND $2`,
         [start, end]
+      ),
+      // Fix 4: count refund_failed orders for the dashboard alert
+      query(
+        `SELECT COUNT(*) as count FROM orders WHERE payment_status = 'refund_failed'`,
+        []
       ),
     ]);
 
@@ -234,6 +282,7 @@ router.get('/analytics', ...adminAuth, async (req: Request, res: Response, next:
       totalOrders: parseInt(totals.rows[0].total_orders as string, 10),
       totalRevenue: parseFloat(totals.rows[0].total_revenue as string),
       activeUsers: parseInt(activeUsers.rows[0].active_customers as string, 10),
+      refundFailedCount: parseInt(refundFailed.rows[0].count as string, 10),
       ordersByStatus: byStatus.rows,
       topRestaurants: topRestaurants.rows,
       topRiders: topRiders.rows,
