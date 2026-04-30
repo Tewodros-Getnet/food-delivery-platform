@@ -190,7 +190,7 @@ describe('37.4 Admin workflows', () => {
       .get('/api/v1/admin/users')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(Array.isArray(res.body.data.users)).toBe(true);
   });
 
   test('admin can get analytics', async () => {

@@ -11,6 +11,7 @@ import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../../auth/services/auth_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../cart/providers/cart_provider.dart';
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
@@ -477,28 +478,112 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         if (_order!.status == 'delivered')
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: ElevatedButton.icon(
-              onPressed: () => context.push(
-                '/order/${widget.orderId}/rate',
-                extra: {
-                  'restaurantName': _order!.restaurantName,
-                  'riderName': null,
-                },
-              ),
-              icon: const Icon(Icons.star_rounded, color: Colors.white),
-              label: const Text('Rate Your Order',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
+            child: Column(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => context.push(
+                    '/order/${widget.orderId}/rate',
+                    extra: {
+                      'restaurantName': _order!.restaurantName,
+                      'riderName': null,
+                    },
+                  ),
+                  icon: const Icon(Icons.star_rounded, color: Colors.white),
+                  label: const Text('Rate Your Order',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _reorder,
+                  icon: const Icon(Icons.replay, size: 18),
+                  label: const Text('Reorder'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextButton.icon(
+                  onPressed: () => context.push(
+                    '/order/${widget.orderId}/dispute',
+                    extra: {
+                      'restaurantName': _order!.restaurantName,
+                      'itemsSummary': _order!.itemsSummary,
+                    },
+                  ),
+                  icon: const Icon(Icons.flag_outlined,
+                      size: 15, color: Colors.grey),
+                  label: const Text('Report a problem',
+                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                ),
+              ],
             ),
           ),
       ]),
     );
+  }
+
+  Future<void> _reorder() async {
+    if (_order == null) return;
+    try {
+      // Fetch full order with items if not already loaded
+      final full = _order!.items.isNotEmpty
+          ? _order!
+          : await ref.read(orderServiceProvider).getById(widget.orderId);
+
+      final availableItems = full.items.where((i) => i.available).toList();
+      if (availableItems.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('All items from this order are currently unavailable'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final cart = ref.read(cartProvider.notifier);
+      cart.clear();
+      for (final item in availableItems) {
+        final menuItem = item.toMenuItemModel(full.restaurantId);
+        for (var q = 0; q < item.quantity; q++) {
+          cart.addItem(menuItem, full.restaurantId);
+        }
+      }
+
+      final unavailable = full.items.where((i) => !i.available).toList();
+      if (mounted) {
+        if (unavailable.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Skipped unavailable: ${unavailable.map((i) => i.itemName).join(', ')}'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+        if (mounted) context.push('/cart');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to reorder: $e')),
+        );
+      }
+    }
   }
 
   void _confirmCancel(BuildContext context) {

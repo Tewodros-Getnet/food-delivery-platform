@@ -4,52 +4,55 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:food_delivery_rider/features/delivery/screens/earnings_screen.dart';
 
-// ── Fake earnings data ────────────────────────────────────────────────────────
-
 const _fakeEarnings = {
   'totalEarnings': 450.0,
   'totalDeliveries': 12,
   'deliveries': <dynamic>[],
 };
 
-// ── Helper ────────────────────────────────────────────────────────────────────
+// Override all three period variants so any tab works in tests
+List<Override> _overrides(Map<String, dynamic> data) => [
+      earningsProvider(EarningsPeriod.week).overrideWith((_) async => data),
+      earningsProvider(EarningsPeriod.month).overrideWith((_) async => data),
+      earningsProvider(EarningsPeriod.all).overrideWith((_) async => data),
+    ];
 
-Widget _buildEarningsScreen({
-  AsyncValue<Map<String, dynamic>>? earningsState,
-}) {
+Widget _buildEarningsScreen({Map<String, dynamic>? data}) {
   return ProviderScope(
-    overrides: [
-      earningsProvider.overrideWith(
-        (_) async => earningsState != null
-            ? earningsState.when(
-                data: (d) => d,
-                loading: () => throw UnimplementedError(),
-                error: (e, _) => throw e,
-              )
-            : _fakeEarnings,
-      ),
-    ],
+    overrides: _overrides(data ?? _fakeEarnings),
     child: const MaterialApp(home: EarningsScreen()),
   );
 }
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 void main() {
   group('EarningsScreen — structure', () {
     testWidgets('renders Earnings AppBar', (tester) async {
       await tester.pumpWidget(_buildEarningsScreen());
       await tester.pumpAndSettle();
-
       expect(find.text('Earnings'), findsOneWidget);
     });
 
+    testWidgets('shows This Week / This Month / All Time tabs', (tester) async {
+      await tester.pumpWidget(_buildEarningsScreen());
+      await tester.pumpAndSettle();
+      expect(find.text('This Week'), findsWidgets);
+      expect(find.text('This Month'), findsWidgets);
+      expect(find.text('All Time'), findsWidgets);
+    });
+
     testWidgets('shows loading indicator while fetching', (tester) async {
-      // Override with a future that never completes to stay in loading state
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            earningsProvider.overrideWith((_) async {
+            earningsProvider(EarningsPeriod.week).overrideWith((_) async {
+              await Future<void>.delayed(const Duration(hours: 1));
+              return _fakeEarnings;
+            }),
+            earningsProvider(EarningsPeriod.month).overrideWith((_) async {
+              await Future<void>.delayed(const Duration(hours: 1));
+              return _fakeEarnings;
+            }),
+            earningsProvider(EarningsPeriod.all).overrideWith((_) async {
               await Future<void>.delayed(const Duration(hours: 1));
               return _fakeEarnings;
             }),
@@ -57,34 +60,34 @@ void main() {
           child: const MaterialApp(home: EarningsScreen()),
         ),
       );
-      // Single pump — provider is still loading
       await tester.pump();
-
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-
-      // Drain pending timers so the test can close cleanly
       await tester.pump(const Duration(hours: 2));
     });
 
     testWidgets('shows total earnings after data loads', (tester) async {
       await tester.pumpWidget(_buildEarningsScreen());
       await tester.pumpAndSettle();
-
       expect(find.textContaining('ETB 450.00'), findsOneWidget);
     });
 
     testWidgets('shows delivery count after data loads', (tester) async {
       await tester.pumpWidget(_buildEarningsScreen());
       await tester.pumpAndSettle();
-
       expect(find.textContaining('12 deliveries completed'), findsOneWidget);
     });
 
     testWidgets('shows empty state when no deliveries', (tester) async {
       await tester.pumpWidget(_buildEarningsScreen());
       await tester.pumpAndSettle();
+      expect(find.textContaining('No deliveries'), findsOneWidget);
+    });
 
-      expect(find.text('No completed deliveries yet'), findsOneWidget);
+    testWidgets('shows average per delivery', (tester) async {
+      await tester.pumpWidget(_buildEarningsScreen());
+      await tester.pumpAndSettle();
+      // 450 / 12 = 37.50
+      expect(find.textContaining('37.50'), findsOneWidget);
     });
   });
 
@@ -109,14 +112,7 @@ void main() {
         ],
       };
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            earningsProvider.overrideWith((_) async => dataWithDeliveries),
-          ],
-          child: const MaterialApp(home: EarningsScreen()),
-        ),
-      );
+      await tester.pumpWidget(_buildEarningsScreen(data: dataWithDeliveries));
       await tester.pumpAndSettle();
 
       expect(find.text('Pizza Palace'), findsOneWidget);

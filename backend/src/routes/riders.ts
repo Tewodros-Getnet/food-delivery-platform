@@ -156,6 +156,23 @@ router.post('/invitation/:id/decline', authenticate, authorize('rider'), async (
 // GET /riders/earnings
 router.get('/earnings', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+    const conditions: string[] = ["o.rider_id = $1", "o.status = 'delivered'"];
+    const values: unknown[] = [req.userId];
+    let idx = 2;
+
+    if (startDate) {
+      conditions.push(`o.updated_at >= $${idx++}`);
+      values.push(new Date(startDate));
+    }
+    if (endDate) {
+      conditions.push(`o.updated_at <= $${idx++}`);
+      values.push(new Date(endDate));
+    }
+
+    const where = conditions.join(' AND ');
+
     const result = await query<{
       id: string;
       delivery_fee: number;
@@ -168,9 +185,9 @@ router.get('/earnings', authenticate, authorize('rider'), async (req: Request, r
        FROM orders o
        JOIN restaurants r ON r.id = o.restaurant_id
        JOIN addresses a ON a.id = o.delivery_address_id
-       WHERE o.rider_id = $1 AND o.status = 'delivered'
+       WHERE ${where}
        ORDER BY o.updated_at DESC`,
-      [req.userId]
+      values
     );
 
     const deliveries = result.rows;
