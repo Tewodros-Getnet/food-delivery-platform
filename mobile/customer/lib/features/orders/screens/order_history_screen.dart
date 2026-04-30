@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../../cart/providers/cart_provider.dart';
+import '../../../core/widgets/retry_widget.dart';
 
 final orderHistoryProvider = FutureProvider<List<OrderModel>>(
     (ref) => ref.read(orderServiceProvider).getOrders());
@@ -19,7 +20,10 @@ class OrderHistoryScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('My Orders')),
       body: ordersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => RetryWidget(
+          error: e,
+          onRetry: () => ref.refresh(orderHistoryProvider),
+        ),
         data: (orders) => orders.isEmpty
             ? const Center(child: Text('No orders yet'))
             : ListView.builder(

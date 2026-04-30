@@ -7,6 +7,7 @@ import '../../restaurants/services/restaurant_service.dart';
 import '../../restaurants/models/restaurant_model.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../restaurants/providers/favorites_provider.dart';
+import '../../../core/widgets/retry_widget.dart';
 
 final restaurantsProvider = FutureProvider<List<RestaurantModel>>(
     (ref) => ref.read(restaurantServiceProvider).getRestaurants());
@@ -219,7 +220,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 : restaurants.when(
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Center(child: Text('Error: $e')),
+                    error: (e, _) => RetryWidget(
+                      error: e,
+                      onRetry: () => ref.refresh(restaurantsProvider),
+                    ),
                     data: (list) {
                       // Apply category filter
                       final filtered = _selectedCategory == null

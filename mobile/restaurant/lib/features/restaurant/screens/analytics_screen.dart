@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:math' as math;
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/widgets/retry_widget.dart';
 
 class RestaurantAnalyticsScreen extends ConsumerStatefulWidget {
   const RestaurantAnalyticsScreen({super.key});
@@ -63,22 +64,7 @@ class _RestaurantAnalyticsScreenState
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          color: Colors.red, size: 48),
-                      const SizedBox(height: 12),
-                      Text(_error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                          onPressed: _load, child: const Text('Retry')),
-                    ],
-                  ),
-                )
+              ? RetryWidget(error: _error!, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(

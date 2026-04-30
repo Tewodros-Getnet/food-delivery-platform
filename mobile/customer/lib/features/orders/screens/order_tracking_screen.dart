@@ -587,27 +587,60 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   }
 
   void _confirmCancel(BuildContext context) {
+    final reasonCtrl = TextEditingController();
     showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              title: const Text('Cancel Order'),
-              content: const Text('Are you sure?'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('No')),
-                TextButton(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      await ref
-                          .read(orderServiceProvider)
-                          .cancel(widget.orderId);
-                      await _load();
-                    },
-                    child: const Text('Yes, Cancel',
-                        style: TextStyle(color: Colors.red))),
-              ],
-            ));
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Order'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to cancel this order?',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Reason (optional)',
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Keep Order'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(orderServiceProvider).cancel(
+                    widget.orderId,
+                    reason: reasonCtrl.text.trim().isNotEmpty
+                        ? reasonCtrl.text.trim()
+                        : null,
+                  );
+              await _load();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Cancel Order',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   String _etaLabel(DateTime eta) {

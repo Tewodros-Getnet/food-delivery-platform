@@ -72,6 +72,54 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     }
   }
 
+  Widget _buildSetupPrompt() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.storefront_outlined,
+                  size: 64, color: Color(0xFF2E7D32)),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Set Up Your Restaurant',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'You haven\'t registered your restaurant yet. Complete your setup to start receiving orders.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 15),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            ElevatedButton.icon(
+              onPressed: () => context.push('/setup'),
+              icon: const Icon(Icons.add_business, color: Colors.white),
+              label: const Text('Register Restaurant',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                minimumSize: const Size(double.infinity, 52),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _connect() async {
     _socket?.disconnect();
     final token = await ref.read(secureStorageProvider).getJwt();
@@ -215,75 +263,79 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       drawer: _RestaurantDrawer(restaurantId: _restaurantId),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // ── New Orders section (pending_acceptance) ──────────────
-                  if (_pendingOrders.isNotEmpty) ...[
-                    _SectionHeader(
-                      title: 'New Orders',
-                      count: _pendingOrders.length,
-                      color: Colors.orange,
-                      icon: Icons.notification_important,
-                    ),
-                    const SizedBox(height: 8),
-                    ..._pendingOrders.map(
-                      (order) => PendingAcceptanceOrderCard(
-                        key: ValueKey(order.id),
-                        order: order,
-                        onAccepted: _load,
-                        onRejected: _load,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // ── Active Orders section ────────────────────────────────
-                  if (_activeOrders.isNotEmpty) ...[
-                    _SectionHeader(
-                      title: 'Active Orders',
-                      count: _activeOrders.length,
-                      color: const Color(0xFF2E7D32),
-                      icon: Icons.receipt_long,
-                    ),
-                    const SizedBox(height: 8),
-                    ..._activeOrders.map(
-                      (order) => _OrderCard(
-                        key: ValueKey(order.id),
-                        order: order,
-                        onMarkReady: () async {
-                          await ref
-                              .read(orderServiceProvider)
-                              .markReady(order.id);
-                          await _load();
-                        },
-                        onCancelled: _load,
-                      ),
-                    ),
-                  ],
-
-                  if (_pendingOrders.isEmpty && _activeOrders.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 80),
-                        child: Column(
-                          children: [
-                            Icon(Icons.inbox_outlined,
-                                size: 48, color: Colors.black26),
-                            SizedBox(height: 12),
-                            Text(
-                              'No orders right now',
-                              style: TextStyle(color: Colors.black45),
-                            ),
-                          ],
+          : _restaurantId == null &&
+                  _pendingOrders.isEmpty &&
+                  _activeOrders.isEmpty
+              ? _buildSetupPrompt()
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // ── New Orders section (pending_acceptance) ──────────────
+                      if (_pendingOrders.isNotEmpty) ...[
+                        _SectionHeader(
+                          title: 'New Orders',
+                          count: _pendingOrders.length,
+                          color: Colors.orange,
+                          icon: Icons.notification_important,
                         ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                        const SizedBox(height: 8),
+                        ..._pendingOrders.map(
+                          (order) => PendingAcceptanceOrderCard(
+                            key: ValueKey(order.id),
+                            order: order,
+                            onAccepted: _load,
+                            onRejected: _load,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // ── Active Orders section ────────────────────────────────
+                      if (_activeOrders.isNotEmpty) ...[
+                        _SectionHeader(
+                          title: 'Active Orders',
+                          count: _activeOrders.length,
+                          color: const Color(0xFF2E7D32),
+                          icon: Icons.receipt_long,
+                        ),
+                        const SizedBox(height: 8),
+                        ..._activeOrders.map(
+                          (order) => _OrderCard(
+                            key: ValueKey(order.id),
+                            order: order,
+                            onMarkReady: () async {
+                              await ref
+                                  .read(orderServiceProvider)
+                                  .markReady(order.id);
+                              await _load();
+                            },
+                            onCancelled: _load,
+                          ),
+                        ),
+                      ],
+
+                      if (_pendingOrders.isEmpty && _activeOrders.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 80),
+                            child: Column(
+                              children: [
+                                Icon(Icons.inbox_outlined,
+                                    size: 48, color: Colors.black26),
+                                SizedBox(height: 12),
+                                Text(
+                                  'No orders right now',
+                                  style: TextStyle(color: Colors.black45),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
     );
   }
 }
