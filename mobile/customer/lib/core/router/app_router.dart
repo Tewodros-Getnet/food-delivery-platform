@@ -16,6 +16,7 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/addresses_screen.dart';
 import '../../features/orders/screens/chat_screen.dart';
 import '../../features/orders/screens/rating_screen.dart';
+import '../../features/orders/screens/dispute_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/notifications/notification_store.dart';
 
@@ -145,6 +146,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             orderId: s.pathParameters['id']!,
             restaurantName: extra?['restaurantName'] as String?,
             riderName: extra?['riderName'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/order/:id/dispute',
+        builder: (_, s) {
+          final extra = s.extra as Map<String, dynamic>?;
+          return DisputeScreen(
+            orderId: s.pathParameters['id']!,
+            restaurantName: extra?['restaurantName'] as String?,
+            itemsSummary: extra?['itemsSummary'] as String?,
           );
         },
       ),

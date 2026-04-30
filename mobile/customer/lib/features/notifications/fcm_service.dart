@@ -36,8 +36,12 @@ class FcmService {
     FirebaseMessaging.onMessage.listen((message) {
       final title = message.notification?.title ?? '';
       final body = message.notification?.body ?? '';
+      final orderId = message.data['orderId'] as String?;
+      final type = message.data['type'] as String?;
       if (title.isNotEmpty || body.isNotEmpty) {
-        _ref.read(notificationStoreProvider.notifier).add(title, body);
+        _ref
+            .read(notificationStoreProvider.notifier)
+            .add(title, body, orderId: orderId, type: type);
       }
       if (context.mounted && body.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -53,8 +57,12 @@ class FcmService {
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       final title = message.notification?.title ?? '';
       final body = message.notification?.body ?? '';
+      final orderId = message.data['orderId'] as String?;
+      final type = message.data['type'] as String?;
       if (title.isNotEmpty || body.isNotEmpty) {
-        _ref.read(notificationStoreProvider.notifier).add(title, body);
+        _ref
+            .read(notificationStoreProvider.notifier)
+            .add(title, body, orderId: orderId, type: type);
       }
       if (context.mounted) _handleDeepLink(context, message.data);
     });
@@ -64,8 +72,12 @@ class FcmService {
     if (initial != null) {
       final title = initial.notification?.title ?? '';
       final body = initial.notification?.body ?? '';
+      final orderId = initial.data['orderId'] as String?;
+      final type = initial.data['type'] as String?;
       if (title.isNotEmpty || body.isNotEmpty) {
-        _ref.read(notificationStoreProvider.notifier).add(title, body);
+        _ref
+            .read(notificationStoreProvider.notifier)
+            .add(title, body, orderId: orderId, type: type);
       }
       // Defer until the widget tree is ready
       WidgetsBinding.instance.addPostFrameCallback((_) {

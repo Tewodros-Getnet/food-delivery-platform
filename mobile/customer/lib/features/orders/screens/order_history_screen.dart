@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../../cart/providers/cart_provider.dart';
-import '../../../core/network/dio_client.dart';
-import '../../../core/constants/api_constants.dart';
 
 final orderHistoryProvider = FutureProvider<List<OrderModel>>(
     (ref) => ref.read(orderServiceProvider).getOrders());
@@ -285,94 +283,12 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       Colors.grey;
 
   void _showDisputeDialog(BuildContext context, WidgetRef ref, String orderId) {
-    final reasonCtrl = TextEditingController();
-    bool submitting = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Report a Problem'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Describe the issue with your order. Our team will review it.',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Wrong items delivered, missing items...',
-                  border: OutlineInputBorder(),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: submitting ? null : () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: submitting
-                  ? null
-                  : () async {
-                      final reason = reasonCtrl.text.trim();
-                      if (reason.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Please describe the problem')),
-                        );
-                        return;
-                      }
-                      setDialogState(() => submitting = true);
-                      try {
-                        await ref.read(dioClientProvider).dio.post(
-                          ApiConstants.disputes,
-                          data: {'orderId': orderId, 'reason': reason},
-                        );
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Dispute submitted. We\'ll review it shortly.'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        setDialogState(() => submitting = false);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed to submit: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    },
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
-              child: submitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('Submit', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
+    context.push(
+      '/order/$orderId/dispute',
+      extra: {
+        'restaurantName': widget.order.restaurantName,
+        'itemsSummary': widget.order.itemsSummary,
+      },
     );
   }
 

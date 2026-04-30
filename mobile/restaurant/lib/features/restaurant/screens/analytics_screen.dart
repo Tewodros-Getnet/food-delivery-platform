@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:math' as math;
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
 
@@ -85,6 +86,8 @@ class _RestaurantAnalyticsScreenState
                     children: [
                       _buildKpiRow(),
                       const SizedBox(height: 20),
+                      _buildRevenueChart(),
+                      const SizedBox(height: 20),
                       _buildRatingCard(),
                       const SizedBox(height: 20),
                       _buildTopItemsCard(),
@@ -95,6 +98,27 @@ class _RestaurantAnalyticsScreenState
                     ],
                   ),
                 ),
+    );
+  }
+
+  // ── Revenue bar chart: Today / 7 Days / 30 Days ─────────────────────────
+  Widget _buildRevenueChart() {
+    final today = (_data!['today']['revenue'] as num).toDouble();
+    final week = (_data!['week']['revenue'] as num).toDouble();
+    final month = (_data!['month']['revenue'] as num).toDouble();
+
+    final bars = [
+      _BarData(label: 'Today', value: today, color: Colors.blue),
+      _BarData(label: '7 Days', value: week, color: Colors.orange),
+      _BarData(label: '30 Days', value: month, color: const Color(0xFF2E7D32)),
+    ];
+
+    return _SectionCard(
+      title: 'Revenue Overview (ETB)',
+      child: SizedBox(
+        height: 180,
+        child: _BarChart(bars: bars),
+      ),
     );
   }
 
@@ -483,6 +507,93 @@ class _SectionCard extends StatelessWidget {
           child,
         ],
       ),
+    );
+  }
+}
+
+// ── Bar chart ─────────────────────────────────────────────────────────────────
+
+class _BarData {
+  final String label;
+  final double value;
+  final Color color;
+  const _BarData(
+      {required this.label, required this.value, required this.color});
+}
+
+class _BarChart extends StatelessWidget {
+  final List<_BarData> bars;
+  const _BarChart({required this.bars});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxVal = bars.map((b) => b.value).fold(0.0, math.max);
+
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: bars.map((bar) {
+              final fraction = maxVal > 0 ? bar.value / maxVal : 0.0;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Value label on top of bar
+                      Text(
+                        bar.value >= 1000
+                            ? '${(bar.value / 1000).toStringAsFixed(1)}k'
+                            : bar.value.toStringAsFixed(0),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: bar.color,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // Bar
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeOut,
+                        height: fraction * 110,
+                        decoration: BoxDecoration(
+                          color: bar.color,
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(6)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        // Baseline
+        Container(height: 1, color: Colors.grey.shade200),
+        const SizedBox(height: 8),
+        // Labels
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: bars
+              .map((bar) => Expanded(
+                    child: Text(
+                      bar.label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ))
+              .toList(),
+        ),
+      ],
     );
   }
 }
