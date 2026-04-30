@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
@@ -31,6 +32,11 @@ class FcmService {
       FirebaseMessaging.instance.onTokenRefresh.listen(_registerToken);
     }
     FirebaseMessaging.onMessage.listen((message) {
+      final type = message.data['type'] as String?;
+      // Play alert sound + vibrate for new order acceptance requests
+      if (type == 'order_acceptance_request') {
+        _playNewOrderAlert();
+      }
       if (context.mounted && message.notification != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -55,6 +61,19 @@ class FcmService {
         onOrdersReloadRequested?.call();
       });
     }
+  }
+
+  /// Plays a system alert sound and triggers a heavy haptic vibration pattern
+  /// to grab the restaurant owner's attention for a new pending order.
+  void _playNewOrderAlert() {
+    // System alert sound (works on Android without any extra package)
+    SystemSound.play(SystemSoundType.alert);
+    // Heavy haptic feedback — three pulses
+    HapticFeedback.heavyImpact();
+    Future.delayed(
+        const Duration(milliseconds: 300), HapticFeedback.heavyImpact);
+    Future.delayed(
+        const Duration(milliseconds: 600), HapticFeedback.heavyImpact);
   }
 
   Future<void> _registerToken(String token) async {

@@ -377,56 +377,9 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
   }
 
   void _showRatingDialog(BuildContext context, WidgetRef ref, String orderId) {
-    int restaurantRating = 5;
-    int riderRating = 5;
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('Rate Your Order'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('Restaurant'),
-            Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                    5,
-                    (i) => IconButton(
-                          icon: Icon(
-                              i < restaurantRating
-                                  ? Icons.star
-                                  : Icons.star_border,
-                              color: Colors.amber),
-                          onPressed: () =>
-                              setState(() => restaurantRating = i + 1),
-                        ))),
-            const Text('Rider'),
-            Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                    5,
-                    (i) => IconButton(
-                          icon: Icon(
-                              i < riderRating ? Icons.star : Icons.star_border,
-                              color: Colors.amber),
-                          onPressed: () => setState(() => riderRating = i + 1),
-                        ))),
-          ]),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                await ref.read(orderServiceProvider).rate(orderId,
-                    restaurantRating: restaurantRating,
-                    riderRating: riderRating);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Submit'),
-            ),
-          ],
-        ),
-      ),
+    context.push(
+      '/order/$orderId/rate',
+      extra: {'restaurantName': widget.order.restaurantName, 'riderName': null},
     );
   }
 }

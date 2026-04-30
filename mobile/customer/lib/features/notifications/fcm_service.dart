@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/constants/api_constants.dart';
 import 'notification_store.dart';
@@ -48,16 +49,17 @@ class FcmService {
       }
     });
 
-    // Notification tapped while app in background — store it
+    // Notification tapped while app in background — deep-link route
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       final title = message.notification?.title ?? '';
       final body = message.notification?.body ?? '';
       if (title.isNotEmpty || body.isNotEmpty) {
         _ref.read(notificationStoreProvider.notifier).add(title, body);
       }
+      if (context.mounted) _handleDeepLink(context, message.data);
     });
 
-    // Notification that launched the app from terminated state — store it
+    // Notification that launched the app from terminated state — deep-link route
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) {
       final title = initial.notification?.title ?? '';
@@ -65,6 +67,33 @@ class FcmService {
       if (title.isNotEmpty || body.isNotEmpty) {
         _ref.read(notificationStoreProvider.notifier).add(title, body);
       }
+      // Defer until the widget tree is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) _handleDeepLink(context, initial.data);
+      });
+    }
+  }
+
+  /// Routes the user to the relevant screen based on the notification payload.
+  void _handleDeepLink(BuildContext context, Map<String, dynamic> data) {
+    final type = data['type'] as String?;
+    final orderId = data['orderId'] as String?;
+
+    switch (type) {
+      case 'order_accepted':
+      case 'order_rejected':
+      case 'order_cancelled':
+      case 'order_status_update':
+        if (orderId != null) {
+          context.push('/order/$orderId/track');
+        }
+        break;
+      case 'delivery_request':
+        // Customers don't receive delivery requests — ignore
+        break;
+      default:
+        // Unknown type — navigate to orders list
+        context.go('/orders');
     }
   }
 

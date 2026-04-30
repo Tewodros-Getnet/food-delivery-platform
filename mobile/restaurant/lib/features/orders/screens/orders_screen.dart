@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -91,6 +92,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     // New order requiring acceptance
     _socket!.on('order:acceptance_request', (data) {
       if (!mounted) return;
+      // Alert sound + vibration so the owner doesn't miss it
+      SystemSound.play(SystemSoundType.alert);
+      HapticFeedback.heavyImpact();
+      Future.delayed(
+          const Duration(milliseconds: 300), HapticFeedback.heavyImpact);
+      Future.delayed(
+          const Duration(milliseconds: 600), HapticFeedback.heavyImpact);
       try {
         final orderData = (data['data']['order'] as Map<String, dynamic>?) ??
             (data['data'] as Map<String, dynamic>);

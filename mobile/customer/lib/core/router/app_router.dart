@@ -15,6 +15,7 @@ import '../../features/orders/screens/order_history_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/profile/screens/addresses_screen.dart';
 import '../../features/orders/screens/chat_screen.dart';
+import '../../features/orders/screens/rating_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/notifications/notification_store.dart';
 
@@ -135,6 +136,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/favorites',
         builder: (_, __) => const FavoritesScreen(),
+      ),
+      GoRoute(
+        path: '/order/:id/rate',
+        builder: (_, s) {
+          final extra = s.extra as Map<String, dynamic>?;
+          return RatingScreen(
+            orderId: s.pathParameters['id']!,
+            restaurantName: extra?['restaurantName'] as String?,
+            riderName: extra?['riderName'] as String?,
+          );
+        },
       ),
 
       // ── Shell route with bottom nav (4 tabs) ────────────────────────────

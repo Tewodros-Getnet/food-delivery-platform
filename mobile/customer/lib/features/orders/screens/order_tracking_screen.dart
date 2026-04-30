@@ -474,6 +474,29 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               child: const Text('Cancel Order'),
             ),
           ),
+        if (_order!.status == 'delivered')
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: ElevatedButton.icon(
+              onPressed: () => context.push(
+                '/order/${widget.orderId}/rate',
+                extra: {
+                  'restaurantName': _order!.restaurantName,
+                  'riderName': null,
+                },
+              ),
+              icon: const Icon(Icons.star_rounded, color: Colors.white),
+              label: const Text('Rate Your Order',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
       ]),
     );
   }
