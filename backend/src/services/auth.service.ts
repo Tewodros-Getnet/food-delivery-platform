@@ -209,7 +209,7 @@ export async function login(email: string, password: string): Promise<AuthResult
   return { user: toPublicUser(user), tokens: { jwt: jwtToken, refreshToken: raw } };
 }
 
-export async function refresh(rawToken: string): Promise<{ jwt: string }> {
+export async function refresh(rawToken: string): Promise<{ jwt: string; refreshToken: string }> {
   const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
   const result = await query(
@@ -225,7 +225,9 @@ export async function refresh(rawToken: string): Promise<{ jwt: string }> {
     throw err;
   }
 
-  const { user_id, role, status } = result.rows[0] as { user_id: string; role: string; status: string };
+  const { user_id, role, status, expires_at } = result.rows[0] as {
+    user_id: string; role: string; status: string; expires_at: Date;
+  };
 
   if (status === 'suspended') {
     const err = new Error('Account suspended') as Error & { statusCode: number };
@@ -233,7 +235,18 @@ export async function refresh(rawToken: string): Promise<{ jwt: string }> {
     throw err;
   }
 
-  return { jwt: generateJwt(user_id, role) };
+  // Rotate: delete the consumed token and issue a fresh one
+  // This ensures a stolen refresh token becomes invalid after first use
+  await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [hash]);
+
+  const { raw: newRaw, hash: newHash } = generateRefreshToken();
+  // Preserve the original expiry so rotation doesn't extend the session
+  await query(
+    'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+    [user_id, newHash, expires_at]
+  );
+
+  return { jwt: generateJwt(user_id, role), refreshToken: newRaw };
 }
 
 export async function logout(rawToken: string): Promise<void> {

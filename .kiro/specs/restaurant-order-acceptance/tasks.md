@@ -27,13 +27,13 @@
   - [x] 6.2 Register `PUT /orders/:id/accept` and `PUT /orders/:id/reject` routes in the existing orders router with `authenticate` middleware and `restaurant` RBAC guard
 
 - [ ] 7. Backend — Tests
-  - [ ] 7.1 Create `backend/src/tests/order-acceptance.test.ts` — unit/integration tests: unauthenticated returns 401, non-restaurant role returns 403, wrong restaurant returns 403, non-`pending_acceptance` status returns 409, missing reject reason returns 422, successful accept returns 200 with `status='confirmed'`, successful reject returns 200 with `status='cancelled'` and `cancelled_by='restaurant'`, refund failure does not affect HTTP 200 response, FCM failure does not affect HTTP 200 response
-  - [ ] 7.2 Property 1 — Payment webhook always transitions to `pending_acceptance`: for any valid successful webhook payload, assert `order.status === 'pending_acceptance'` and `acceptance_deadline` is a future timestamp
-  - [ ] 7.3 Property 2 — Accept state machine invariant: for orders in `pending_acceptance`, accept returns 200 and `status='confirmed'`; for orders in any other status, accept returns 409 and no DB update occurs
-  - [ ] 7.4 Property 3 — Reject always triggers refund and customer notification: for any valid rejection, `initiateRefund` called once with order ID, `sendPushNotification` called with customer ID and title "Order Rejected"
-  - [ ] 7.5 Property 4 — Timeout cancellation is idempotent: running `cancelExpiredOrder` twice on the same order results in exactly one status update and one refund call
-  - [ ] 7.6 Property 5 — Ownership guard is consistent: for any order where `ownerRestaurantId !== order.restaurant_id`, both accept and reject return 403 and no DB update occurs
-  - [ ] 7.7 Property 6 — Notifications sent for all terminal transitions: for accept, reject, and timeout paths, customer receives socket event and FCM notification for every valid order input
+  - [x] 7.1 Create `backend/src/tests/order-acceptance.test.ts` — unit/integration tests: unauthenticated returns 401, non-restaurant role returns 403, wrong restaurant returns 403, non-`pending_acceptance` status returns 409, missing reject reason returns 422, successful accept returns 200 with `status='confirmed'`, successful reject returns 200 with `status='cancelled'` and `cancelled_by='restaurant'`, refund failure does not affect HTTP 200 response, FCM failure does not affect HTTP 200 response
+  - [x] 7.2 Property 1 — Payment webhook always transitions to `pending_acceptance`: for any valid successful webhook payload, assert `order.status === 'pending_acceptance'` and `acceptance_deadline` is a future timestamp
+  - [x] 7.3 Property 2 — Accept state machine invariant: for orders in `pending_acceptance`, accept returns 200 and `status='confirmed'`; for orders in any other status, accept returns 409 and no DB update occurs
+  - [x] 7.4 Property 3 — Reject always triggers refund and customer notification: for any valid rejection, `initiateRefund` called once with order ID, `sendPushNotification` called with customer ID and title "Order Rejected"
+  - [x] 7.5 Property 4 — Timeout cancellation is idempotent: running `cancelExpiredOrder` twice on the same order results in exactly one status update and one refund call
+  - [x] 7.6 Property 5 — Ownership guard is consistent: for any order where `ownerRestaurantId !== order.restaurant_id`, both accept and reject return 403 and no DB update occurs
+  - [x] 7.7 Property 6 — Notifications sent for all terminal transitions: for accept, reject, and timeout paths, customer receives socket event and FCM notification for every valid order input
 
 - [x] 8. Flutter — Restaurant App
   - [x] 8.1 Create `PendingAcceptanceOrderCard` widget — displays order summary, countdown timer driven by `acceptance_deadline`, "Accept" and "Reject" buttons with loading states

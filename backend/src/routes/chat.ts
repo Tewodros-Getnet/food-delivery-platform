@@ -63,6 +63,7 @@ router.get('/:orderId', authenticate, async (req: Request, res: Response, next: 
 });
 
 // POST /chat/:orderId — send a message (REST fallback; primary path is socket)
+// Only customer and rider can send messages
 router.post('/:orderId', authenticate, [
   body('message').trim().notEmpty(),
   validate,

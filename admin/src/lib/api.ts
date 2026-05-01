@@ -22,6 +22,10 @@ api.interceptors.response.use(
           const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
           const newJwt = res.data.data.jwt as string;
           localStorage.setItem('jwt', newJwt);
+          // Store the rotated refresh token if returned
+          if (res.data.data.refreshToken) {
+            localStorage.setItem('refreshToken', res.data.data.refreshToken as string);
+          }
           error.config.headers.Authorization = `Bearer ${newJwt}`;
           return api.request(error.config);
         } catch {

@@ -305,51 +305,61 @@ export async function acceptOrder(
   restaurantOwnerId: string,
   estimatedPrepMinutes?: number
 ): Promise<Order> {
-  const order = await getOrderById(orderId);
-  if (!order) {
-    const err = new Error('Order not found') as Error & { statusCode: number };
-    err.statusCode = 404;
-    throw err;
-  }
+  return withTransaction(async (client) => {
+    // Lock the order row to prevent concurrent accept/reject race conditions
+    const orderResult = await client.query<Order>(
+      'SELECT * FROM orders WHERE id = $1 FOR UPDATE',
+      [orderId]
+    );
+    const order = orderResult.rows[0];
+    if (!order) {
+      const err = new Error('Order not found') as Error & { statusCode: number };
+      err.statusCode = 404;
+      throw err;
+    }
 
-  // Verify ownership
-  const rResult = await query<{ id: string }>(
-    'SELECT id FROM restaurants WHERE owner_id = $1', [restaurantOwnerId]
-  );
-  if (!rResult.rows[0] || rResult.rows[0].id !== order.restaurant_id) {
-    const err = new Error('Forbidden') as Error & { statusCode: number };
-    err.statusCode = 403;
-    throw err;
-  }
+    // Verify ownership
+    const rResult = await client.query<{ id: string }>(
+      'SELECT id FROM restaurants WHERE owner_id = $1', [restaurantOwnerId]
+    );
+    if (!rResult.rows[0] || rResult.rows[0].id !== order.restaurant_id) {
+      const err = new Error('Forbidden') as Error & { statusCode: number };
+      err.statusCode = 403;
+      throw err;
+    }
 
-  if (order.status !== 'pending_acceptance') {
-    const err = new Error('Order is not awaiting acceptance') as Error & { statusCode: number };
-    err.statusCode = 409;
-    throw err;
-  }
+    if (order.status !== 'pending_acceptance') {
+      const err = new Error('Order is not awaiting acceptance') as Error & { statusCode: number };
+      err.statusCode = 409;
+      throw err;
+    }
 
-  const updated = await updateOrderStatus(orderId, 'confirmed', {
-    estimated_prep_time_minutes: estimatedPrepMinutes,
+    const updatedResult = await client.query<Order>(
+      `UPDATE orders SET status = 'confirmed', estimated_prep_time_minutes = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [estimatedPrepMinutes ?? null, orderId]
+    );
+    const updated = updatedResult.rows[0];
+    if (!updated) {
+      const err = new Error('Failed to update order') as Error & { statusCode: number };
+      err.statusCode = 500;
+      throw err;
+    }
+
+    // Notifications happen outside the transaction (after commit)
+    return updated;
+  }).then(async (updated) => {
+    const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
+    void sendPushNotification(
+      updated.customer_id,
+      'Order Accepted',
+      'Your order has been accepted and is being prepared!',
+      { type: 'order_accepted', orderId }
+    );
+    emitOrderStatusChanged(updated, updated.customer_id);
+    emitToRestaurant(restaurantOwnerId, updated);
+    return updated;
   });
-  if (!updated) {
-    const err = new Error('Failed to update order') as Error & { statusCode: number };
-    err.statusCode = 500;
-    throw err;
-  }
-
-  const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
-  // Notify customer: FCM + socket
-  void sendPushNotification(
-    order.customer_id,
-    'Order Accepted',
-    'Your order has been accepted and is being prepared!',
-    { type: 'order_accepted', orderId }
-  );
-  emitOrderStatusChanged(updated, order.customer_id);
-  // Notify restaurant owner: socket
-  emitToRestaurant(restaurantOwnerId, updated);
-
-  return updated;
 }
 
 // ── Reject order (restaurant cannot fulfill it) ───────────────────────────────
@@ -358,61 +368,70 @@ export async function rejectOrder(
   restaurantOwnerId: string,
   reason: string
 ): Promise<Order> {
-  const order = await getOrderById(orderId);
-  if (!order) {
-    const err = new Error('Order not found') as Error & { statusCode: number };
-    err.statusCode = 404;
-    throw err;
-  }
+  return withTransaction(async (client) => {
+    // Lock the order row to prevent concurrent accept/reject race conditions
+    const orderResult = await client.query<Order>(
+      'SELECT * FROM orders WHERE id = $1 FOR UPDATE',
+      [orderId]
+    );
+    const order = orderResult.rows[0];
+    if (!order) {
+      const err = new Error('Order not found') as Error & { statusCode: number };
+      err.statusCode = 404;
+      throw err;
+    }
 
-  // Verify ownership
-  const rResult = await query<{ id: string }>(
-    'SELECT id FROM restaurants WHERE owner_id = $1', [restaurantOwnerId]
-  );
-  if (!rResult.rows[0] || rResult.rows[0].id !== order.restaurant_id) {
-    const err = new Error('Forbidden') as Error & { statusCode: number };
-    err.statusCode = 403;
-    throw err;
-  }
+    // Verify ownership
+    const rResult = await client.query<{ id: string }>(
+      'SELECT id FROM restaurants WHERE owner_id = $1', [restaurantOwnerId]
+    );
+    if (!rResult.rows[0] || rResult.rows[0].id !== order.restaurant_id) {
+      const err = new Error('Forbidden') as Error & { statusCode: number };
+      err.statusCode = 403;
+      throw err;
+    }
 
-  if (order.status !== 'pending_acceptance') {
-    const err = new Error('Order is not awaiting acceptance') as Error & { statusCode: number };
-    err.statusCode = 409;
-    throw err;
-  }
+    if (order.status !== 'pending_acceptance') {
+      const err = new Error('Order is not awaiting acceptance') as Error & { statusCode: number };
+      err.statusCode = 409;
+      throw err;
+    }
 
-  const updated = await updateOrderStatus(orderId, 'cancelled', {
-    cancellation_reason: reason,
-    cancelled_by: 'restaurant',
-    cancelled_at: new Date(),
+    const updatedResult = await client.query<Order>(
+      `UPDATE orders SET status = 'cancelled', cancellation_reason = $1,
+       cancelled_by = 'restaurant', cancelled_at = NOW(), updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [reason, orderId]
+    );
+    const updated = updatedResult.rows[0];
+    if (!updated) {
+      const err = new Error('Failed to update order') as Error & { statusCode: number };
+      err.statusCode = 500;
+      throw err;
+    }
+
+    return { updated, customerId: order.customer_id };
+  }).then(async ({ updated, customerId }) => {
+    // Fire-and-forget refund (outside transaction)
+    const { initiateRefund } = await import('./refund.service');
+    try {
+      await initiateRefund(orderId);
+    } catch {
+      logger.error('Refund failed for rejected order', { orderId });
+    }
+
+    const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
+    void sendPushNotification(
+      customerId,
+      'Order Rejected',
+      `Your order was rejected: ${reason}. A refund has been initiated.`,
+      { type: 'order_rejected', orderId, reason }
+    );
+    emitOrderStatusChanged(updated, customerId);
+    emitToRestaurant(restaurantOwnerId, updated);
+
+    return updated;
   });
-  if (!updated) {
-    const err = new Error('Failed to update order') as Error & { statusCode: number };
-    err.statusCode = 500;
-    throw err;
-  }
-
-  // Fire-and-forget refund
-  const { initiateRefund } = await import('./refund.service');
-  try {
-    await initiateRefund(orderId);
-  } catch {
-    logger.error('Refund failed for rejected order', { orderId });
-  }
-
-  const { emitOrderStatusChanged, emitToRestaurant } = await import('./socket.service');
-  // Notify customer: FCM + socket
-  void sendPushNotification(
-    order.customer_id,
-    'Order Rejected',
-    `Your order was rejected: ${reason}. A refund has been initiated.`,
-    { type: 'order_rejected', orderId, reason }
-  );
-  emitOrderStatusChanged(updated, order.customer_id);
-  // Notify restaurant owner: socket
-  emitToRestaurant(restaurantOwnerId, updated);
-
-  return updated;
 }
 
 // ── Called by rider.service when no rider is found after all retries ──────────
