@@ -67,8 +67,9 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next: NextF
       query<{ r_lat: number; r_lon: number; a_lat: number; a_lon: number }>(
         `SELECT r.latitude as r_lat, r.longitude as r_lon,
                 a.latitude as a_lat, a.longitude as a_lon
-         FROM restaurants r, addresses a
-         WHERE r.id = $1 AND a.id = $2`,
+         FROM restaurants r
+         LEFT JOIN addresses a ON a.id = $2
+         WHERE r.id = $1`,
         [order.restaurant_id, order.delivery_address_id]
       ),
       query<{
