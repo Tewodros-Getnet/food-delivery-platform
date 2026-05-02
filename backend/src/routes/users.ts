@@ -34,7 +34,13 @@ router.put('/profile', authenticate, [
     let profile_photo_url: string | undefined;
 
     if (photoBase64) {
-      profile_photo_url = await uploadImage(photoBase64, 'profiles');
+      try {
+        profile_photo_url = await uploadImage(photoBase64, 'profiles');
+      } catch (uploadErr: unknown) {
+        const msg = uploadErr instanceof Error ? uploadErr.message : 'Image upload failed';
+        res.status(400).json(errorResponse(`Image upload failed: ${msg}`));
+        return;
+      }
     }
 
     const fields: string[] = [];
