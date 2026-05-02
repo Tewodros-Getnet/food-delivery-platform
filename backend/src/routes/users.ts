@@ -8,6 +8,7 @@ import { registerFcmToken } from '../services/fcm.service';
 import { getRiderRatings } from '../services/rating.service';
 import bcrypt from 'bcrypt';
 import { successResponse, errorResponse } from '../utils/response';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.put('/profile', authenticate, [
         profile_photo_url = await uploadImage(photoBase64, 'profiles');
       } catch (uploadErr: unknown) {
         const msg = uploadErr instanceof Error ? uploadErr.message : 'Image upload failed';
+        logger.error('Cloudinary upload error', { error: msg, stack: uploadErr instanceof Error ? uploadErr.stack : undefined });
         res.status(400).json(errorResponse(`Image upload failed: ${msg}`));
         return;
       }
