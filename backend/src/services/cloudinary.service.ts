@@ -12,7 +12,11 @@ export async function uploadImage(
   folder: string
 ): Promise<string> {
   try {
-    const result = await cloudinary.uploader.upload(base64Data, { folder });
+    // Ensure the base64 string has the data URI prefix Cloudinary expects
+    const dataUri = base64Data.startsWith('data:')
+      ? base64Data
+      : `data:image/jpeg;base64,${base64Data}`;
+    const result = await cloudinary.uploader.upload(dataUri, { folder });
     return result.secure_url;
   } catch (err: unknown) {
     const detail = err && typeof err === 'object' ? JSON.stringify(err) : String(err);
