@@ -38,8 +38,13 @@ router.put('/profile', authenticate, [
       try {
         profile_photo_url = await uploadImage(photoBase64, 'profiles');
       } catch (uploadErr: unknown) {
-        const msg = uploadErr instanceof Error ? uploadErr.message : 'Image upload failed';
-        logger.error('Cloudinary upload error', { error: msg, stack: uploadErr instanceof Error ? uploadErr.stack : undefined });
+        const msg = uploadErr instanceof Error ? uploadErr.message : JSON.stringify(uploadErr);
+        logger.error('Cloudinary upload error', { 
+          error: msg, 
+          errorType: typeof uploadErr,
+          errorKeys: uploadErr && typeof uploadErr === 'object' ? Object.keys(uploadErr) : [],
+          stack: uploadErr instanceof Error ? uploadErr.stack : undefined 
+        });
         res.status(400).json(errorResponse(`Image upload failed: ${msg}`));
         return;
       }

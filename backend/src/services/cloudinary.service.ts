@@ -11,8 +11,13 @@ export async function uploadImage(
   base64Data: string,
   folder: string
 ): Promise<string> {
-  const result = await cloudinary.uploader.upload(base64Data, { folder });
-  return result.secure_url;
+  try {
+    const result = await cloudinary.uploader.upload(base64Data, { folder });
+    return result.secure_url;
+  } catch (err: unknown) {
+    const detail = err && typeof err === 'object' ? JSON.stringify(err) : String(err);
+    throw new Error(`Cloudinary error: ${detail}`);
+  }
 }
 
 export async function deleteImage(publicId: string): Promise<void> {
