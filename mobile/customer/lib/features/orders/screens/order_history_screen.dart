@@ -9,30 +9,67 @@ import '../../../core/widgets/retry_widget.dart';
 final orderHistoryProvider = FutureProvider<List<OrderModel>>(
     (ref) => ref.read(orderServiceProvider).getOrders());
 
-class OrderHistoryScreen extends ConsumerWidget {
+class OrderHistoryScreen extends ConsumerStatefulWidget {
   const OrderHistoryScreen({super.key});
+  @override
+  ConsumerState<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
+}
+
+class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Refresh order list when app comes back to foreground
+    if (state == AppLifecycleState.resumed && mounted) {
+      ref.invalidate(orderHistoryProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final ordersAsync = ref.watch(orderHistoryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Orders')),
+      appBar: AppBar(
+        title: const Text('My Orders'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () => ref.invalidate(orderHistoryProvider),
+          ),
+        ],
+      ),
       body: ordersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => RetryWidget(
           error: e,
-          onRetry: () => ref.refresh(orderHistoryProvider),
+          onRetry: () => ref.invalidate(orderHistoryProvider),
         ),
         data: (orders) => orders.isEmpty
             ? const Center(child: Text('No orders yet'))
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: orders.length,
-                itemBuilder: (ctx, i) {
-                  final o = orders[i];
-                  return _OrderCard(order: o);
-                },
+            : RefreshIndicator(
+                onRefresh: () async => ref.invalidate(orderHistoryProvider),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: orders.length,
+                  itemBuilder: (ctx, i) {
+                    final o = orders[i];
+                    return _OrderCard(order: o);
+                  },
+                ),
               ),
       ),
     );
@@ -87,8 +124,10 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       cart.clear();
       for (final item in availableItems) {
         final menuItem = item.toMenuItemModel(full.restaurantId);
+        final modifiers = item.toSelectedModifiers();
         for (var q = 0; q < item.quantity; q++) {
-          cart.addItem(menuItem, full.restaurantId);
+          cart.addItem(menuItem, full.restaurantId,
+              selectedModifiers: modifiers);
         }
       }
 
@@ -127,14 +166,13 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
   Widget build(BuildContext context) {
     final o = widget.order;
     final canReorder = o.status == 'delivered' || o.status == 'cancelled';
-    final isActive = ![
-          'delivered',
-          'cancelled',
-          'payment_failed',
-          'pending_payment',
+    final isActive = [
           'pending_acceptance',
-        ].contains(o.status) ||
-        o.status == 'pending_acceptance';
+          'confirmed',
+          'ready_for_pickup',
+          'rider_assigned',
+          'picked_up',
+        ].contains(o.status);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

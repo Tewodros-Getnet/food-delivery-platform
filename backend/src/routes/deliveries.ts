@@ -89,11 +89,22 @@ router.post('/:id/accept', authenticate, authorize('rider'), async (req: Request
       if (rResult.rows[0]) emitToRestaurant(rResult.rows[0].owner_id, updated);
     }
 
+    const restaurant = restaurantResult.rows[0];
+    const delivery = addressResult.rows[0];
+
     res.json(successResponse({
       order: updated,
       navigation: {
-        restaurant: restaurantResult.rows[0] ?? null,
-        delivery: addressResult.rows[0] ?? null,
+        restaurant: restaurant ? {
+          ...restaurant,
+          latitude: parseFloat(restaurant.latitude as unknown as string),
+          longitude: parseFloat(restaurant.longitude as unknown as string),
+        } : null,
+        delivery: delivery ? {
+          ...delivery,
+          latitude: parseFloat(delivery.latitude as unknown as string),
+          longitude: parseFloat(delivery.longitude as unknown as string),
+        } : null,
       },
     }));
   } catch (err) { next(err); }

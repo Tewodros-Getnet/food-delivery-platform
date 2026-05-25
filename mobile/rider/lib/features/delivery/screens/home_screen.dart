@@ -61,7 +61,18 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
               'expiresAt': data['expiresAt'],
             });
         _requestTimer?.cancel();
-        _requestTimer = Timer(const Duration(seconds: 60), () {
+        // Use server-provided expiresAt so the timer matches dispatch config.
+        // Fall back to 60s if the field is missing or unparseable.
+        Duration timeoutDuration = const Duration(seconds: 60);
+        final expiresAtStr = data['expiresAt'] as String?;
+        if (expiresAtStr != null) {
+          final expiresAt = DateTime.tryParse(expiresAtStr);
+          if (expiresAt != null) {
+            final remaining = expiresAt.difference(DateTime.now());
+            if (remaining.inSeconds > 0) timeoutDuration = remaining;
+          }
+        }
+        _requestTimer = Timer(timeoutDuration, () {
           if (_deliveryRequest != null) _declineDelivery();
         });
       }
@@ -214,7 +225,16 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
         // Fallback: set directly if callback not registered yet
         setState(() => _deliveryRequest = payload);
         _requestTimer?.cancel();
-        _requestTimer = Timer(const Duration(seconds: 60), () {
+        Duration timeoutDuration = const Duration(seconds: 60);
+        final expiresAtStr = payload['expiresAt'] as String?;
+        if (expiresAtStr != null) {
+          final expiresAt = DateTime.tryParse(expiresAtStr);
+          if (expiresAt != null) {
+            final remaining = expiresAt.difference(DateTime.now());
+            if (remaining.inSeconds > 0) timeoutDuration = remaining;
+          }
+        }
+        _requestTimer = Timer(timeoutDuration, () {
           if (_deliveryRequest != null) _declineDelivery();
         });
       }
@@ -230,9 +250,10 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
           try {
             final res = await ref.read(riderServiceProvider).refreshToken(rt);
             if (res != null) {
-              await ref
-                  .read(secureStorageProvider)
-                  .saveTokens(jwt: res, refreshToken: rt);
+              await ref.read(secureStorageProvider).saveTokens(
+                jwt: res['jwt']!,
+                refreshToken: res['refreshToken']!,
+              );
               _connectSocket(); // reconnect with fresh token
             }
           } catch (_) {}
@@ -307,10 +328,10 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
       _onDelivery = true;
       _activeOrderId = orderId;
       _pickedUp = false;
-      _restaurantLat = (restaurant?['latitude'] as num?)?.toDouble();
-      _restaurantLon = (restaurant?['longitude'] as num?)?.toDouble();
-      _customerLat = (delivery?['latitude'] as num?)?.toDouble();
-      _customerLon = (delivery?['longitude'] as num?)?.toDouble();
+      _restaurantLat = restaurant?['latitude'] != null ? double.tryParse(restaurant!['latitude'].toString()) : null;
+      _restaurantLon = restaurant?['longitude'] != null ? double.tryParse(restaurant!['longitude'].toString()) : null;
+      _customerLat = delivery?['latitude'] != null ? double.tryParse(delivery!['latitude'].toString()) : null;
+      _customerLon = delivery?['longitude'] != null ? double.tryParse(delivery!['longitude'].toString()) : null;
     });
     _startLocationUpdates(interval: 10);
   }

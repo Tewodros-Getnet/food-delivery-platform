@@ -92,10 +92,10 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next: NextF
     const coords = coordsResult.rows[0];
     res.json(successResponse({
       ...order,
-      restaurant_lat: coords?.r_lat ?? null,
-      restaurant_lon: coords?.r_lon ?? null,
-      delivery_lat: coords?.a_lat ?? null,
-      delivery_lon: coords?.a_lon ?? null,
+      restaurant_lat: coords?.r_lat ? parseFloat(coords.r_lat as unknown as string) : null,
+      restaurant_lon: coords?.r_lon ? parseFloat(coords.r_lon as unknown as string) : null,
+      delivery_lat: coords?.a_lat ? parseFloat(coords.a_lat as unknown as string) : null,
+      delivery_lon: coords?.a_lon ? parseFloat(coords.a_lon as unknown as string) : null,
       items: itemsResult.rows,
     }));
   } catch (err) { next(err); }
@@ -223,7 +223,10 @@ router.put('/:id/restaurant-cancel', authenticate, authorize('restaurant'), [
       cancelled_at: new Date(),
     });
 
-    void initiateRefund(order.id);
+    // Only refund if payment was actually made
+    if (order.payment_status === 'paid') {
+      void initiateRefund(order.id);
+    }
 
     if (updated) {
       emitOrderStatusChanged(updated, order.customer_id);

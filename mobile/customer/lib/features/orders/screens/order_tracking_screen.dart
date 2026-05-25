@@ -54,6 +54,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     return '~$mins min away';
   }
 
+  String? _errorMessage;
+
   @override
   void initState() {
     super.initState();
@@ -65,30 +67,47 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Refresh order status and reconnect socket when app comes back to foreground
+      // Refresh order status and reconnect socket when app comes back to foreground.
+      // Reset loading so spinner shows during retry instead of stale error state.
+      if (_order == null && mounted) {
+        setState(() { _loading = true; _errorMessage = null; });
+      }
       _load();
       _connect();
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({int retryCount = 0}) async {
     try {
       final o = await ref.read(orderServiceProvider).getById(widget.orderId);
+      if (!mounted) return;
       setState(() {
         _order = o;
         _loading = false;
-        // Seed destination from order so map is ready before first location update
+        _errorMessage = null;
         if (o.deliveryLat != null && _destLat == null) {
           _destLat = o.deliveryLat;
           _destLon = o.deliveryLon;
         }
       });
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      // Auto-retry up to 3 times with 2s delay to handle cold-start timeouts
+      // and brief JWT refresh windows — avoids false "Order not found" screens.
+      if (retryCount < 3 && mounted) {
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) return _load(retryCount: retryCount + 1);
+      }
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _errorMessage = e.toString();
+      });
     }
   }
 
   Future<void> _connect() async {
+    // Don't create a new socket if already connected
+    if (_socket?.connected == true) return;
     final token = await ref.read(secureStorageProvider).getJwt();
     if (token == null) return;
     _socket?.disconnect();
@@ -175,9 +194,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         final rt = await storage.getRefreshToken();
         if (rt != null) {
           try {
-            final newJwt = await ref.read(authServiceProvider).refreshToken(rt);
-            if (newJwt != null) {
-              await storage.saveTokens(jwt: newJwt, refreshToken: rt);
+            final tokens = await ref.read(authServiceProvider).refreshToken(rt);
+            if (tokens != null) {
+              await storage.saveTokens(
+                jwt: tokens['jwt']!,
+                refreshToken: tokens['refreshToken']!,
+              );
               _connect(); // reconnect with fresh token
             }
           } catch (_) {}
@@ -199,7 +221,33 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_order == null)
       return Scaffold(
-          appBar: AppBar(), body: const Center(child: Text('Order not found')));
+        appBar: AppBar(),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 12),
+                Text(
+                  _errorMessage ?? 'Order not found',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() { _loading = true; _errorMessage = null; });
+                    _load();
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 
     final currentUserId = ref.read(authProvider).user?.id;
     final showChat = ['rider_assigned', 'picked_up'].contains(_order!.status);
@@ -557,8 +605,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       cart.clear();
       for (final item in availableItems) {
         final menuItem = item.toMenuItemModel(full.restaurantId);
+        final modifiers = item.toSelectedModifiers();
         for (var q = 0; q < item.quantity; q++) {
-          cart.addItem(menuItem, full.restaurantId);
+          cart.addItem(menuItem, full.restaurantId,
+              selectedModifiers: modifiers);
         }
       }
 

@@ -19,10 +19,12 @@ class OrdersScreen extends ConsumerStatefulWidget {
   ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
 }
 
-class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+class _OrdersScreenState extends ConsumerState<OrdersScreen>
+    with WidgetsBindingObserver {
   List<OrderModel> _pendingOrders = []; // pending_acceptance
   List<OrderModel> _activeOrders = []; // confirmed, ready_for_pickup, etc.
   bool _loading = true;
+  bool _loadError = false; // true when restaurant/orders fetch failed
   String? _restaurantId;
   bool _isOpen = true;
   io.Socket? _socket;
@@ -30,6 +32,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _connect();
     onOrdersReloadRequested = () {
@@ -37,16 +40,29 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     };
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-fetch when app comes back to foreground so stale/failed state is recovered
+    if (state == AppLifecycleState.resumed && mounted) {
+      _load();
+    }
+  }
+
   Future<void> _load() async {
     try {
       final dio = ref.read(dioClientProvider).dio;
+
+      // Fetch restaurant info — don't silently swallow errors
       try {
         final rRes = await dio.get(ApiConstants.myRestaurant);
         final rData = rRes.data['data'] as Map<String, dynamic>?;
         _restaurantId = rData?['id'] as String?;
-        if (mounted)
-          setState(() => _isOpen = (rData?['is_open'] as bool?) ?? true);
-      } catch (_) {}
+        if (mounted) setState(() => _isOpen = (rData?['is_open'] as bool?) ?? true);
+      } catch (e) {
+        // Network/auth error — show retry state instead of fake setup prompt
+        if (mounted) setState(() { _loading = false; _loadError = true; });
+        return;
+      }
 
       final orders = await ref.read(orderServiceProvider).getOrders();
       if (!mounted) return;
@@ -65,11 +81,53 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 ].contains(o.status))
             .toList();
         _loading = false;
+        _loadError = false;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() { _loading = false; _loadError = true; });
     }
+  }
+
+  Widget _buildLoadError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.wifi_off_outlined, size: 56, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'Could not load restaurant data',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Check your connection and try again.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() { _loading = true; _loadError = false; });
+                _load();
+              },
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              label: const Text('Retry', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                minimumSize: const Size(160, 48),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildSetupPrompt() {
@@ -226,6 +284,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     onOrdersReloadRequested = null;
     _socket?.disconnect();
     super.dispose();
@@ -263,7 +322,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       drawer: _RestaurantDrawer(restaurantId: _restaurantId),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _restaurantId == null &&
+          : _loadError
+              ? _buildLoadError()
+              : _restaurantId == null &&
                   _pendingOrders.isEmpty &&
                   _activeOrders.isEmpty
               ? _buildSetupPrompt()

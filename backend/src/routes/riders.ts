@@ -51,8 +51,8 @@ router.put('/location', authenticate, authorize('rider'), [
           customerId: customer_id,
           latitude,
           longitude,
-          destinationLat: addr?.latitude ?? null,
-          destinationLon: addr?.longitude ?? null,
+          destinationLat: addr?.latitude ? parseFloat(addr.latitude as unknown as string) : null,
+          destinationLon: addr?.longitude ? parseFloat(addr.longitude as unknown as string) : null,
         });
       }
     }

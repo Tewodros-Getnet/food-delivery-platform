@@ -92,6 +92,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
         final order = await ref.read(orderServiceProvider).getById(orderId);
         if (order.status == 'pending_acceptance' ||
             order.status == 'confirmed') {
+          // Payment confirmed — safe to clear the cart now
+          ref.read(cartProvider.notifier).clear();
           if (mounted) context.push('/order/$orderId/track');
           return;
         }
@@ -137,7 +139,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
           setState(() => _error = 'Could not open payment page. Try again.');
           return;
         }
-        ref.read(cartProvider.notifier).clear();
+        // Don't clear the cart yet — wait until payment is confirmed.
+        // _verifyAndNavigate will clear it after status = pending_acceptance.
         setState(() {
           _pendingOrderId = orderId;
           _awaitingReturn = true;

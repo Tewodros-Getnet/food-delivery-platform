@@ -57,11 +57,15 @@ class RiderService {
         .post('${ApiConstants.ridersInvitation}/$invitationId/$action');
   }
 
-  Future<String?> refreshToken(String refreshToken) async {
+  Future<Map<String, String>?> refreshToken(String refreshToken) async {
     try {
       final res = await _client.dio
           .post(ApiConstants.refresh, data: {'refreshToken': refreshToken});
-      return res.data['data']['jwt'] as String?;
+      final data = res.data['data'] as Map<String, dynamic>;
+      return {
+        'jwt': data['jwt'] as String,
+        'refreshToken': data['refreshToken'] as String,
+      };
     } catch (_) {
       return null;
     }

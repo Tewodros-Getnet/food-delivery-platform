@@ -60,9 +60,12 @@ export async function setRiderAvailability(
   riderId: string,
   availability: 'available' | 'on_delivery' | 'offline'
 ): Promise<void> {
+  // Only update availability — never overwrite real coordinates with (0,0).
+  // If no location row exists yet, insert with (0,0) but mark timestamp as
+  // epoch so findNearbyRiders (which filters timestamp > NOW()-30min) ignores it.
   await query(
-    `INSERT INTO rider_locations (rider_id, latitude, longitude, availability)
-     VALUES ($1, 0, 0, $2)
+    `INSERT INTO rider_locations (rider_id, latitude, longitude, availability, timestamp)
+     VALUES ($1, 0, 0, $2, 'epoch'::timestamptz)
      ON CONFLICT (rider_id) DO UPDATE
        SET availability = EXCLUDED.availability,
            timestamp = NOW()`,
@@ -401,6 +404,15 @@ export function riderDeclined(orderId: string) {
   if (!session) return;
   if (session.currentTimeout) clearTimeout(session.currentTimeout);
   session.riderIndex++;
+  // Persist the incremented index so server restarts don't re-send to the same rider
+  void persistUpsertDispatchSession(orderId, {
+    riderIndex: session.riderIndex,
+    riders: session.riders,
+    restaurant: session.restaurant,
+    customerAddress: session.customerAddress,
+    deliveryFee: session.deliveryFee,
+    startTime: session.startTime,
+  });
   void sendToNextRider(orderId, session.restaurant, session.customerAddress, session.deliveryFee);
 }
 

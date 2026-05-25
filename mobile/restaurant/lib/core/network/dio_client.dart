@@ -35,13 +35,23 @@ class DioClient {
                   '${ApiConstants.baseUrl}${ApiConstants.refresh}',
                   data: {'refreshToken': rt},
                 );
-                final newJwt = res.data['data']['jwt'] as String;
+                final data = res.data['data'] as Map<String, dynamic>;
+                final newJwt = data['jwt'] as String;
+                final newRt = data['refreshToken'] as String;
                 await _storage.write(key: 'jwt', value: newJwt);
+                await _storage.write(key: 'refreshToken', value: newRt);
                 error.requestOptions.headers['Authorization'] =
                     'Bearer $newJwt';
                 return handler.resolve(await _dio.fetch(error.requestOptions));
+              } on DioException catch (e) {
+                // Only wipe tokens if the server explicitly rejected the refresh
+                // (401 response). A timeout or network error should NOT log the
+                // user out — they just need to retry when connectivity returns.
+                if (e.response?.statusCode == 401) {
+                  await _storage.deleteAll();
+                }
               } catch (_) {
-                await _storage.deleteAll();
+                // Non-Dio error (e.g. JSON parse) — don't wipe tokens
               }
             }
           }
