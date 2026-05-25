@@ -125,7 +125,9 @@ class OrderModel {
         estimatedDeliveryTime: json['estimated_delivery_time'] != null
             ? DateTime.parse(json['estimated_delivery_time'] as String)
             : null,
-        estimatedPrepTimeMinutes: json['estimated_prep_time_minutes'] as int?,
+        estimatedPrepTimeMinutes: json['estimated_prep_time_minutes'] != null
+            ? int.tryParse(json['estimated_prep_time_minutes'].toString())
+            : null,
         restaurantLat: (json['restaurant_lat'] as num?)?.toDouble(),
         restaurantLon: (json['restaurant_lon'] as num?)?.toDouble(),
         deliveryLat: (json['delivery_lat'] as num?)?.toDouble(),
