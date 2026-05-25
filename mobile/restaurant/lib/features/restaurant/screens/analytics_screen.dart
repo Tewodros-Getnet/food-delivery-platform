@@ -125,7 +125,7 @@ class _RestaurantAnalyticsScreenState
             Expanded(
                 child: _KpiCard(
               label: 'Today',
-              orders: today['orders'] as int,
+              orders: int.tryParse(today['orders'].toString()) ?? 0,
               revenue: (today['revenue'] as num).toDouble(),
               color: Colors.blue,
             )),
@@ -133,7 +133,7 @@ class _RestaurantAnalyticsScreenState
             Expanded(
                 child: _KpiCard(
               label: '7 Days',
-              orders: week['orders'] as int,
+              orders: int.tryParse(week['orders'].toString()) ?? 0,
               revenue: (week['revenue'] as num).toDouble(),
               color: Colors.orange,
             )),
@@ -141,7 +141,7 @@ class _RestaurantAnalyticsScreenState
             Expanded(
                 child: _KpiCard(
               label: '30 Days',
-              orders: month['orders'] as int,
+              orders: int.tryParse(month['orders'].toString()) ?? 0,
               revenue: (month['revenue'] as num).toDouble(),
               color: const Color(0xFF2E7D32),
             )),
@@ -228,7 +228,7 @@ class _RestaurantAnalyticsScreenState
           final i = e.key;
           final item = e.value as Map<String, dynamic>;
           final name = item['item_name'] as String;
-          final qty = item['total_quantity'].toString();
+          final qty = int.tryParse(item['total_quantity'].toString()) ?? 0;
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
@@ -258,7 +258,7 @@ class _RestaurantAnalyticsScreenState
                 Expanded(
                     child: Text(name, style: const TextStyle(fontSize: 13))),
                 Text(
-                  '$qty ordered',
+                  '$qty ${qty == 1 ? 'order' : 'orders'}',
                   style: const TextStyle(color: Colors.black54, fontSize: 12),
                 ),
               ],
