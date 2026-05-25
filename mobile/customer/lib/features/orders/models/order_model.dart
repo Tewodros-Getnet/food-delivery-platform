@@ -1,4 +1,5 @@
 import '../../restaurants/models/restaurant_model.dart';
+import '../../cart/models/cart_item.dart';
 
 class OrderItemModel {
   final String id;
@@ -43,7 +44,9 @@ class OrderItemModel {
         .join(', ');
   }
 
-  // Convert to MenuItemModel for cart (requires restaurantId from parent order)
+  // Convert to MenuItemModel for cart (requires restaurantId from parent order).
+  // Note: price is set to unitPrice (historical, modifiers baked in) for display
+  // purposes only — the backend always recalculates from current DB prices.
   MenuItemModel toMenuItemModel(String restaurantId) => MenuItemModel(
         id: menuItemId,
         restaurantId: restaurantId,
@@ -52,6 +55,16 @@ class OrderItemModel {
         imageUrl: itemImageUrl ?? '',
         available: available,
       );
+
+  // Convert selectedModifiers stored on the order item back into SelectedModifier
+  // objects so they can be re-attached to the cart item on reorder.
+  List<SelectedModifier> toSelectedModifiers() => selectedModifiers
+      .map((m) => SelectedModifier(
+            group: m['group'] as String? ?? '',
+            option: m['option'] as String? ?? '',
+            price: double.tryParse((m['price'] ?? 0).toString()) ?? 0.0,
+          ))
+      .toList();
 }
 
 class OrderModel {
@@ -112,7 +125,9 @@ class OrderModel {
         estimatedDeliveryTime: json['estimated_delivery_time'] != null
             ? DateTime.parse(json['estimated_delivery_time'] as String)
             : null,
-        estimatedPrepTimeMinutes: json['estimated_prep_time_minutes'] as int?,
+        estimatedPrepTimeMinutes: json['estimated_prep_time_minutes'] != null
+            ? int.tryParse(json['estimated_prep_time_minutes'].toString())
+            : null,
         restaurantLat: (json['restaurant_lat'] as num?)?.toDouble(),
         restaurantLon: (json['restaurant_lon'] as num?)?.toDouble(),
         deliveryLat: (json['delivery_lat'] as num?)?.toDouble(),
