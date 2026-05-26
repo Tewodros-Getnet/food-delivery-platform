@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../../cart/providers/cart_provider.dart';
+import '../../restaurants/services/restaurant_service.dart';
 import '../../../core/widgets/retry_widget.dart';
 
 final orderHistoryProvider = FutureProvider<List<OrderModel>>(
@@ -98,6 +99,22 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No items found for this order')),
+          );
+        }
+        return;
+      }
+
+      // Check restaurant is still open before touching the cart
+      final restaurant = await ref
+          .read(restaurantServiceProvider)
+          .getById(full.restaurantId);
+      if (!restaurant.isOpen) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${restaurant.name} is currently closed'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
         return;

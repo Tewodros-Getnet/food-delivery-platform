@@ -45,16 +45,23 @@ class OrderItemModel {
   }
 
   // Convert to MenuItemModel for cart (requires restaurantId from parent order).
-  // Note: price is set to unitPrice (historical, modifiers baked in) for display
-  // purposes only — the backend always recalculates from current DB prices.
-  MenuItemModel toMenuItemModel(String restaurantId) => MenuItemModel(
-        id: menuItemId,
-        restaurantId: restaurantId,
-        name: itemName,
-        price: unitPrice,
-        imageUrl: itemImageUrl ?? '',
-        available: available,
-      );
+  // We strip the modifier price out of unitPrice so the cart doesn't
+  // double-count it when selectedModifiers are re-attached on reorder.
+  MenuItemModel toMenuItemModel(String restaurantId) {
+    final modifierTotal = selectedModifiers.fold<double>(
+      0.0,
+      (sum, m) => sum + (double.tryParse((m['price'] ?? 0).toString()) ?? 0.0),
+    );
+    final basePrice = unitPrice - modifierTotal;
+    return MenuItemModel(
+      id: menuItemId,
+      restaurantId: restaurantId,
+      name: itemName,
+      price: basePrice > 0 ? basePrice : unitPrice,
+      imageUrl: itemImageUrl ?? '',
+      available: available,
+    );
+  }
 
   // Convert selectedModifiers stored on the order item back into SelectedModifier
   // objects so they can be re-attached to the cart item on reorder.
