@@ -36,6 +36,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   io.Socket? _socket;
   double? _currentLat;
   double? _currentLon;
+  final MapController _mapController = MapController();
 
   @override
   void initState() {
@@ -125,17 +126,32 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
 
   // Restore persisted availability on app start / return from background
   Future<void> _restoreAvailability() async {
-    final wasAvailable =
-        await ref.read(secureStorageProvider).getAvailability();
+    final storage = ref.read(secureStorageProvider);
+    final wasAvailable = await storage.getAvailability();
+
+    // Restore active delivery state if the rider was mid-delivery
+    final deliveryState = await storage.getDeliveryState();
+
     if (!mounted) return;
     setState(() {
       _isAvailable = wasAvailable;
       _restoringAvailability = false;
+      if (deliveryState != null) {
+        _onDelivery = true;
+        _activeOrderId = deliveryState['orderId'] as String;
+        _restaurantLat = deliveryState['restaurantLat'] as double;
+        _restaurantLon = deliveryState['restaurantLon'] as double;
+        _customerLat = deliveryState['customerLat'] as double;
+        _customerLon = deliveryState['customerLon'] as double;
+        _pickedUp = deliveryState['pickedUp'] as bool;
+      }
     });
+
     if (wasAvailable) {
       final locationOk = await _sendLocationNow();
       if (locationOk) {
-        _startLocationUpdates(interval: 30);
+        // Use faster interval if mid-delivery
+        _startLocationUpdates(interval: _onDelivery ? 10 : 30);
       }
     }
   }
@@ -318,21 +334,42 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     final nav = result?['navigation'] as Map<String, dynamic>?;
     final restaurant = nav?['restaurant'] as Map<String, dynamic>?;
     final delivery = nav?['delivery'] as Map<String, dynamic>?;
-    debugPrint('Accept delivery nav: $nav');
-    debugPrint(
-        'Restaurant coords: lat=${restaurant?['latitude']}, lon=${restaurant?['longitude']}');
-    debugPrint(
-        'Customer coords: lat=${delivery?['latitude']}, lon=${delivery?['longitude']}');
+
+    // Parse coordinates robustly — values come as num (double/int) from JSON,
+    // not as String, so we always go through num first.
+    double? rLat, rLon, cLat, cLon;
+    if (restaurant != null) {
+      rLat = (restaurant['latitude'] as num?)?.toDouble();
+      rLon = (restaurant['longitude'] as num?)?.toDouble();
+    }
+    if (delivery != null) {
+      cLat = (delivery['latitude'] as num?)?.toDouble();
+      cLon = (delivery['longitude'] as num?)?.toDouble();
+    }
+
     setState(() {
       _deliveryRequest = null;
       _onDelivery = true;
       _activeOrderId = orderId;
       _pickedUp = false;
-      _restaurantLat = restaurant?['latitude'] != null ? double.tryParse(restaurant!['latitude'].toString()) : null;
-      _restaurantLon = restaurant?['longitude'] != null ? double.tryParse(restaurant!['longitude'].toString()) : null;
-      _customerLat = delivery?['latitude'] != null ? double.tryParse(delivery!['latitude'].toString()) : null;
-      _customerLon = delivery?['longitude'] != null ? double.tryParse(delivery!['longitude'].toString()) : null;
+      _restaurantLat = rLat;
+      _restaurantLon = rLon;
+      _customerLat = cLat;
+      _customerLon = cLon;
     });
+
+    // Persist so state survives app restart
+    if (rLat != null && rLon != null && cLat != null && cLon != null) {
+      await ref.read(secureStorageProvider).saveDeliveryState(
+        orderId: orderId,
+        restaurantLat: rLat,
+        restaurantLon: rLon,
+        customerLat: cLat,
+        customerLon: cLon,
+        pickedUp: false,
+      );
+    }
+
     _startLocationUpdates(interval: 10);
   }
 
@@ -348,11 +385,15 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     if (_activeOrderId == null) return;
     await ref.read(riderServiceProvider).confirmPickup(_activeOrderId!);
     setState(() => _pickedUp = true);
+    // Persist the updated pickedUp flag so it survives app restart
+    await ref.read(secureStorageProvider).updateDeliveryPickedUp(true);
   }
 
   Future<void> _confirmDelivery() async {
     if (_activeOrderId == null) return;
     await ref.read(riderServiceProvider).confirmDelivery(_activeOrderId!);
+    // Clear persisted delivery state — delivery is complete
+    await ref.read(secureStorageProvider).clearDeliveryState();
     setState(() {
       _onDelivery = false;
       _activeOrderId = null;
@@ -382,6 +423,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     _locationTimer?.cancel();
     _requestTimer?.cancel();
     _socket?.disconnect();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -726,16 +768,25 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                         children: [
                           // Map in rounded container
                           Container(
-                            height: 180,
+                            height: 220,
                             clipBehavior: Clip.antiAlias,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.grey.shade200),
                             ),
                             child: FlutterMap(
+                              mapController: _mapController,
                               options: MapOptions(
-                                initialCenter: LatLng(
-                                    _currentLat ?? 9.03, _currentLon ?? 38.74),
+                                // Centre on destination: restaurant before
+                                // pickup, customer after pickup.
+                                // Fall back to rider position if coords missing.
+                                initialCenter: _pickedUp
+                                    ? LatLng(
+                                        _customerLat ?? _currentLat ?? 9.03,
+                                        _customerLon ?? _currentLon ?? 38.74)
+                                    : LatLng(
+                                        _restaurantLat ?? _currentLat ?? 9.03,
+                                        _restaurantLon ?? _currentLon ?? 38.74),
                                 initialZoom: 14,
                               ),
                               children: [
@@ -745,16 +796,46 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                                   userAgentPackageName:
                                       'com.fooddelivery.rider',
                                 ),
-                                if (_currentLat != null)
-                                  MarkerLayer(markers: [
-                                    Marker(
-                                      point: LatLng(_currentLat!, _currentLon!),
-                                      width: 40,
-                                      height: 40,
-                                      child: const Icon(Icons.delivery_dining,
-                                          color: Color(0xFF1565C0), size: 36),
-                                    ),
-                                  ]),
+                                MarkerLayer(
+                                  markers: [
+                                    // Rider's current position (blue bike icon)
+                                    if (_currentLat != null)
+                                      Marker(
+                                        point: LatLng(
+                                            _currentLat!, _currentLon!),
+                                        width: 40,
+                                        height: 40,
+                                        child: const Icon(
+                                            Icons.delivery_dining,
+                                            color: Color(0xFF1565C0),
+                                            size: 36),
+                                      ),
+                                    // Restaurant pin — shown before pickup
+                                    if (!_pickedUp && _restaurantLat != null)
+                                      Marker(
+                                        point: LatLng(
+                                            _restaurantLat!, _restaurantLon!),
+                                        width: 44,
+                                        height: 44,
+                                        child: const _MapPin(
+                                          icon: Icons.restaurant,
+                                          color: Colors.orange,
+                                        ),
+                                      ),
+                                    // Customer pin — shown after pickup
+                                    if (_pickedUp && _customerLat != null)
+                                      Marker(
+                                        point: LatLng(
+                                            _customerLat!, _customerLon!),
+                                        width: 44,
+                                        height: 44,
+                                        child: const _MapPin(
+                                          icon: Icons.home,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
@@ -923,4 +1004,60 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
       ],
     );
   }
+}
+
+/// Coloured pin marker used on the delivery map.
+class _MapPin extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  const _MapPin({required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Icon(icon, color: Colors.white, size: 18),
+        ),
+        // Pin tail
+        CustomPaint(
+          size: const Size(12, 6),
+          painter: _PinTailPainter(color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _PinTailPainter extends CustomPainter {
+  final Color color;
+  const _PinTailPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_PinTailPainter old) => old.color != color;
 }
