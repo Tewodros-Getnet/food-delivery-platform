@@ -159,6 +159,13 @@ class _RestaurantProfileScreenState
                     ),
                     const SizedBox(height: 24),
                     ListTile(
+                      leading: const Icon(Icons.photo_library_outlined),
+                      title: const Text('Restaurant Images'),
+                      subtitle: const Text('Cover photo and logo'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/images'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.campaign_outlined),
                       title: const Text('Promotional Banner'),
                       subtitle:

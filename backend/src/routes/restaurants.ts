@@ -273,6 +273,42 @@ router.post('/ratings/:ratingId/reply', authenticate, authorize('restaurant'), a
   } catch (err) { next(err); }
 });
 
+// PUT /restaurants/my/images — upload cover photo and/or logo
+router.put('/my/images', authenticate, authorize('restaurant'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { coverBase64, logoBase64 } = req.body as { coverBase64?: string; logoBase64?: string };
+    if (!coverBase64 && !logoBase64) {
+      res.status(422).json({ success: false, data: null, error: 'Provide coverBase64 and/or logoBase64' });
+      return;
+    }
+
+    const { getRestaurantByOwner } = await import('../services/restaurant.service');
+    const restaurant = await getRestaurantByOwner(req.userId!);
+    if (!restaurant) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+
+    const { uploadImage } = await import('../services/cloudinary.service');
+    const { query: dbQuery } = await import('../config/database');
+
+    let coverUrl: string | null = restaurant.cover_image_url ?? null;
+    let logoUrl: string | null = restaurant.logo_url ?? null;
+
+    if (coverBase64) {
+      coverUrl = await uploadImage(coverBase64, 'restaurants/covers');
+    }
+    if (logoBase64) {
+      logoUrl = await uploadImage(logoBase64, 'restaurants/logos');
+    }
+
+    const result = await dbQuery(
+      `UPDATE restaurants
+       SET cover_image_url = $1, logo_url = $2, updated_at = NOW()
+       WHERE id = $3 RETURNING *`,
+      [coverUrl, logoUrl, restaurant.id]
+    );
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
+
 // PUT /restaurants/my/banner — set or clear promotional banner
 router.put('/my/banner', authenticate, authorize('restaurant'), async (req: Request, res: Response, next: NextFunction) => {
   try {

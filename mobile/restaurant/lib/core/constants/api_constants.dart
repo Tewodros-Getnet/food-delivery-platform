@@ -23,4 +23,5 @@ class ApiConstants {
   static const String orders = '/orders';
   static const String myRestaurantAnalytics = '/restaurants/my/analytics';
   static const String myRestaurantBanner = '/restaurants/my/banner';
+  static const String myRestaurantImages = '/restaurants/my/images';
 }
