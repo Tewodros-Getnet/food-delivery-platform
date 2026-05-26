@@ -6,6 +6,7 @@ import 'dart:convert';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/widgets/language_switcher.dart';
 
 class RestaurantProfileScreen extends ConsumerStatefulWidget {
   const RestaurantProfileScreen({super.key});
@@ -193,6 +194,7 @@ class _RestaurantProfileScreenState
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => _showChangePasswordDialog(context),
                     ),
+                    const LanguageSwitcherTile(),
                   ],
                 ),
     );

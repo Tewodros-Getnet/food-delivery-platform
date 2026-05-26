@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/widgets/language_switcher.dart';
 
 class RiderProfileScreen extends ConsumerStatefulWidget {
   const RiderProfileScreen({super.key});
@@ -176,6 +177,7 @@ class _RiderProfileScreenState extends ConsumerState<RiderProfileScreen> {
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => _showChangePasswordDialog(context),
                     ),
+                    const LanguageSwitcherTile(),
                   ],
                 ),
     );

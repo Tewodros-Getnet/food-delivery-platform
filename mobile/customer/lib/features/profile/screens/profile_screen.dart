@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/widgets/language_switcher.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -323,6 +324,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       trailing: _ComingSoonBadge(),
                       onTap: null,
                     ),
+                  ]),
+
+                  const SizedBox(height: 20),
+
+                  // ── Language section ─────────────────────────────────────
+                  _SectionLabel('Language'),
+                  _MenuCard(children: [
+                    const LanguageSwitcherTile(),
                   ]),
 
                   const SizedBox(height: 20),
