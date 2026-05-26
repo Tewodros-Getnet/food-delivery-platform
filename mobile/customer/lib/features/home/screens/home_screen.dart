@@ -372,7 +372,109 @@ class _MenuItemSearchCard extends StatelessWidget {
   }
 }
 
-// ── Restaurant card ───────────────────────────────────────────────────────────
+// ── Restaurant cover placeholder ─────────────────────────────────────────────
+// Shown when a restaurant has no cover image (or while one is loading).
+// Uses a warm gradient derived from the restaurant's name initial so every
+// card looks intentional rather than broken.
+
+class _RestaurantPlaceholder extends StatelessWidget {
+  final String name;
+  final double height;
+  const _RestaurantPlaceholder({required this.name, required this.height});
+
+  /// Pick one of several warm gradient pairs based on the first letter so
+  /// different restaurants get visually distinct colours.
+  List<Color> _gradientColors() {
+    const palettes = [
+      [Color(0xFFFF8C00), Color(0xFFFF5722)], // orange → deep-orange
+      [Color(0xFFE91E63), Color(0xFF9C27B0)], // pink → purple
+      [Color(0xFF2196F3), Color(0xFF00BCD4)], // blue → cyan
+      [Color(0xFF4CAF50), Color(0xFF8BC34A)], // green → light-green
+      [Color(0xFF795548), Color(0xFFFF8C00)], // brown → orange
+      [Color(0xFF607D8B), Color(0xFF455A64)], // blue-grey shades
+      [Color(0xFFFF5722), Color(0xFFF44336)], // deep-orange → red
+      [Color(0xFF9C27B0), Color(0xFF3F51B5)], // purple → indigo
+    ];
+    final idx = name.isNotEmpty
+        ? name.toUpperCase().codeUnitAt(0) % palettes.length
+        : 0;
+    return palettes[idx];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final initial =
+        name.isNotEmpty ? name.trim()[0].toUpperCase() : '?';
+    final colors = _gradientColors();
+
+    return Container(
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: colors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Large faded initial in the background
+          Positioned(
+            right: -12,
+            bottom: -16,
+            child: Text(
+              initial,
+              style: TextStyle(
+                fontSize: 120,
+                fontWeight: FontWeight.w900,
+                color: Colors.white.withValues(alpha: 0.12),
+                height: 1,
+              ),
+            ),
+          ),
+          // Centred initial + label
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _RestaurantCard extends ConsumerWidget {
   final RestaurantModel r;
@@ -398,19 +500,9 @@ class _RestaurantCard extends ConsumerWidget {
                     height: 150,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) =>
-                        Container(height: 150, color: Colors.grey[200]),
-                    errorWidget: (_, __, ___) => Container(
-                        height: 150,
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.restaurant,
-                            size: 48, color: Colors.grey)))
-                : Container(
-                    height: 150,
-                    color: Colors.grey[200],
-                    child: const Center(
-                        child: Icon(Icons.restaurant,
-                            size: 48, color: Colors.grey))),
+                    placeholder: (_, __) => _RestaurantPlaceholder(name: r.name, height: 150),
+                    errorWidget: (_, __, ___) => _RestaurantPlaceholder(name: r.name, height: 150))
+                : _RestaurantPlaceholder(name: r.name, height: 150),
             // Closed overlay
             if (!r.isOpen)
               Positioned.fill(
