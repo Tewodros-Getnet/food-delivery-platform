@@ -1,0 +1,12 @@
+feat: admin user management privileges + rider APK fixes
+
+- Add 8 new admin endpoints: delete user, change role, reset password,
+  user details, impersonate, export CSV, send notification
+- Update GET /admin/users with status filter and sortBy/sortDir sorting
+- Add password_reset_tokens migration (014)
+- Add POST /auth/reset-password public endpoint
+- Rewrite admin users page with all 9 privilege features
+- Fix rider APK: remove FOREGROUND_SERVICE_LOCATION permission
+- Fix all 3 apps: cupertino_icons dependency, AGP 8.11.1
+- Fix latlong2/dart:ui Path name collision in rider home_screen.dart
+- Fix google-services.json: each app now has its own client entry only
