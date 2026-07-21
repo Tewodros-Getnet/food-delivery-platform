@@ -6,6 +6,7 @@ import {
   logoutHandler, logoutValidation,
   verifyOtpHandler,
   resendOtpHandler,
+  resetPasswordHandler, resetPasswordValidation,
 } from '../controllers/auth.controller';
 
 const router = Router();
@@ -16,5 +17,6 @@ router.post('/resend-otp', resendOtpHandler);
 router.post('/login', loginValidation, loginHandler);
 router.post('/refresh', refreshValidation, refreshHandler);
 router.post('/logout', logoutValidation, logoutHandler);
+router.post('/reset-password', resetPasswordValidation, resetPasswordHandler);
 
 export default router;

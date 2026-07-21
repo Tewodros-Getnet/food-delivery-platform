@@ -51,19 +51,18 @@ function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function storeAndSendOtp(userId: string, email: string, client?: PoolClient): Promise<void> {
+async function storeOtp(userId: string, client?: PoolClient): Promise<string> {
   const otp = generateOtp();
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
   const run = client
     ? (text: string, params: unknown[]) => client.query(text, params)
     : (text: string, params: unknown[]) => query(text, params);
-  // Invalidate any previous unused codes
   await run('UPDATE verification_codes SET used = TRUE WHERE user_id = $1 AND used = FALSE', [userId]);
   await run(
     'INSERT INTO verification_codes (user_id, code, expires_at) VALUES ($1, $2, $3)',
     [userId, otp, expiresAt]
   );
-  await sendOtpEmail(email, otp);
+  return otp;
 }
 
 export async function register(
@@ -71,17 +70,18 @@ export async function register(
   password: string,
   role: UserRole
 ): Promise<{ userId: string; email: string; pendingVerification: true }> {
-  return withTransaction(async (client) => {
+  // Store OTP inside transaction, send email OUTSIDE to avoid holding DB connection
+  // open while waiting for SMTP which can cause transaction timeout
+  const { userId, otp } = await withTransaction(async (client) => {
     const existing = await client.query(
       'SELECT id, email_verified FROM users WHERE email = $1',
       [email]
     );
     if (existing.rowCount && existing.rowCount > 0) {
       const existingUser = existing.rows[0] as { id: string; email_verified: boolean };
-      // If registered but not verified, resend OTP
       if (!existingUser.email_verified) {
-        await storeAndSendOtp(existingUser.id, email, client);
-        return { userId: existingUser.id, email, pendingVerification: true };
+        const otp = await storeOtp(existingUser.id, client);
+        return { userId: existingUser.id, otp };
       }
       const err = new Error('Email already registered') as Error & { statusCode: number };
       err.statusCode = 409;
@@ -95,9 +95,14 @@ export async function register(
       [email, password_hash, role]
     );
     const user = result.rows[0];
-    await storeAndSendOtp(user.id, email, client);
-    return { userId: user.id, email, pendingVerification: true };
+    const otp = await storeOtp(user.id, client);
+    return { userId: user.id, otp };
   });
+
+  // Send email after transaction is committed — SMTP delay won't block DB connection
+  await sendOtpEmail(email, otp);
+
+  return { userId, email, pendingVerification: true };
 }
 
 export async function verifyOtp(userId: string, code: string): Promise<AuthResult> {
@@ -162,7 +167,8 @@ export async function resendOtp(userId: string): Promise<void> {
     err.statusCode = 400;
     throw err;
   }
-  await storeAndSendOtp(userId, user.email);
+  const otp = await storeOtp(userId);
+  await sendOtpEmail(user.email, otp);
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
