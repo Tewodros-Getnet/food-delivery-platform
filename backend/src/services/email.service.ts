@@ -1,13 +1,21 @@
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
-sgMail.setApiKey(env.SENDGRID_API_KEY);
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: env.GMAIL_USER,
+    pass: env.GMAIL_APP_PASSWORD,
+  },
+});
+
+const FROM = `"Food Delivery" <${env.GMAIL_USER}>`;
 
 export async function sendOtpEmail(to: string, otp: string): Promise<void> {
   try {
-    await sgMail.send({
-      from: env.SENDGRID_FROM_EMAIL,
+    await transporter.sendMail({
+      from: FROM,
       to,
       subject: 'Your verification code',
       html: `
@@ -25,6 +33,16 @@ export async function sendOtpEmail(to: string, otp: string): Promise<void> {
     logger.info('OTP email sent', { to });
   } catch (err) {
     logger.error('Failed to send OTP email', { to, error: String(err) });
+    throw err;
+  }
+}
+
+export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  try {
+    await transporter.sendMail({ from: FROM, to, subject, html });
+    logger.info('Email sent', { to, subject });
+  } catch (err) {
+    logger.error('Failed to send email', { to, subject, error: String(err) });
     throw err;
   }
 }

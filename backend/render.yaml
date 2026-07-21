@@ -51,3 +51,7 @@ services:
         # Set to: http://localhost:3000,http://localhost:3001,https://fooddeliveryadmin-nine.vercel.app
       - key: APP_DEEP_LINK_BASE
         value: "fooddelivery://app"
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
