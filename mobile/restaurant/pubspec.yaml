@@ -12,6 +12,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.4.9
+  cupertino_icons: ^1.0.8
   dio: ^5.4.0
   flutter_secure_storage: ^9.0.0
   socket_io_client: ^2.0.3+1
