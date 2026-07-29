@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,16 +53,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     try {
       final dio = ref.read(dioClientProvider).dio;
 
-      // Fetch restaurant info — don't silently swallow errors
+      // Fetch restaurant info
       try {
         final rRes = await dio.get(ApiConstants.myRestaurant);
         final rData = rRes.data['data'] as Map<String, dynamic>?;
         _restaurantId = rData?['id'] as String?;
         if (mounted) setState(() => _isOpen = (rData?['is_open'] as bool?) ?? true);
-      } catch (e) {
-        // Network/auth error — show retry state instead of fake setup prompt
-        if (mounted) setState(() { _loading = false; _loadError = true; });
-        return;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          // No restaurant registered yet — fall through to show setup prompt
+          _restaurantId = null;
+        } else {
+          // Genuine network/auth error — show retry
+          if (mounted) setState(() { _loading = false; _loadError = true; });
+          return;
+        }
       }
 
       final orders = await ref.read(orderServiceProvider).getOrders();
