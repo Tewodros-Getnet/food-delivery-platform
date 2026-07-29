@@ -1,0 +1,43 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+dist/
+*.log
+coverage/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.iml
+.idea/
+.vscode/
+
+# Flutter generated files
+**/GeneratedPluginRegistrant.java
+**/GeneratedPluginRegistrant.kt
+
+# Firebase — contains real API keys, never commit
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Android Gradle cache
+**/.gradle/
+
+# Android local machine config
+**/local.properties
+
+# OS
+.DS_Store
+Thumbs.db
