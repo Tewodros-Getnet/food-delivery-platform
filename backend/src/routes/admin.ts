@@ -100,7 +100,7 @@ router.put('/users/:id/reactivate', ...adminAuth, async (req: Request, res: Resp
   } catch (err) { next(err); }
 });
 
-// DELETE /admin/users/:id — hard delete (also wipes tokens, orders stay for records)
+// DELETE /admin/users/:id — hard delete, removes all dependent rows first
 router.delete('/users/:id', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const existing = await query('SELECT id, role FROM users WHERE id = $1', [req.params.id]);
@@ -108,16 +108,40 @@ router.delete('/users/:id', ...adminAuth, async (req: Request, res: Response, ne
       res.status(404).json({ success: false, data: null, error: 'User not found' });
       return;
     }
-    // Wipe all active sessions first
-    await query('DELETE FROM refresh_tokens WHERE user_id = $1', [req.params.id]);
-    // Remove OTP codes
-    await query('DELETE FROM verification_codes WHERE user_id = $1', [req.params.id]);
-    // Remove password reset tokens
-    await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [req.params.id]);
-    // Delete the user — orders/ratings keep a dangling FK so set to NULL
-    await query('UPDATE orders SET customer_id = NULL WHERE customer_id = $1', [req.params.id]);
-    await query('UPDATE orders SET rider_id = NULL WHERE rider_id = $1', [req.params.id]);
-    await query('DELETE FROM users WHERE id = $1', [req.params.id]);
+    const id = req.params.id;
+
+    // Delete child rows that reference this user, in dependency order.
+    // Many tables have ON DELETE CASCADE already (refresh_tokens, fcm_tokens,
+    // rider_locations, order_items via orders) — but orders, disputes, ratings,
+    // addresses and restaurants do NOT, so we handle them explicitly.
+
+    // 1. Disputes referencing orders that belong to this user (as customer or rider)
+    await query(`DELETE FROM disputes WHERE order_id IN (SELECT id FROM orders WHERE customer_id = $1)`, [id]);
+    await query(`DELETE FROM disputes WHERE customer_id = $1`, [id]);
+
+    // 2. Ratings referencing orders that belong to this user
+    await query(`DELETE FROM ratings WHERE order_id IN (SELECT id FROM orders WHERE customer_id = $1)`, [id]);
+    await query(`DELETE FROM ratings WHERE customer_id = $1`, [id]);
+    await query(`DELETE FROM ratings WHERE rider_id = $1`, [id]);
+
+    // 3. Orders where this user is the customer (order_items cascade from orders)
+    await query(`DELETE FROM orders WHERE customer_id = $1`, [id]);
+
+    // 4. Null out rider_id on any orders where this user was the rider
+    //    (rider_id is nullable, so this is safe)
+    await query(`UPDATE orders SET rider_id = NULL WHERE rider_id = $1`, [id]);
+
+    // 5. Addresses
+    await query(`DELETE FROM addresses WHERE user_id = $1`, [id]);
+
+    // 6. Restaurant owned by this user (menu_items cascade from restaurants)
+    await query(`DELETE FROM restaurants WHERE owner_id = $1`, [id]);
+
+    // 7. The user row itself — refresh_tokens, fcm_tokens, rider_locations,
+    //    verification_codes, password_reset_tokens all have ON DELETE CASCADE
+    //    or will be cleaned up by the FK cascade on users.id
+    await query(`DELETE FROM users WHERE id = $1`, [id]);
+
     res.json(successResponse({ message: 'User deleted' }));
   } catch (err) { next(err); }
 });
