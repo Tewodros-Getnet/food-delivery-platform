@@ -183,7 +183,11 @@ export async function verifyOtp(userId: string, code: string): Promise<AuthResul
 export async function resendOtp(userId: string): Promise<void> {
   // Enforce server-side per-user cooldown (fix #4)
   checkResendCooldown(userId);
+  await resendOtpInternal(userId);
+}
 
+// Used by admin routes — bypasses the cooldown
+export async function resendOtpInternal(userId: string): Promise<void> {
   const userResult = await query<{ email: string; email_verified: boolean }>(
     'SELECT email, email_verified FROM users WHERE id = $1', [userId]
   );

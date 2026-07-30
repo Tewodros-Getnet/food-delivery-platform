@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/rbac';
 import { query } from '../config/database';
 import { successResponse } from '../utils/response';
+import { resendOtpInternal } from '../services/auth.service';
 
 const router = Router();
 
@@ -99,6 +100,85 @@ router.put('/users/:id/reactivate', ...adminAuth, async (req: Request, res: Resp
   } catch (err) { next(err); }
 });
 
+// DELETE /admin/users/:id — hard delete (also wipes tokens, orders stay for records)
+router.delete('/users/:id', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const existing = await query('SELECT id, role FROM users WHERE id = $1', [req.params.id]);
+    if (!existing.rows[0]) {
+      res.status(404).json({ success: false, data: null, error: 'User not found' });
+      return;
+    }
+    // Wipe all active sessions first
+    await query('DELETE FROM refresh_tokens WHERE user_id = $1', [req.params.id]);
+    // Remove OTP codes
+    await query('DELETE FROM verification_codes WHERE user_id = $1', [req.params.id]);
+    // Remove password reset tokens
+    await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [req.params.id]);
+    // Delete the user — orders/ratings keep a dangling FK so set to NULL
+    await query('UPDATE orders SET customer_id = NULL WHERE customer_id = $1', [req.params.id]);
+    await query('UPDATE orders SET rider_id = NULL WHERE rider_id = $1', [req.params.id]);
+    await query('DELETE FROM users WHERE id = $1', [req.params.id]);
+    res.json(successResponse({ message: 'User deleted' }));
+  } catch (err) { next(err); }
+});
+
+// PUT /admin/users/:id/role — change a user's role
+router.put('/users/:id/role', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { role } = req.body as { role?: string };
+    const valid = ['customer', 'restaurant', 'rider', 'admin'];
+    if (!role || !valid.includes(role)) {
+      res.status(422).json({ success: false, data: null, error: `role must be one of: ${valid.join(', ')}` });
+      return;
+    }
+    const result = await query(
+      'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, role',
+      [role, req.params.id]
+    );
+    if (!result.rows[0]) {
+      res.status(404).json({ success: false, data: null, error: 'User not found' });
+      return;
+    }
+    // Invalidate existing sessions — role embedded in JWT must be refreshed
+    await query('DELETE FROM refresh_tokens WHERE user_id = $1', [req.params.id]);
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
+
+// POST /admin/users/:id/force-logout — invalidate all active sessions
+router.post('/users/:id/force-logout', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      'DELETE FROM refresh_tokens WHERE user_id = $1 RETURNING id',
+      [req.params.id]
+    );
+    res.json(successResponse({
+      message: 'User sessions terminated',
+      sessionsRevoked: result.rowCount ?? 0,
+    }));
+  } catch (err) { next(err); }
+});
+
+// POST /admin/users/:id/resend-verification — re-send OTP for unverified accounts
+router.post('/users/:id/resend-verification', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userResult = await query<{ email: string; email_verified: boolean }>(
+      'SELECT email, email_verified FROM users WHERE id = $1',
+      [req.params.id]
+    );
+    const user = userResult.rows[0];
+    if (!user) {
+      res.status(404).json({ success: false, data: null, error: 'User not found' });
+      return;
+    }
+    if (user.email_verified) {
+      res.status(400).json({ success: false, data: null, error: 'Email already verified' });
+      return;
+    }
+    await resendOtpInternal(req.params.id);
+    res.json(successResponse({ message: 'Verification email sent' }));
+  } catch (err) { next(err); }
+});
 // GET /admin/orders — Fix 4: refund_failed filter + Fix 5: pagination metadata
 router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
