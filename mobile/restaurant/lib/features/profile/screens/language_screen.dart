@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/app_localizations.dart';
-import '../language_provider.dart';
+import '../../../core/providers/locale_provider.dart';
 
 class LanguageSettingsScreen extends ConsumerWidget {
   const LanguageSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentLocale = ref.watch(languageProvider);
+    final currentLocale = ref.watch(localeProvider);
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
@@ -32,7 +32,7 @@ class LanguageSettingsScreen extends ConsumerWidget {
             groupValue: currentLocale.languageCode,
             onChanged: (value) {
               if (value != null && value != currentLocale.languageCode) {
-                ref.read(languageProvider.notifier).setLanguage(value);
+                ref.read(localeProvider.notifier).setLocale(Locale(value));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(l10n.success),
@@ -49,7 +49,7 @@ class LanguageSettingsScreen extends ConsumerWidget {
             groupValue: currentLocale.languageCode,
             onChanged: (value) {
               if (value != null && value != currentLocale.languageCode) {
-                ref.read(languageProvider.notifier).setLanguage(value);
+                ref.read(localeProvider.notifier).setLocale(Locale(value));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(l10n.success),
