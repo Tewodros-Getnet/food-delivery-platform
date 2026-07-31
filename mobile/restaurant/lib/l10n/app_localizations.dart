@@ -164,6 +164,24 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settings;
 
+  /// No description provided for @language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get language;
+
+  /// No description provided for @selectLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Language'**
+  String get selectLanguage;
+
+  /// No description provided for @success.
+  ///
+  /// In en, this message translates to:
+  /// **'Language updated successfully'**
+  String get success;
+
   /// No description provided for @newOrders.
   ///
   /// In en, this message translates to:

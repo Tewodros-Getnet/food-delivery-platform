@@ -42,6 +42,15 @@ class AppLocalizationsAm extends AppLocalizations {
   String get settings => 'ቅንብሮች';
 
   @override
+  String get language => 'ቋንቋ';
+
+  @override
+  String get selectLanguage => 'ቋንቋ ምረጥ';
+
+  @override
+  String get success => 'ቋንቋ በተሳካ ሁኔታ ተቀይሯል';
+
+  @override
   String get newOrders => 'አዲስ ትዕዛዞች';
 
   @override

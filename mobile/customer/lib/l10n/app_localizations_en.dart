@@ -42,6 +42,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings => 'Settings';
 
   @override
+  String get language => 'Language';
+
+  @override
+  String get selectLanguage => 'Select Language';
+
+  @override
+  String get success => 'Language updated successfully';
+
+  @override
   String get noOrders => 'No orders yet';
 
   @override
