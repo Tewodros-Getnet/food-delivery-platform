@@ -2,12 +2,27 @@ import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
+// Explicit SMTP config instead of service:'gmail' shorthand.
+// - host/port/secure specified explicitly so nodemailer doesn't guess wrong.
+// - port 587 + secure:false + STARTTLS is Gmail's recommended config.
+// - connectionTimeout / greetingTimeout / socketTimeout prevent indefinite hangs.
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // use STARTTLS (upgraded from plain on port 587)
   auth: {
     user: env.GMAIL_USER,
     pass: env.GMAIL_APP_PASSWORD,
   },
+  tls: {
+    rejectUnauthorized: true,
+    minVersion: 'TLSv1.2',
+  },
+  connectionTimeout: 10000,  // 10s to establish TCP connection
+  greetingTimeout: 10000,    // 10s to receive SMTP greeting
+  socketTimeout: 15000,      // 15s of inactivity before giving up
+  logger: false,
+  debug: false,
 });
 
 const FROM = `"Food Delivery" <${env.GMAIL_USER}>`;
