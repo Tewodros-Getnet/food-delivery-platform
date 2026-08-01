@@ -123,8 +123,12 @@ export async function register(
     return { userId: user.id, otp };
   });
 
-  // Send email after transaction is committed — SMTP delay won't block DB connection
-  await sendOtpEmail(email, otp);
+  // Send email after transaction is committed — fire-and-forget so a transient
+  // SMTP failure never blocks registration. The user lands on the OTP screen
+  // and can hit "Resend" if the email didn't arrive.
+  sendOtpEmail(email, otp).catch((err) =>
+    logger.error('OTP email delivery failed — user can resend', { userId, email, error: String(err) })
+  );
 
   return { userId, email, pendingVerification: true };
 }
