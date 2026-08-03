@@ -1,47 +1,28 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
-// Explicit SMTP config instead of service:'gmail' shorthand.
-// - host/port/secure specified explicitly so nodemailer doesn't guess wrong.
-// - port 587 + secure:false + STARTTLS is Gmail's recommended config.
-// - connectionTimeout / greetingTimeout / socketTimeout prevent indefinite hangs.
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // use STARTTLS (upgraded from plain on port 587)
-  auth: {
-    user: env.GMAIL_USER,
-    pass: env.GMAIL_APP_PASSWORD,
-  },
-  tls: {
-    rejectUnauthorized: true,
-    minVersion: 'TLSv1.2',
-  },
-  connectionTimeout: 10000,  // 10s to establish TCP connection
-  greetingTimeout: 10000,    // 10s to receive SMTP greeting
-  socketTimeout: 15000,      // 15s of inactivity before giving up
-  logger: false,
-  debug: false,
-});
+const resend = new Resend(env.RESEND_API_KEY);
 
-const FROM = `"Food Delivery" <${env.GMAIL_USER}>`;
+// Use your verified Resend domain in production.
+// 'onboarding@resend.dev' works for testing without domain verification.
+const FROM = env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev';
 
 export async function sendOtpEmail(to: string, otp: string): Promise<void> {
   try {
-    await transporter.sendMail({
+    await resend.emails.send({
       from: FROM,
       to,
-      subject: 'Your verification code',
+      subject: 'Your Food Delivery verification code',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-          <h2 style="color: #f97316;">Food Delivery</h2>
-          <p style="font-size: 16px; color: #333;">Your email verification code is:</p>
-          <div style="background: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #111;">${otp}</span>
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+          <h2 style="color:#f97316;">Food Delivery</h2>
+          <p style="font-size:16px;color:#333;">Your email verification code is:</p>
+          <div style="background:#f3f4f6;border-radius:8px;padding:20px;text-align:center;margin:20px 0;">
+            <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#111;">${otp}</span>
           </div>
-          <p style="font-size: 14px; color: #666;">This code expires in <strong>10 minutes</strong>.</p>
-          <p style="font-size: 14px; color: #666;">If you did not request this, please ignore this email.</p>
+          <p style="font-size:14px;color:#666;">This code expires in <strong>10 minutes</strong>.</p>
+          <p style="font-size:14px;color:#666;">If you did not request this, please ignore this email.</p>
         </div>
       `,
     });
@@ -54,7 +35,7 @@ export async function sendOtpEmail(to: string, otp: string): Promise<void> {
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   try {
-    await transporter.sendMail({ from: FROM, to, subject, html });
+    await resend.emails.send({ from: FROM, to, subject, html });
     logger.info('Email sent', { to, subject });
   } catch (err) {
     logger.error('Failed to send email', { to, subject, error: String(err) });

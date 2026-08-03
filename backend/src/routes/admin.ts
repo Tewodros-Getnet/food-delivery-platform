@@ -275,10 +275,10 @@ router.post('/users/:id/resend-verification', ...adminAuth, async (req: Request,
     res.json(successResponse({ message: 'Verification email sent' }));
   } catch (err) { next(err); }
 });
-// GET /admin/orders — Fix 4: refund_failed filter + Fix 5: pagination metadata
+// GET /admin/orders — supports status, payment_status, search, startDate, endDate, page, limit
 router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { status, payment_status, page, limit } = req.query as Record<string, string>;
+    const { status, payment_status, search, startDate, endDate, page, limit } = req.query as Record<string, string>;
     const pageNum = parseInt(page ?? '1', 10);
     const limitNum = Math.min(parseInt(limit ?? '30', 10), 100);
     const offset = (pageNum - 1) * limitNum;
@@ -287,21 +287,25 @@ router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: Ne
     const values: unknown[] = [];
     let idx = 1;
 
-    if (status) {
-      conditions.push('o.status = $' + idx);
-      values.push(status);
-      idx++;
-    }
-    if (payment_status) {
-      conditions.push('o.payment_status = $' + idx);
-      values.push(payment_status);
+    if (status) { conditions.push(`o.status = $${idx++}`); values.push(status); }
+    if (payment_status) { conditions.push(`o.payment_status = $${idx++}`); values.push(payment_status); }
+    if (startDate) { conditions.push(`o.created_at >= $${idx++}`); values.push(startDate); }
+    if (endDate) { conditions.push(`o.created_at <= $${idx++}`); values.push(endDate); }
+    if (search) {
+      conditions.push(
+        `(o.id::text ILIKE $${idx} OR cu.email ILIKE $${idx} OR cu.display_name ILIKE $${idx} OR r.name ILIKE $${idx})`
+      );
+      values.push(`%${search}%`);
       idx++;
     }
 
     const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
 
     const countResult = await query(
-      `SELECT COUNT(*) as total FROM orders o ${where}`,
+      `SELECT COUNT(*) as total FROM orders o
+       JOIN users cu ON cu.id = o.customer_id
+       JOIN restaurants r ON r.id = o.restaurant_id
+       ${where}`,
       values.slice()
     );
     const total = parseInt(countResult.rows[0].total as string, 10);
@@ -311,15 +315,21 @@ router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: Ne
     const offsetParam = '$' + (idx + 1);
 
     const result = await query(
-      `SELECT o.id, o.status, o.total, o.payment_status, o.cancellation_reason, o.cancelled_by,
-              o.created_at, o.updated_at,
-              cu.email as customer_email, cu.display_name as customer_name,
-              r.name as restaurant_name,
-              ru.display_name as rider_name, ru.email as rider_email
+      `SELECT o.id, o.status, o.total, o.subtotal, o.delivery_fee, o.payment_status,
+              o.payment_reference, o.payment_method, o.cancellation_reason, o.cancelled_by,
+              o.cancelled_at, o.created_at, o.updated_at, o.estimated_delivery_time,
+              o.estimated_prep_time_minutes, o.notes,
+              cu.id as customer_id, cu.email as customer_email, cu.display_name as customer_name,
+              cu.phone as customer_phone,
+              r.id as restaurant_id, r.name as restaurant_name,
+              ru.id as rider_id, ru.display_name as rider_name, ru.email as rider_email,
+              ru.phone as rider_phone,
+              a.line1 as delivery_address, a.city as delivery_city
        FROM orders o
        JOIN users cu ON cu.id = o.customer_id
        JOIN restaurants r ON r.id = o.restaurant_id
        LEFT JOIN users ru ON ru.id = o.rider_id
+       LEFT JOIN addresses a ON a.id = o.delivery_address_id
        ${where}
        ORDER BY o.created_at DESC
        LIMIT ${limitParam} OFFSET ${offsetParam}`,
@@ -330,6 +340,42 @@ router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: Ne
       orders: result.rows,
       pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
     }));
+  } catch (err) { next(err); }
+});
+
+// GET /admin/orders/:id — full detail with items
+router.get('/orders/:id', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orderResult = await query(
+      `SELECT o.*, 
+              cu.email as customer_email, cu.display_name as customer_name, cu.phone as customer_phone,
+              r.name as restaurant_name, r.address as restaurant_address,
+              ru.display_name as rider_name, ru.email as rider_email, ru.phone as rider_phone,
+              a.line1 as delivery_line1, a.line2 as delivery_line2,
+              a.city as delivery_city, a.latitude as delivery_lat, a.longitude as delivery_lon,
+              (SELECT id FROM disputes WHERE order_id = o.id LIMIT 1) as dispute_id
+       FROM orders o
+       JOIN users cu ON cu.id = o.customer_id
+       JOIN restaurants r ON r.id = o.restaurant_id
+       LEFT JOIN users ru ON ru.id = o.rider_id
+       LEFT JOIN addresses a ON a.id = o.delivery_address_id
+       WHERE o.id = $1`,
+      [req.params.id]
+    );
+    if (!orderResult.rows[0]) {
+      res.status(404).json({ success: false, data: null, error: 'Order not found' });
+      return;
+    }
+
+    const itemsResult = await query(
+      `SELECT oi.id, oi.item_name, oi.quantity, oi.unit_price,
+              oi.item_image_url,
+              COALESCE(oi.selected_modifiers, '[]'::jsonb) as selected_modifiers
+       FROM order_items oi WHERE oi.order_id = $1 ORDER BY oi.id`,
+      [req.params.id]
+    );
+
+    res.json(successResponse({ ...orderResult.rows[0], items: itemsResult.rows }));
   } catch (err) { next(err); }
 });
 
