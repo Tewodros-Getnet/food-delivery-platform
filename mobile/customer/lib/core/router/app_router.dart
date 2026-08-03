@@ -93,13 +93,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (ctx, state) {
       final isAuth = auth.status == AuthStatus.authenticated;
       final isUnknown = auth.status == AuthStatus.unknown;
+      final isPending = auth.status == AuthStatus.pendingVerification;
       final isPublic = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/verify-otp';
       if (isUnknown) return null;
-      if (!isAuth && !isPublic) return '/login';
-      if (auth.status == AuthStatus.pendingVerification &&
-          state.matchedLocation != '/verify-otp') return '/verify-otp';
+      if (isPending && state.matchedLocation != '/verify-otp') return '/verify-otp';
+      if (!isAuth && !isPending && !isPublic) return '/login';
       if (isAuth && isPublic) return '/home';
       return null;
     },

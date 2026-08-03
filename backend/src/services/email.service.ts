@@ -17,7 +17,7 @@ const transporter = nodemailer.createTransport({
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 15000,
-  pool: true,        // keep connection alive — avoids reconnecting on every send
+  pool: true,
   maxConnections: 3,
   maxMessages: 100,
 });
