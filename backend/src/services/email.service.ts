@@ -1,19 +1,35 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
-const resend = new Resend(env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: env.GMAIL_USER,
+    pass: env.GMAIL_APP_PASSWORD,
+  },
+  tls: {
+    rejectUnauthorized: true,
+    minVersion: 'TLSv1.2',
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
+  pool: true,        // keep connection alive — avoids reconnecting on every send
+  maxConnections: 3,
+  maxMessages: 100,
+});
 
-// Use your verified Resend domain in production.
-// 'onboarding@resend.dev' works for testing without domain verification.
-const FROM = env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev';
+const FROM = `"Food Delivery" <${env.GMAIL_USER}>`;
 
 export async function sendOtpEmail(to: string, otp: string): Promise<void> {
   try {
-    await resend.emails.send({
+    await transporter.sendMail({
       from: FROM,
       to,
-      subject: 'Your Food Delivery verification code',
+      subject: 'Your verification code',
       html: `
         <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
           <h2 style="color:#f97316;">Food Delivery</h2>
@@ -35,7 +51,7 @@ export async function sendOtpEmail(to: string, otp: string): Promise<void> {
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   try {
-    await resend.emails.send({ from: FROM, to, subject, html });
+    await transporter.sendMail({ from: FROM, to, subject, html });
     logger.info('Email sent', { to, subject });
   } catch (err) {
     logger.error('Failed to send email', { to, subject, error: String(err) });
