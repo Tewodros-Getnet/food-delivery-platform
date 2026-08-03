@@ -3,6 +3,7 @@ import { body, query as qv } from 'express-validator';
 import { validate } from '../middleware/validate';
 import * as restaurantService from '../services/restaurant.service';
 import { successResponse, errorResponse } from '../utils/response';
+import { Restaurant } from '../models/restaurant.model';
 
 export const createValidation = [
   body('name').notEmpty().trim(),
