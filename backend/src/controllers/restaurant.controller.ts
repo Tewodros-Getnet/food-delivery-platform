@@ -78,9 +78,16 @@ export async function approveRestaurantHandler(req: Request, res: Response, next
 
 export async function rejectRestaurantHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const restaurant = await restaurantService.updateRestaurantStatus(req.params.id, 'rejected');
-    if (!restaurant) { res.status(404).json(errorResponse('Restaurant not found')); return; }
-    res.json(successResponse(restaurant));
+    const { reason } = req.body as { reason?: string };
+    const { query: dbQuery } = await import('../config/database');
+    const result = await dbQuery<Restaurant>(
+      `UPDATE restaurants
+       SET status = 'rejected', rejection_reason = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [reason?.trim() ?? null, req.params.id]
+    );
+    if (!result.rows[0]) { res.status(404).json(errorResponse('Restaurant not found')); return; }
+    res.json(successResponse(result.rows[0]));
   } catch (err) {
     next(err);
   }

@@ -18,6 +18,7 @@ export interface Restaurant {
   minimum_order_value?: number;
   promo_banner_text?: string | null;
   promo_banner_image_url?: string | null;
+  rejection_reason?: string | null;
   created_at: Date;
   updated_at: Date;
 }

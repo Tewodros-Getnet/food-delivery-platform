@@ -12,16 +12,88 @@ const adminAuth = [authenticate, authorize('admin')];
 // GET /admin/restaurants
 router.get('/restaurants', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { status } = req.query as { status?: string };
-    const conditions = status ? 'WHERE r.status = $1' : '';
-    const values = status ? [status] : [];
+    const { status, search } = req.query as { status?: string; search?: string };
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (status) {
+      conditions.push(`r.status = $${idx++}`);
+      values.push(status);
+    }
+    if (search) {
+      conditions.push(`(r.name ILIKE $${idx} OR u.email ILIKE $${idx} OR u.display_name ILIKE $${idx})`);
+      values.push(`%${search}%`);
+      idx++;
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const result = await query(
-      `SELECT r.*, u.email as owner_email, u.display_name as owner_name,
-              (SELECT COUNT(*) FROM menu_items WHERE restaurant_id = r.id) as menu_count
+      `SELECT r.id, r.name, r.description, r.address, r.category, r.status,
+              r.average_rating, r.is_open, r.logo_url, r.cover_image_url,
+              r.latitude, r.longitude, r.operating_hours, r.created_at, r.updated_at,
+              r.rejection_reason,
+              u.email as owner_email, u.display_name as owner_name, u.phone as owner_phone,
+              (SELECT COUNT(*) FROM menu_items WHERE restaurant_id = r.id) as menu_count,
+              (SELECT COUNT(*) FROM orders
+               WHERE restaurant_id = r.id
+               AND status NOT IN ('delivered','cancelled','payment_failed')) as active_orders_count
        FROM restaurants r JOIN users u ON u.id = r.owner_id
-       ${conditions} ORDER BY r.created_at DESC`,
+       ${where} ORDER BY r.created_at DESC`,
       values
+    );
+    res.json(successResponse(result.rows));
+  } catch (err) { next(err); }
+});
+
+// GET /admin/restaurants/:id — full detail
+router.get('/restaurants/:id', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `SELECT r.*, u.email as owner_email, u.display_name as owner_name, u.phone as owner_phone,
+              (SELECT COUNT(*) FROM menu_items WHERE restaurant_id = r.id) as menu_count,
+              (SELECT COUNT(*) FROM orders
+               WHERE restaurant_id = r.id
+               AND status NOT IN ('delivered','cancelled','payment_failed')) as active_orders_count,
+              (SELECT COUNT(*) FROM orders WHERE restaurant_id = r.id AND status = 'delivered') as total_orders
+       FROM restaurants r JOIN users u ON u.id = r.owner_id
+       WHERE r.id = $1`,
+      [req.params.id]
+    );
+    if (!result.rows[0]) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
+
+// GET /admin/restaurants/:id/menu — paginated menu items
+router.get('/restaurants/:id/menu', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `SELECT id, name, description, price, category, is_available, image_url, created_at
+       FROM menu_items WHERE restaurant_id = $1 ORDER BY category, name`,
+      [req.params.id]
+    );
+    res.json(successResponse(result.rows));
+  } catch (err) { next(err); }
+});
+
+// GET /admin/restaurants/:id/active-orders — in-progress orders
+router.get('/restaurants/:id/active-orders', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `SELECT o.id, o.status, o.total, o.created_at,
+              u.email as customer_email, u.display_name as customer_name,
+              ru.display_name as rider_name,
+              (SELECT STRING_AGG(oi.item_name || ' x' || oi.quantity, ', ' ORDER BY oi.id)
+               FROM order_items oi WHERE oi.order_id = o.id) as items_summary
+       FROM orders o
+       JOIN users u ON u.id = o.customer_id
+       LEFT JOIN users ru ON ru.id = o.rider_id
+       WHERE o.restaurant_id = $1
+         AND o.status NOT IN ('delivered','cancelled','payment_failed')
+       ORDER BY o.created_at DESC`,
+      [req.params.id]
     );
     res.json(successResponse(result.rows));
   } catch (err) { next(err); }
