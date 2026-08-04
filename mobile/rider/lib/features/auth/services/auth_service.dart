@@ -125,4 +125,18 @@ class AuthService {
   }
 
   Future<bool> isLoggedIn() async => (await _storage.getJwt()) != null;
+
+  Future<Map<String, String>?> refreshToken(String refreshToken) async {
+    try {
+      final res = await _client.dio
+          .post(ApiConstants.refresh, data: {'refreshToken': refreshToken});
+      final data = res.data['data'] as Map<String, dynamic>;
+      return {
+        'jwt': data['jwt'] as String,
+        'refreshToken': data['refreshToken'] as String,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
 }
