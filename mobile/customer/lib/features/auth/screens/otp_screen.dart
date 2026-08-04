@@ -93,6 +93,34 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 style: TextStyle(color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
+              // Dev mode: show OTP directly on screen
+              if (auth.devOtp != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    border: Border.all(color: Colors.orange.shade200),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.developer_mode, size: 16, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Dev OTP: ${auth.devOtp}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                          letterSpacing: 4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 32),
               // OTP input boxes
               Row(

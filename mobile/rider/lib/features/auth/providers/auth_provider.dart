@@ -10,12 +10,14 @@ class AuthState {
   final String? error;
   final bool isLoading;
   final String? pendingUserId;
+  final String? devOtp;
   const AuthState({
     this.status = AuthStatus.unknown,
     this.user,
     this.error,
     this.isLoading = false,
     this.pendingUserId,
+    this.devOtp,
   });
   AuthState copyWith({
     AuthStatus? status,
@@ -23,6 +25,7 @@ class AuthState {
     String? error,
     bool? isLoading,
     String? pendingUserId,
+    String? devOtp,
   }) =>
       AuthState(
         status: status ?? this.status,
@@ -30,6 +33,7 @@ class AuthState {
         error: error,
         isLoading: isLoading ?? this.isLoading,
         pendingUserId: pendingUserId ?? this.pendingUserId,
+        devOtp: devOtp ?? this.devOtp,
       );
 }
 
@@ -63,10 +67,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> register(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final userId = await _svc.register(email: email, password: password);
+      final result = await _svc.register(email: email, password: password);
       state = state.copyWith(
           status: AuthStatus.pendingVerification,
-          pendingUserId: userId,
+          pendingUserId: result.userId,
+          devOtp: result.devOtp,
           isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

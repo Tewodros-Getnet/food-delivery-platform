@@ -37,7 +37,7 @@ class AuthService {
   final SecureStorageService _storage;
   AuthService(this._client, this._storage);
 
-  Future<String> register({
+  Future<({String userId, String? devOtp})> register({
     required String email,
     required String password,
   }) async {
@@ -45,7 +45,10 @@ class AuthService {
       final res = await _client.dio.post(ApiConstants.register,
           data: {'email': email, 'password': password, 'role': 'customer'});
       final data = res.data['data'] as Map<String, dynamic>;
-      return data['userId'] as String;
+      return (
+        userId: data['userId'] as String,
+        devOtp: data['devOtp'] as String?,
+      );
     } catch (e) {
       throw Exception(_parseError(e));
     }

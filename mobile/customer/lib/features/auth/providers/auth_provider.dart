@@ -9,25 +9,29 @@ class AuthState {
   final UserModel? user;
   final String? error;
   final bool isLoading;
-  final String? pendingUserId; // set after register, before OTP verified
+  final String? pendingUserId;
+  final String? devOtp; // non-null only in dev/staging — backend returns OTP directly
   const AuthState(
       {this.status = AuthStatus.unknown,
       this.user,
       this.error,
       this.isLoading = false,
-      this.pendingUserId});
+      this.pendingUserId,
+      this.devOtp});
   AuthState copyWith(
           {AuthStatus? status,
           UserModel? user,
           String? error,
           bool? isLoading,
-          String? pendingUserId}) =>
+          String? pendingUserId,
+          String? devOtp}) =>
       AuthState(
           status: status ?? this.status,
           user: user ?? this.user,
           error: error,
           isLoading: isLoading ?? this.isLoading,
-          pendingUserId: pendingUserId ?? this.pendingUserId);
+          pendingUserId: pendingUserId ?? this.pendingUserId,
+          devOtp: devOtp ?? this.devOtp);
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
@@ -59,10 +63,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> register(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final userId = await _svc.register(email: email, password: password);
+      final result = await _svc.register(email: email, password: password);
       state = state.copyWith(
           status: AuthStatus.pendingVerification,
-          pendingUserId: userId,
+          pendingUserId: result.userId,
+          devOtp: result.devOtp,
           isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
