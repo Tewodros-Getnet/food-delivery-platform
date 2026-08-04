@@ -358,3 +358,14 @@ export function emitAdminAlert(payload: {
 export function getIo(): Server {
   return io;
 }
+
+// Generic single-user emit — used for real-time notifications like rider invitations
+export function emitToUser(userId: string, event: string, payload: unknown) {
+  if (!io) return;
+  const wrapped = { event, data: payload };
+  if (isUserOnline(userId)) {
+    io.to(`user:${userId}`).emit(event, wrapped);
+  } else {
+    queueEvent(userId, event, wrapped);
+  }
+}

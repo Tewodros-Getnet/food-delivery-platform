@@ -97,12 +97,24 @@ router.post('/my/riders/invite', authenticate, authorize('restaurant'), async (r
     }
 
     // Upsert invitation
-    await query(
+    const invResult = await query<{ id: string }>(
       `INSERT INTO rider_invitations (restaurant_id, rider_email)
        VALUES ($1, $2)
-       ON CONFLICT (restaurant_id, rider_email) DO UPDATE SET status = 'pending', created_at = NOW()`,
+       ON CONFLICT (restaurant_id, rider_email) DO UPDATE SET status = 'pending', created_at = NOW()
+       RETURNING id`,
       [restaurant.id, email]
     );
+
+    // Notify the rider in real-time if they are online so the banner appears instantly
+    const { emitToUser } = await import('../services/socket.service');
+    emitToUser(riderResult.rows[0].id, 'rider:invitation', {
+      id: invResult.rows[0].id,
+      restaurant_id: restaurant.id,
+      restaurant_name: restaurant.name,
+      restaurant_address: restaurant.address,
+      status: 'pending',
+    });
+
     res.json(successResponse({ message: 'Invitation sent' }));
   } catch (err) { next(err); }
 });

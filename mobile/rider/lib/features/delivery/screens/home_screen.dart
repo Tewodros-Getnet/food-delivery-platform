@@ -280,6 +280,14 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     _socket!.on('connect', (_) => debugPrint('Rider socket connected ✅'));
     _socket!.on('disconnect',
         (reason) => debugPrint('Rider socket disconnected: $reason'));
+
+    // Real-time invitation from restaurant — show banner without needing app restart
+    _socket!.on('rider:invitation', (data) {
+      if (!mounted) return;
+      final payload = data['data'] as Map<String, dynamic>? ?? {};
+      if (payload.isEmpty) return;
+      setState(() => _pendingInvitation = payload);
+    });
   }
 
   Future<void> _toggleAvailability() async {
