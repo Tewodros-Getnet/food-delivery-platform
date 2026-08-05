@@ -324,7 +324,7 @@ router.get('/orders', ...adminAuth, async (req: Request, res: Response, next: Ne
               r.id as restaurant_id, r.name as restaurant_name,
               ru.id as rider_id, ru.display_name as rider_name, ru.email as rider_email,
               ru.phone as rider_phone,
-              a.line1 as delivery_address, a.city as delivery_city
+              a.address_line as delivery_address, a.label as delivery_city
        FROM orders o
        JOIN users cu ON cu.id = o.customer_id
        JOIN restaurants r ON r.id = o.restaurant_id
@@ -351,8 +351,8 @@ router.get('/orders/:id', ...adminAuth, async (req: Request, res: Response, next
               cu.email as customer_email, cu.display_name as customer_name, cu.phone as customer_phone,
               r.name as restaurant_name, r.address as restaurant_address,
               ru.display_name as rider_name, ru.email as rider_email, ru.phone as rider_phone,
-              a.line1 as delivery_line1, a.line2 as delivery_line2,
-              a.city as delivery_city, a.latitude as delivery_lat, a.longitude as delivery_lon,
+              a.address_line as delivery_line1, a.label as delivery_line2,
+              a.label as delivery_city, a.latitude as delivery_lat, a.longitude as delivery_lon,
               (SELECT id FROM disputes WHERE order_id = o.id LIMIT 1) as dispute_id
        FROM orders o
        JOIN users cu ON cu.id = o.customer_id
