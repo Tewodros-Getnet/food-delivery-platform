@@ -1,9 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'dart:math' as math;
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/widgets/retry_widget.dart';
+
+String _parseError(Object e) {
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      final msg = data['message'] ?? data['error'];
+      if (msg is String && msg.isNotEmpty) return msg;
+    }
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Connection timed out. Please check your internet.';
+      case DioExceptionType.connectionError:
+        return 'Could not reach the server. Check your connection.';
+      default:
+        return 'Something went wrong. Please try again.';
+    }
+  }
+  return e.toString().replaceFirst('Exception: ', '');
+}
 
 class RestaurantAnalyticsScreen extends ConsumerStatefulWidget {
   const RestaurantAnalyticsScreen({super.key});
@@ -41,7 +63,7 @@ class _RestaurantAnalyticsScreenState
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = _parseError(e);
         _loading = false;
       });
     }
@@ -61,6 +83,7 @@ class _RestaurantAnalyticsScreenState
           ),
         ],
       ),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
