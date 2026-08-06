@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -5,9 +6,20 @@ import '../constants/api_constants.dart';
 
 final dioClientProvider = Provider<DioClient>((ref) => DioClient());
 
+// Emits whenever the refresh token is rejected — use ref.listen on this
+// in the app root to force logout and redirect to login.
+final sessionExpiredProvider = StreamProvider<void>(
+  (ref) => ref.read(dioClientProvider).sessionExpired,
+);
+
 class DioClient {
   late final Dio _dio;
   final _storage = const FlutterSecureStorage();
+
+  // Fires once when the refresh token is rejected by the server.
+  // Listeners should log the user out and redirect to login.
+  final _sessionExpiredController = StreamController<void>.broadcast();
+  Stream<void> get sessionExpired => _sessionExpiredController.stream;
 
   DioClient() {
     _dio = Dio(BaseOptions(
@@ -39,15 +51,19 @@ class DioClient {
               error.requestOptions.headers['Authorization'] = 'Bearer $newJwt';
               return handler.resolve(await _dio.fetch(error.requestOptions));
             } on DioException catch (e) {
-              // Only wipe tokens if the server explicitly rejected the refresh
-              // (401 response). A timeout or network error should NOT log the
-              // user out — they just need to retry when connectivity returns.
               if (e.response?.statusCode == 401) {
+                // Refresh token rejected — wipe tokens and notify listeners
                 await _storage.deleteAll();
+                _sessionExpiredController.add(null);
               }
+              // Network/timeout errors: don't log out, just pass through
             } catch (_) {
-              // Non-Dio error (e.g. JSON parse) — don't wipe tokens
+              // JSON parse or unexpected error — don't wipe tokens
             }
+          } else {
+            // No refresh token at all — session is gone
+            await _storage.deleteAll();
+            _sessionExpiredController.add(null);
           }
         }
         handler.next(error);
@@ -56,4 +72,8 @@ class DioClient {
   }
 
   Dio get dio => _dio;
+
+  void dispose() {
+    _sessionExpiredController.close();
+  }
 }

@@ -75,6 +75,19 @@ class RestaurantDetailScreen extends ConsumerWidget {
                           const SizedBox(height: 12),
                         ],
                         Row(children: [
+                          // Logo next to name on detail page
+                          if (r.logoUrl != null) ...[
+                            ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: r.logoUrl!,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                                errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
                           const Icon(Icons.star, color: Colors.amber, size: 18),
                           const SizedBox(width: 4),
                           Text(r.averageRating.toStringAsFixed(1)),

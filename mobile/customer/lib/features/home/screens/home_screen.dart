@@ -570,6 +570,42 @@ class _RestaurantCard extends ConsumerWidget {
                 ),
               ),
             ),
+            // Logo avatar overlaid at bottom-left of cover image
+            if (r.logoUrl != null)
+              Positioned(
+                bottom: 10,
+                left: 12,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 6)
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: r.logoUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.storefront,
+                            size: 24, color: Colors.grey),
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.storefront,
+                            size: 24, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ]),
           // Info row
           Padding(

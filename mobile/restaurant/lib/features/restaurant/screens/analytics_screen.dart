@@ -111,9 +111,9 @@ class _RestaurantAnalyticsScreenState
 
   // ── Revenue bar chart: Today / 7 Days / 30 Days ─────────────────────────
   Widget _buildRevenueChart() {
-    final today = (_data!['today']['revenue'] as num).toDouble();
-    final week = (_data!['week']['revenue'] as num).toDouble();
-    final month = (_data!['month']['revenue'] as num).toDouble();
+    final today = double.tryParse(_data!['today']['revenue'].toString()) ?? 0.0;
+    final week  = double.tryParse(_data!['week']['revenue'].toString()) ?? 0.0;
+    final month = double.tryParse(_data!['month']['revenue'].toString()) ?? 0.0;
 
     final bars = [
       _BarData(label: 'Today', value: today, color: Colors.blue),
@@ -148,7 +148,7 @@ class _RestaurantAnalyticsScreenState
                 child: _KpiCard(
               label: 'Today',
               orders: int.tryParse(today['orders'].toString()) ?? 0,
-              revenue: (today['revenue'] as num).toDouble(),
+              revenue: double.tryParse(today['revenue'].toString()) ?? 0.0,
               color: Colors.blue,
             )),
             const SizedBox(width: 8),
@@ -156,7 +156,7 @@ class _RestaurantAnalyticsScreenState
                 child: _KpiCard(
               label: '7 Days',
               orders: int.tryParse(week['orders'].toString()) ?? 0,
-              revenue: (week['revenue'] as num).toDouble(),
+              revenue: double.tryParse(week['revenue'].toString()) ?? 0.0,
               color: Colors.orange,
             )),
             const SizedBox(width: 8),
@@ -164,7 +164,7 @@ class _RestaurantAnalyticsScreenState
                 child: _KpiCard(
               label: '30 Days',
               orders: int.tryParse(month['orders'].toString()) ?? 0,
-              revenue: (month['revenue'] as num).toDouble(),
+              revenue: double.tryParse(month['revenue'].toString()) ?? 0.0,
               color: const Color(0xFF2E7D32),
             )),
           ],
@@ -175,8 +175,10 @@ class _RestaurantAnalyticsScreenState
 
   // ── Rating + avg prep time ────────────────────────────────────────────────
   Widget _buildRatingCard() {
-    final rating = (_data!['restaurantRating'] as num?)?.toDouble() ?? 0.0;
-    final avgPrep = (_data!['avgPrepTimeMinutes'] as num?)?.toDouble();
+    final rating = double.tryParse(_data!['restaurantRating'].toString()) ?? 0.0;
+    final avgPrep = _data!['avgPrepTimeMinutes'] != null
+        ? double.tryParse(_data!['avgPrepTimeMinutes'].toString())
+        : null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -357,7 +359,7 @@ class _RestaurantAnalyticsScreenState
         children: orders.map((o) {
           final order = o as Map<String, dynamic>;
           final status = order['status'] as String;
-          final total = double.tryParse(order['total'].toString()) ?? 0;
+          final total = double.tryParse(order['total'].toString()) ?? 0.0;
           final summary = order['items_summary'] as String? ?? '';
           final createdAt = DateTime.tryParse(order['created_at'] as String);
 
