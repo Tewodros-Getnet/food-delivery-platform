@@ -83,7 +83,6 @@ class _RestaurantAnalyticsScreenState
           ),
         ],
       ),
-      backgroundColor: const Color(0xFFF5F5F5),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
