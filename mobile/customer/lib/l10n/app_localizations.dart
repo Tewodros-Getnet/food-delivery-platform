@@ -878,23 +878,16 @@ abstract class AppLocalizations {
   /// **'Order Cancelled'**
   String get orderCancelled;
 
-  /// No description provided for @all.
+  String get deliveryAddress;
   String get all;
-
-  /// No description provided for @searchFailed.
   String get searchFailed;
-
-  /// No description provided for @noResultsFor.
   String get noResultsFor;
-
-  /// No description provided for @closed.
   String get closed;
   String get myProfile;
   String get signOut;
   String get signOutConfirm;
   String get saved;
   String get changePassword;
-  String get orderHistory;
   String get viewAllPastOrders;
   String get savedRestaurants;
   String get yourFavouritePlaces;
@@ -921,7 +914,6 @@ abstract class AppLocalizations {
   String get profileUpdated;
   String get passwordUpdated;
   String get photoUploadFailed;
-  String get cartEmpty;
   String get browseRestaurants;
   String get clearCart;
   String get clearCartConfirm;
@@ -929,11 +921,8 @@ abstract class AppLocalizations {
   String subtotalWithCount(Object count);
   String get deliveryFeeNote;
   String get proceedToCheckout;
-  String get noOrders;
   String get track;
-  String get reorder;
   String get adding;
-  String get reportProblem;
   String get orderSummary;
   String get waitingPayment;
   String get checkPaymentStatus;
