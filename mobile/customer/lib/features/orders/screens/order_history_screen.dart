@@ -6,6 +6,7 @@ import '../services/order_service.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../restaurants/services/restaurant_service.dart';
 import '../../../core/widgets/retry_widget.dart';
+import '../../../l10n/app_localizations.dart';
 
 final orderHistoryProvider = FutureProvider<List<OrderModel>>(
     (ref) => ref.read(orderServiceProvider).getOrders());
@@ -32,7 +33,6 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Refresh order list when app comes back to foreground
     if (state == AppLifecycleState.resumed && mounted) {
       ref.invalidate(orderHistoryProvider);
     }
@@ -40,15 +40,16 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final ordersAsync = ref.watch(orderHistoryProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Orders'),
+        title: Text(l10n.myOrders),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: l10n.retry,
             onPressed: () => ref.invalidate(orderHistoryProvider),
           ),
         ],
@@ -60,16 +61,13 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
           onRetry: () => ref.invalidate(orderHistoryProvider),
         ),
         data: (orders) => orders.isEmpty
-            ? const Center(child: Text('No orders yet'))
+            ? Center(child: Text(l10n.noOrders))
             : RefreshIndicator(
                 onRefresh: () async => ref.invalidate(orderHistoryProvider),
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: orders.length,
-                  itemBuilder: (ctx, i) {
-                    final o = orders[i];
-                    return _OrderCard(order: o);
-                  },
+                  itemBuilder: (ctx, i) => _OrderCard(order: orders[i]),
                 ),
               ),
       ),
@@ -89,30 +87,27 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
   bool _reordering = false;
 
   Future<void> _reorder() async {
+    final l10n = AppLocalizations.of(context);
     setState(() => _reordering = true);
     try {
-      // Fetch full order with items
-      final full =
-          await ref.read(orderServiceProvider).getById(widget.order.id);
+      final full = await ref.read(orderServiceProvider).getById(widget.order.id);
 
       if (full.items.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No items found for this order')),
+            SnackBar(content: Text(l10n.noItemsFound)),
           );
         }
         return;
       }
 
-      // Check restaurant is still open before touching the cart
-      final restaurant = await ref
-          .read(restaurantServiceProvider)
-          .getById(full.restaurantId);
+      final restaurant =
+          await ref.read(restaurantServiceProvider).getById(full.restaurantId);
       if (!restaurant.isOpen) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${restaurant.name} is currently closed'),
+              content: Text('${restaurant.name} ${l10n.closed.toLowerCase()}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -126,9 +121,8 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       if (availableItems.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('All items from this order are currently unavailable'),
+            SnackBar(
+              content: Text(l10n.allItemsUnavailable),
               backgroundColor: Colors.red,
             ),
           );
@@ -136,31 +130,26 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
         return;
       }
 
-      // Populate cart — clear any existing cart first
       final cart = ref.read(cartProvider.notifier);
       cart.clear();
       for (final item in availableItems) {
         final menuItem = item.toMenuItemModel(full.restaurantId);
         final modifiers = item.toSelectedModifiers();
         for (var q = 0; q < item.quantity; q++) {
-          cart.addItem(menuItem, full.restaurantId,
-              selectedModifiers: modifiers);
+          cart.addItem(menuItem, full.restaurantId, selectedModifiers: modifiers);
         }
       }
 
       if (mounted) {
-        // Warn about unavailable items before navigating
         if (unavailableItems.isNotEmpty) {
           final names = unavailableItems.map((i) => i.itemName).join(', ');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text('Some items are unavailable and were skipped: $names'),
+              content: Text(l10n.someItemsUnavailable(names)),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 4),
             ),
           );
-          // Small delay so the snackbar is visible before navigating
           await Future.delayed(const Duration(milliseconds: 600));
         }
         if (mounted) context.push('/cart');
@@ -169,7 +158,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to reorder: $e'),
+            content: Text(l10n.failedToReorder(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -181,15 +170,13 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final o = widget.order;
     final canReorder = o.status == 'delivered' || o.status == 'cancelled';
     final isActive = [
-          'pending_acceptance',
-          'confirmed',
-          'ready_for_pickup',
-          'rider_assigned',
-          'picked_up',
-        ].contains(o.status);
+      'pending_acceptance', 'confirmed', 'ready_for_pickup',
+      'rider_assigned', 'picked_up',
+    ].contains(o.status);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -206,16 +193,12 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (o.restaurantName != null)
-                        Text(
-                          o.restaurantName!,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 15),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      Text(
-                        'Order #${o.id.substring(0, 8)}',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      ),
+                        Text(o.restaurantName!,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 15),
+                            overflow: TextOverflow.ellipsis),
+                      Text('${l10n.orderNumber}${o.id.substring(0, 8)}',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                     ],
                   ),
                 ),
@@ -224,8 +207,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                   label: Text(
                     o.status.replaceAll('_', ' ').toUpperCase(),
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
+                        color: Colors.white, fontSize: 10,
                         fontWeight: FontWeight.bold),
                   ),
                   backgroundColor: _statusColor(o.status),
@@ -235,53 +217,41 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
               ],
             ),
             const SizedBox(height: 6),
-            // Item summary
             if (o.itemsSummary != null)
-              Text(
-                o.itemsSummary!,
-                style: const TextStyle(fontSize: 13),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(o.itemsSummary!,
+                  style: const TextStyle(fontSize: 13),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'ETB ${o.total.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  o.createdAt.toLocal().toString().substring(0, 16),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
+                Text('ETB ${o.total.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(o.createdAt.toLocal().toString().substring(0, 16),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
               ],
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                // Track button for active orders
                 if (isActive)
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => context.push('/order/${o.id}/track'),
                       icon: const Icon(Icons.track_changes, size: 16),
-                      label: const Text('Track'),
+                      label: Text(l10n.track),
                     ),
                   ),
-                // Rate button for delivered orders
                 if (o.status == 'delivered') ...[
                   if (isActive) const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _showRatingDialog(context, ref, o.id),
                       icon: const Icon(Icons.star_outline, size: 16),
-                      label: const Text('Rate'),
+                      label: Text(l10n.rate),
                     ),
                   ),
                 ],
-                // Reorder button for delivered or cancelled orders
                 if (canReorder) ...[
                   const SizedBox(width: 8),
                   Expanded(
@@ -289,35 +259,29 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                       onPressed: _reordering ? null : _reorder,
                       icon: _reordering
                           ? const SizedBox(
-                              width: 14,
-                              height: 14,
+                              width: 14, height: 14,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.replay,
-                              size: 16, color: Colors.white),
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.replay, size: 16, color: Colors.white),
                       label: Text(
-                        _reordering ? 'Adding...' : 'Reorder',
+                        _reordering ? l10n.adding : l10n.reorder,
                         style: const TextStyle(color: Colors.white),
                       ),
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                     ),
                   ),
                 ],
               ],
             ),
-            // Report a problem — only for delivered orders
             if (o.status == 'delivered') ...[
               const SizedBox(height: 6),
               SizedBox(
                 width: double.infinity,
                 child: TextButton.icon(
                   onPressed: () => _showDisputeDialog(context, ref, o.id),
-                  icon: const Icon(Icons.flag_outlined,
-                      size: 15, color: Colors.grey),
-                  label: const Text('Report a problem',
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  icon: const Icon(Icons.flag_outlined, size: 15, color: Colors.grey),
+                  label: Text(l10n.reportProblem,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 ),
               ),
             ],
@@ -342,19 +306,14 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       Colors.grey;
 
   void _showDisputeDialog(BuildContext context, WidgetRef ref, String orderId) {
-    context.push(
-      '/order/$orderId/dispute',
-      extra: {
-        'restaurantName': widget.order.restaurantName,
-        'itemsSummary': widget.order.itemsSummary,
-      },
-    );
+    context.push('/order/$orderId/dispute', extra: {
+      'restaurantName': widget.order.restaurantName,
+      'itemsSummary': widget.order.itemsSummary,
+    });
   }
 
   void _showRatingDialog(BuildContext context, WidgetRef ref, String orderId) {
-    context.push(
-      '/order/$orderId/rate',
-      extra: {'restaurantName': widget.order.restaurantName, 'riderName': null},
-    );
+    context.push('/order/$orderId/rate',
+        extra: {'restaurantName': widget.order.restaurantName, 'riderName': null});
   }
 }

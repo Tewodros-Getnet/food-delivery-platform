@@ -407,4 +407,129 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deliveryAddress => 'Delivery Address';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get searchFailed => 'Search failed. Please try again.';
+
+  @override
+  String get noResultsFor => 'No results for';
+
+  @override
+  String get closed => 'Closed';
+
+  @override
+  String get myProfile => 'My Profile';
+  @override
+  String get signOut => 'Sign Out';
+  @override
+  String get signOutConfirm => 'Are you sure you want to sign out?';
+  @override
+  String get saved => 'Saved';
+  @override
+  String get changePassword => 'Change Password';
+  @override
+  String get orderHistory => 'Order History';
+  @override
+  String get viewAllPastOrders => 'View all past orders';
+  @override
+  String get savedRestaurants => 'Saved Restaurants';
+  @override
+  String get yourFavouritePlaces => 'Your favourite places';
+  @override
+  String get manageDeliveryLocations => 'Manage delivery locations';
+  @override
+  String get offersAndRewards => 'Offers & Rewards';
+  @override
+  String get vouchersAndPromoCodes => 'Vouchers & Promo Codes';
+  @override
+  String get loyaltyPoints => 'Loyalty Points';
+  @override
+  String get comingSoon => 'Coming soon';
+  @override
+  String get support => 'Support';
+  @override
+  String get helpCenter => 'Help Center';
+  @override
+  String get faqsAndSupport => 'FAQs and support';
+  @override
+  String get reportProblemTitle => 'Report a Problem';
+  @override
+  String get about => 'About';
+  @override
+  String get appVersion => 'Version 1.0.0';
+  @override
+  String get account => 'Account';
+  @override
+  String get myActivity => 'My Activity';
+  @override
+  String get notSet => 'Not set';
+  @override
+  String get saveChanges => 'Save Changes';
+  @override
+  String get currentPassword => 'Current Password';
+  @override
+  String get newPasswordHint => 'New Password (min 8 chars)';
+  @override
+  String get updatePassword => 'Update Password';
+  @override
+  String get failedToLoadProfile => 'Failed to load profile';
+  @override
+  String get profilePhotoUpdated => 'Profile photo updated';
+  @override
+  String get profileUpdated => 'Profile updated';
+  @override
+  String get passwordUpdated => 'Password updated';
+  @override
+  String get photoUploadFailed => 'Failed to upload photo';
+  @override
+  String get cartEmpty => 'Your cart is empty';
+  @override
+  String get browseRestaurants => 'Browse restaurants';
+  @override
+  String get clearCart => 'Clear Cart';
+  @override
+  String get clearCartConfirm => 'Remove all items from your cart?';
+  @override
+  String get clear => 'Clear';
+  @override
+  String subtotalWithCount(Object count) => 'Subtotal ($count items)';
+  @override
+  String get deliveryFeeNote => 'Calculated at checkout';
+  @override
+  String get proceedToCheckout => 'Proceed to Checkout';
+  @override
+  String get noOrders => 'No orders yet';
+  @override
+  String get track => 'Track';
+  @override
+  String get reorder => 'Reorder';
+  @override
+  String get adding => 'Adding...';
+  @override
+  String get reportProblem => 'Report a problem';
+  @override
+  String get orderSummary => 'Order Summary';
+  @override
+  String get waitingPayment => 'Waiting for payment confirmation...';
+  @override
+  String get checkPaymentStatus => 'Check payment status';
+  @override
+  String get payWithChapa => 'Pay with Chapa';
+  @override
+  String payWithChapaAmount(Object amount) => 'Pay ETB $amount with Chapa';
+  @override
+  String get selectDeliveryAddress => 'Please select a delivery address';
+  @override
+  String get noSavedAddresses => 'No saved addresses.';
+  @override
+  String get addDeliveryAddress => 'Add a delivery address →';
+  @override
+  String get paymentFailedRetry => 'Payment failed. Please try again or use a different method.';
+  @override
+  String get couldNotOpenPayment => 'Could not open payment page. Try again.';
+  @override
+  String get failedToLoadAddresses => 'Failed to load addresses';
 }

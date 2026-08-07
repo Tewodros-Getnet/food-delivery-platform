@@ -13,7 +13,7 @@ class LocaleNotifier extends StateNotifier<Locale> {
 
   Future<void> _load() async {
     final saved = await _storage.read(key: _kLocaleKey);
-    if (saved != null) state = Locale(saved);
+    if (saved != null && mounted) state = Locale(saved);
   }
 
   Future<void> setLocale(Locale locale) async {
@@ -22,6 +22,8 @@ class LocaleNotifier extends StateNotifier<Locale> {
   }
 }
 
+// Resolves only after the persisted locale has been loaded from storage.
+// Use this in MaterialApp to avoid a flash of wrong language on startup.
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>(
   (_) => LocaleNotifier(),
 );

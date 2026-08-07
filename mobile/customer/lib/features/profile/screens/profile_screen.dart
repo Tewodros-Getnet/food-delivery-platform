@@ -7,6 +7,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/widgets/language_switcher.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -56,8 +57,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Profile photo updated'),
+          SnackBar(
+              content: Text(AppLocalizations.of(context).profilePhotoUpdated),
               backgroundColor: Colors.green),
         );
       }
@@ -65,7 +66,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Failed to upload: $e'),
+              content: Text(AppLocalizations.of(context).photoUploadFailed),
               backgroundColor: Colors.red),
         );
       }
@@ -85,9 +86,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.grey),
             const SizedBox(height: 12),
-            const Text('Failed to load profile'),
+            Text(AppLocalizations.of(context).failedToLoadProfile),
             const SizedBox(height: 12),
-            ElevatedButton(onPressed: _load, child: const Text('Retry')),
+            ElevatedButton(
+                onPressed: _load,
+                child: Text(AppLocalizations.of(context).retry)),
           ]),
         ),
       );
@@ -108,12 +111,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             pinned: true,
             backgroundColor: Colors.orange,
             foregroundColor: Colors.white,
-            title: const Text('My Profile',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(AppLocalizations.of(context).myProfile,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             actions: [
               IconButton(
                 icon: const Icon(Icons.logout_outlined),
-                tooltip: 'Sign out',
+                tooltip: AppLocalizations.of(context).signOut,
                 onPressed: () => _confirmSignOut(context),
               ),
             ],
@@ -227,18 +230,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Row(children: [
                     _StatChip(
                         icon: Icons.receipt_long,
-                        label: 'Orders',
+                        label: AppLocalizations.of(context).orders,
                         onTap: () => context.push('/orders')),
                     const SizedBox(width: 10),
                     _StatChip(
                         icon: Icons.favorite,
-                        label: 'Saved',
+                        label: AppLocalizations.of(context).saved,
                         color: Colors.red,
                         onTap: () => context.push('/favorites')),
                     const SizedBox(width: 10),
                     _StatChip(
                         icon: Icons.location_on,
-                        label: 'Addresses',
+                        label: AppLocalizations.of(context).addresses,
                         color: Colors.blue,
                         onTap: () => context.push('/addresses')),
                   ]),
@@ -246,12 +249,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 24),
 
                   // ── Account section ──────────────────────────────────────
-                  _SectionLabel('Account'),
+                  _SectionLabel(AppLocalizations.of(context).account),
                   _MenuCard(children: [
                     _MenuItem(
                       icon: Icons.person_outline,
                       iconColor: Colors.orange,
-                      title: 'Edit Profile',
+                      title: AppLocalizations.of(context).editProfile,
                       subtitle: name,
                       onTap: () => _showEditProfileDialog(context),
                     ),
@@ -259,15 +262,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _MenuItem(
                       icon: Icons.phone_outlined,
                       iconColor: Colors.green,
-                      title: 'Phone Number',
-                      subtitle: phone?.isNotEmpty == true ? phone! : 'Not set',
+                      title: AppLocalizations.of(context).phoneNumber,
+                      subtitle: phone?.isNotEmpty == true
+                          ? phone!
+                          : AppLocalizations.of(context).notSet,
                       onTap: () => _showEditProfileDialog(context),
                     ),
                     _MenuDivider(),
                     _MenuItem(
                       icon: Icons.lock_outline,
                       iconColor: Colors.purple,
-                      title: 'Change Password',
+                      title: AppLocalizations.of(context).changePassword,
                       onTap: () => _showChangePasswordDialog(context),
                     ),
                   ]),
@@ -275,29 +280,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 20),
 
                   // ── My Activity section ──────────────────────────────────
-                  _SectionLabel('My Activity'),
+                  _SectionLabel(AppLocalizations.of(context).myActivity),
                   _MenuCard(children: [
                     _MenuItem(
                       icon: Icons.receipt_long_outlined,
                       iconColor: Colors.blue,
-                      title: 'Order History',
-                      subtitle: 'View all past orders',
+                      title: AppLocalizations.of(context).orderHistory,
+                      subtitle: AppLocalizations.of(context).viewAllPastOrders,
                       onTap: () => context.push('/orders'),
                     ),
                     _MenuDivider(),
                     _MenuItem(
                       icon: Icons.favorite_border,
                       iconColor: Colors.red,
-                      title: 'Saved Restaurants',
-                      subtitle: 'Your favourite places',
+                      title: AppLocalizations.of(context).savedRestaurants,
+                      subtitle: AppLocalizations.of(context).yourFavouritePlaces,
                       onTap: () => context.push('/favorites'),
                     ),
                     _MenuDivider(),
                     _MenuItem(
                       icon: Icons.location_on_outlined,
                       iconColor: Colors.teal,
-                      title: 'Saved Addresses',
-                      subtitle: 'Manage delivery locations',
+                      title: AppLocalizations.of(context).addresses,
+                      subtitle: AppLocalizations.of(context).manageDeliveryLocations,
                       onTap: () => context.push('/addresses'),
                     ),
                   ]),
@@ -305,13 +310,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 20),
 
                   // ── Offers & Rewards section (placeholder for future) ────
-                  _SectionLabel('Offers & Rewards'),
+                  _SectionLabel(AppLocalizations.of(context).offersAndRewards),
                   _MenuCard(children: [
                     _MenuItem(
                       icon: Icons.local_offer_outlined,
                       iconColor: Colors.orange,
-                      title: 'Vouchers & Promo Codes',
-                      subtitle: 'Coming soon',
+                      title: AppLocalizations.of(context).vouchersAndPromoCodes,
+                      subtitle: AppLocalizations.of(context).comingSoon,
                       trailing: _ComingSoonBadge(),
                       onTap: null,
                     ),
@@ -319,8 +324,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _MenuItem(
                       icon: Icons.stars_outlined,
                       iconColor: Colors.amber,
-                      title: 'Loyalty Points',
-                      subtitle: 'Coming soon',
+                      title: AppLocalizations.of(context).loyaltyPoints,
+                      subtitle: AppLocalizations.of(context).comingSoon,
                       trailing: _ComingSoonBadge(),
                       onTap: null,
                     ),
@@ -329,7 +334,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 20),
 
                   // ── Language section ─────────────────────────────────────
-                  _SectionLabel('Language'),
+                  _SectionLabel(AppLocalizations.of(context).language),
                   _MenuCard(children: [
                     const LanguageSwitcherTile(),
                   ]),
@@ -337,13 +342,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 20),
 
                   // ── Support section ──────────────────────────────────────
-                  _SectionLabel('Support'),
+                  _SectionLabel(AppLocalizations.of(context).support),
                   _MenuCard(children: [
                     _MenuItem(
                       icon: Icons.help_outline,
                       iconColor: Colors.indigo,
-                      title: 'Help Center',
-                      subtitle: 'FAQs and support',
+                      title: AppLocalizations.of(context).helpCenter,
+                      subtitle: AppLocalizations.of(context).faqsAndSupport,
                       trailing: _ComingSoonBadge(),
                       onTap: null,
                     ),
@@ -351,15 +356,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _MenuItem(
                       icon: Icons.flag_outlined,
                       iconColor: Colors.red,
-                      title: 'Report a Problem',
+                      title: AppLocalizations.of(context).reportProblemTitle,
                       onTap: () => context.push('/orders'),
                     ),
                     _MenuDivider(),
                     _MenuItem(
                       icon: Icons.info_outline,
                       iconColor: Colors.grey,
-                      title: 'About',
-                      subtitle: 'Version 1.0.0',
+                      title: AppLocalizations.of(context).about,
+                      subtitle: AppLocalizations.of(context).appVersion,
                       onTap: null,
                     ),
                   ]),
@@ -372,8 +377,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _confirmSignOut(context),
                       icon: const Icon(Icons.logout, color: Colors.red),
-                      label: const Text('Sign Out',
-                          style: TextStyle(
+                      label: Text(AppLocalizations.of(context).signOut,
+                          style: const TextStyle(
                               color: Colors.red, fontWeight: FontWeight.w600)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -393,22 +398,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _confirmSignOut(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
+        title: Text(l10n.signOut),
+        content: Text(l10n.signOutConfirm),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.cancel)),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               ref.read(authProvider.notifier).logout();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child:
-                const Text('Sign Out', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.signOut,
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -449,12 +456,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Edit Profile',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(AppLocalizations.of(ctx).editProfile,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
-              _field(nameCtrl, 'Display Name', Icons.person_outline),
+              _field(nameCtrl, AppLocalizations.of(ctx).displayName, Icons.person_outline),
               const SizedBox(height: 12),
-              _field(phoneCtrl, 'Phone Number', Icons.phone_outlined,
+              _field(phoneCtrl, AppLocalizations.of(ctx).phoneNumber, Icons.phone_outlined,
                   keyboard: TextInputType.phone),
               const SizedBox(height: 20),
               SizedBox(
@@ -478,8 +485,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             await _load();
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Profile updated'),
+                                SnackBar(
+                                    content: Text(AppLocalizations.of(context).profileUpdated),
                                     backgroundColor: Colors.green),
                               );
                             }
@@ -488,7 +495,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                    content: Text('Failed: $e'),
+                                    content: Text('${AppLocalizations.of(context).error}: $e'),
                                     backgroundColor: Colors.red),
                               );
                             }
@@ -506,8 +513,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           height: 22,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Text('Save Changes',
-                          style: TextStyle(
+                      : Text(AppLocalizations.of(ctx).saveChanges,
+                          style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.bold)),
@@ -554,28 +561,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Change Password',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(AppLocalizations.of(ctx).changePassword,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
               TextField(
                 controller: currentCtrl,
                 obscureText: obscureCurrent,
-                decoration:
-                    _inputDecoration('Current Password', Icons.lock_outline,
-                        suffix: IconButton(
-                          icon: Icon(obscureCurrent
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
-                          onPressed: () =>
-                              setS(() => obscureCurrent = !obscureCurrent),
-                        )),
+                decoration: _inputDecoration(
+                    AppLocalizations.of(ctx).currentPassword, Icons.lock_outline,
+                    suffix: IconButton(
+                      icon: Icon(obscureCurrent
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined),
+                      onPressed: () =>
+                          setS(() => obscureCurrent = !obscureCurrent),
+                    )),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: newCtrl,
                 obscureText: obscureNew,
                 decoration: _inputDecoration(
-                    'New Password (min 8 chars)', Icons.lock_reset_outlined,
+                    AppLocalizations.of(ctx).newPasswordHint, Icons.lock_reset_outlined,
                     suffix: IconButton(
                       icon: Icon(obscureNew
                           ? Icons.visibility_outlined
@@ -592,9 +599,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       : () async {
                           if (newCtrl.text.length < 8) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'New password must be at least 8 characters'),
+                              SnackBar(
+                                  content: Text(AppLocalizations.of(context).passwordTooShort),
                                   backgroundColor: Colors.red),
                             );
                             return;
@@ -611,8 +617,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             if (ctx.mounted) Navigator.pop(ctx);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Password updated'),
+                                SnackBar(
+                                    content: Text(AppLocalizations.of(context).passwordUpdated),
                                     backgroundColor: Colors.green),
                               );
                             }
@@ -639,8 +645,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           height: 22,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Text('Update Password',
-                          style: TextStyle(
+                      : Text(AppLocalizations.of(ctx).updatePassword,
+                          style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.bold)),
@@ -862,7 +868,7 @@ class _ComingSoonBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.orange.shade200),
       ),
-      child: const Text('Soon',
+      child: Text(AppLocalizations.of(context).comingSoon,
           style: TextStyle(
               fontSize: 10, color: Colors.orange, fontWeight: FontWeight.w600)),
     );

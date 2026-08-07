@@ -406,4 +406,129 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get deliveryAddress => 'የዴሊቨሪ አድራሻ';
+
+  @override
+  String get all => 'ሁሉም';
+
+  @override
+  String get searchFailed => 'ፍለጋ አልተሳካም። እንደገና ሞክሩ።';
+
+  @override
+  String get noResultsFor => 'ምንም ውጤት አልተገኘም';
+
+  @override
+  String get closed => 'ተዘግቷል';
+
+  @override
+  String get myProfile => 'የኔ መገለጫ';
+  @override
+  String get signOut => 'ውጣ';
+  @override
+  String get signOutConfirm => 'እርግጠኛ ነዎት ወጣ ማለት ይፈልጋሉ?';
+  @override
+  String get saved => 'የተቀመጡ';
+  @override
+  String get changePassword => 'የይለፍ ቃል ቀይር';
+  @override
+  String get orderHistory => 'የትዕዛዝ ታሪክ';
+  @override
+  String get viewAllPastOrders => 'ሁሉንም ያለፉ ትዕዛዞች ይዩ';
+  @override
+  String get savedRestaurants => 'የተቀመጡ ሬስቶራንቶች';
+  @override
+  String get yourFavouritePlaces => 'ተወዳጅ ቦታዎችዎ';
+  @override
+  String get manageDeliveryLocations => 'የዴሊቨሪ ቦታዎችን ያቀናብሩ';
+  @override
+  String get offersAndRewards => 'ቅናሾች እና ሽልማቶች';
+  @override
+  String get vouchersAndPromoCodes => 'ቮቸሮች እና ኮዶች';
+  @override
+  String get loyaltyPoints => 'የታማኝነት ነጥቦች';
+  @override
+  String get comingSoon => 'በቅርቡ ይመጣል';
+  @override
+  String get support => 'ድጋፍ';
+  @override
+  String get helpCenter => 'የእርዳታ ማዕከል';
+  @override
+  String get faqsAndSupport => 'ጥያቄዎች እና ድጋፍ';
+  @override
+  String get reportProblemTitle => 'ችግር ሪፖርት ያድርጉ';
+  @override
+  String get about => 'ስለ';
+  @override
+  String get appVersion => 'ስሪት 1.0.0';
+  @override
+  String get account => 'መለያ';
+  @override
+  String get myActivity => 'የኔ እንቅስቃሴ';
+  @override
+  String get notSet => 'አልተቀናበረም';
+  @override
+  String get saveChanges => 'ለውጦችን አስቀምጥ';
+  @override
+  String get currentPassword => 'የአሁኑ ይለፍ ቃል';
+  @override
+  String get newPasswordHint => 'አዲስ ይለፍ ቃል (ቢያንስ 8 ቁምፊ)';
+  @override
+  String get updatePassword => 'ይለፍ ቃል አዘምን';
+  @override
+  String get failedToLoadProfile => 'መገለጫ መጫን አልተሳካም';
+  @override
+  String get profilePhotoUpdated => 'የመገለጫ ፎቶ ተዘምኗል';
+  @override
+  String get profileUpdated => 'መገለጫ ተዘምኗል';
+  @override
+  String get passwordUpdated => 'ይለፍ ቃል ተዘምኗል';
+  @override
+  String get photoUploadFailed => 'ፎቶ መጫን አልተሳካም';
+  @override
+  String get cartEmpty => 'ሳጥንዎ ባዶ ነው';
+  @override
+  String get browseRestaurants => 'ሬስቶራንቶች ይፈልጉ';
+  @override
+  String get clearCart => 'ሳጥን አጽዱ';
+  @override
+  String get clearCartConfirm => 'ሁሉንም ምርቶች ከሳጥን ያስወግዱ?';
+  @override
+  String get clear => 'አጽዳ';
+  @override
+  String subtotalWithCount(Object count) => 'ንዑስ ጠቅላላ ($count ምርቶች)';
+  @override
+  String get deliveryFeeNote => 'በቅጥ ጊዜ ይሰላል';
+  @override
+  String get proceedToCheckout => 'ወደ ክፍያ ይሂዱ';
+  @override
+  String get noOrders => 'ገና ምንም ትዕዛዞች የሉም';
+  @override
+  String get track => 'ከታተሉ';
+  @override
+  String get reorder => 'ድጋሚ ዝዙ';
+  @override
+  String get adding => 'እየጨመረ...';
+  @override
+  String get reportProblem => 'ችግር ሪፖርት ያድርጉ';
+  @override
+  String get orderSummary => 'የትዕዛዝ ማጠቃለያ';
+  @override
+  String get waitingPayment => 'የክፍያ ማረጋገጫ በመጠባበቅ ላይ...';
+  @override
+  String get checkPaymentStatus => 'የክፍያ ሁኔታ ያረጋግጡ';
+  @override
+  String get payWithChapa => 'በቻፓ ይክፈሉ';
+  @override
+  String payWithChapaAmount(Object amount) => 'ETB $amount በቻፓ ይክፈሉ';
+  @override
+  String get selectDeliveryAddress => 'እባክዎ የዴሊቨሪ አድራሻ ይምረጡ';
+  @override
+  String get noSavedAddresses => 'ምንም የተቀመጡ አድራሻዎች የሉም።';
+  @override
+  String get addDeliveryAddress => 'የዴሊቨሪ አድራሻ ያክሉ →';
+  @override
+  String get paymentFailedRetry => 'ክፍያ አልተሳካም። እንደገና ሞክሩ።';
+  @override
+  String get couldNotOpenPayment => 'የክፍያ ገጽ መክፈት አልተቻለም። እንደገና ሞክሩ።';
+  @override
+  String get failedToLoadAddresses => 'አድራሻዎች መጫን አልተሳካም';
 }

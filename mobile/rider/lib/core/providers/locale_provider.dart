@@ -13,7 +13,7 @@ class LocaleNotifier extends StateNotifier<Locale> {
 
   Future<void> _load() async {
     final saved = await _storage.read(key: _kLocaleKey);
-    if (saved != null) state = Locale(saved);
+    if (saved != null && mounted) state = Locale(saved);
   }
 
   Future<void> setLocale(Locale locale) async {

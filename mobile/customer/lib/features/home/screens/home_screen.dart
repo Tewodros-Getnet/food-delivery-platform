@@ -8,6 +8,7 @@ import '../../restaurants/models/restaurant_model.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../restaurants/providers/favorites_provider.dart';
 import '../../../core/widgets/retry_widget.dart';
+import '../../../l10n/app_localizations.dart';
 
 final restaurantsProvider = FutureProvider<List<RestaurantModel>>(
     (ref) => ref.read(restaurantServiceProvider).getRestaurants());
@@ -111,7 +112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Food Delivery'),
+        title: Text(AppLocalizations.of(context).appTitle),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
       ),
@@ -120,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPressed: () => context.push('/cart'),
               backgroundColor: Colors.orange,
               icon: const Icon(Icons.shopping_cart, color: Colors.white),
-              label: Text('Cart ($cartCount)',
+              label: Text('${AppLocalizations.of(context).cart} ($cartCount)',
                   style: const TextStyle(color: Colors.white)),
             )
           : null,
@@ -133,7 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               controller: _searchCtrl,
               onChanged: _onSearchChanged,
               decoration: InputDecoration(
-                hintText: 'Search restaurants or food...',
+                hintText: AppLocalizations.of(context).searchRestaurants,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: isSearchActive
                     ? IconButton(
@@ -167,7 +168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: FilterChip(
-                          label: const Text('All'),
+                          label: Text(AppLocalizations.of(context).all),
                           selected: _selectedCategory == null,
                           onSelected: (_) =>
                               setState(() => _selectedCategory = null),
@@ -241,7 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   size: 56, color: Colors.grey),
                               const SizedBox(height: 12),
                               Text(
-                                'No restaurants in "$_selectedCategory"',
+                                '${AppLocalizations.of(context).noResultsFor} "$_selectedCategory"',
                                 style: const TextStyle(
                                     color: Colors.grey, fontSize: 15),
                               ),
@@ -296,7 +297,8 @@ class _SearchResults extends StatelessWidget {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.error_outline, color: Colors.grey, size: 48),
           const SizedBox(height: 8),
-          Text(error!, style: const TextStyle(color: Colors.grey)),
+          Text(AppLocalizations.of(context).searchFailed,
+              style: const TextStyle(color: Colors.grey)),
         ]),
       );
     }
@@ -305,7 +307,7 @@ class _SearchResults extends StatelessWidget {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.search_off, color: Colors.grey, size: 56),
           const SizedBox(height: 12),
-          Text('No results for "$query"',
+          Text('${AppLocalizations.of(context).noResultsFor} "$query"',
               style: const TextStyle(color: Colors.grey, fontSize: 15)),
         ]),
       );
@@ -315,18 +317,18 @@ class _SearchResults extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       children: [
         if (restaurants.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Restaurants',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(AppLocalizations.of(context).searchRestaurants,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           ),
           ...restaurants.map((r) => _RestaurantCard(restaurant: r)),
         ],
         if (menuItems.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Menu Items',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(AppLocalizations.of(context).menuItems,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           ),
           ...menuItems.map((item) => _MenuItemSearchCard(item: item)),
         ],

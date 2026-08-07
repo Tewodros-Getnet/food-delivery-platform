@@ -878,11 +878,73 @@ abstract class AppLocalizations {
   /// **'Order Cancelled'**
   String get orderCancelled;
 
-  /// No description provided for @deliveryAddress.
-  ///
-  /// In en, this message translates to:
-  /// **'Delivery Address'**
-  String get deliveryAddress;
+  /// No description provided for @all.
+  String get all;
+
+  /// No description provided for @searchFailed.
+  String get searchFailed;
+
+  /// No description provided for @noResultsFor.
+  String get noResultsFor;
+
+  /// No description provided for @closed.
+  String get closed;
+  String get myProfile;
+  String get signOut;
+  String get signOutConfirm;
+  String get saved;
+  String get changePassword;
+  String get orderHistory;
+  String get viewAllPastOrders;
+  String get savedRestaurants;
+  String get yourFavouritePlaces;
+  String get manageDeliveryLocations;
+  String get offersAndRewards;
+  String get vouchersAndPromoCodes;
+  String get loyaltyPoints;
+  String get comingSoon;
+  String get support;
+  String get helpCenter;
+  String get faqsAndSupport;
+  String get reportProblemTitle;
+  String get about;
+  String get appVersion;
+  String get account;
+  String get myActivity;
+  String get notSet;
+  String get saveChanges;
+  String get currentPassword;
+  String get newPasswordHint;
+  String get updatePassword;
+  String get failedToLoadProfile;
+  String get profilePhotoUpdated;
+  String get profileUpdated;
+  String get passwordUpdated;
+  String get photoUploadFailed;
+  String get cartEmpty;
+  String get browseRestaurants;
+  String get clearCart;
+  String get clearCartConfirm;
+  String get clear;
+  String subtotalWithCount(Object count);
+  String get deliveryFeeNote;
+  String get proceedToCheckout;
+  String get noOrders;
+  String get track;
+  String get reorder;
+  String get adding;
+  String get reportProblem;
+  String get orderSummary;
+  String get waitingPayment;
+  String get checkPaymentStatus;
+  String get payWithChapa;
+  String payWithChapaAmount(Object amount);
+  String get selectDeliveryAddress;
+  String get noSavedAddresses;
+  String get addDeliveryAddress;
+  String get paymentFailedRetry;
+  String get couldNotOpenPayment;
+  String get failedToLoadAddresses;
 }
 
 class _AppLocalizationsDelegate

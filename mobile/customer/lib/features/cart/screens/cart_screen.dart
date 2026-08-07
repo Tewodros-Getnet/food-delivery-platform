@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/cart_provider.dart';
 import '../models/cart_item.dart';
+import '../../../l10n/app_localizations.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -11,10 +12,11 @@ class CartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartProvider);
+    final l10n = AppLocalizations.of(context);
 
     if (cart.items.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Cart')),
+        appBar: AppBar(title: Text(l10n.cart)),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -22,12 +24,12 @@ class CartScreen extends ConsumerWidget {
               Icon(Icons.shopping_cart_outlined,
                   size: 72, color: Colors.grey[300]),
               const SizedBox(height: 16),
-              const Text('Your cart is empty',
-                  style: TextStyle(fontSize: 17, color: Colors.grey)),
+              Text(l10n.cartEmpty,
+                  style: const TextStyle(fontSize: 17, color: Colors.grey)),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => context.pop(),
-                child: const Text('Browse restaurants'),
+                child: Text(l10n.browseRestaurants),
               ),
             ],
           ),
@@ -37,31 +39,31 @@ class CartScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cart'),
+        title: Text(l10n.cart),
         actions: [
           TextButton(
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Clear Cart'),
-                  content: const Text('Remove all items from your cart?'),
+                  title: Text(l10n.clearCart),
+                  content: Text(l10n.clearCartConfirm),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancel')),
+                        child: Text(l10n.cancel)),
                     TextButton(
                         onPressed: () {
                           ref.read(cartProvider.notifier).clear();
                           Navigator.pop(ctx);
                         },
-                        child: const Text('Clear',
-                            style: TextStyle(color: Colors.red))),
+                        child: Text(l10n.clear,
+                            style: const TextStyle(color: Colors.red))),
                   ],
                 ),
               );
             },
-            child: const Text('Clear', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.clear, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -70,10 +72,7 @@ class CartScreen extends ConsumerWidget {
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
             itemCount: cart.items.length,
-            itemBuilder: (ctx, i) {
-              final item = cart.items[i];
-              return _CartItemTile(item: item);
-            },
+            itemBuilder: (ctx, i) => _CartItemTile(item: cart.items[i]),
           ),
         ),
         _CartSummary(cart: cart),
@@ -82,7 +81,7 @@ class CartScreen extends ConsumerWidget {
   }
 }
 
-// ── Individual cart item tile with swipe-to-delete ────────────────────────────
+// ── Individual cart item tile ─────────────────────────────────────────────────
 
 class _CartItemTile extends ConsumerWidget {
   final CartItem item;
@@ -104,69 +103,52 @@ class _CartItemTile extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(children: [
-          // Item image
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: CachedNetworkImage(
               imageUrl: item.menuItem.imageUrl,
-              width: 64,
-              height: 64,
-              fit: BoxFit.cover,
+              width: 64, height: 64, fit: BoxFit.cover,
               errorWidget: (_, __, ___) => Container(
-                width: 64,
-                height: 64,
-                color: Colors.grey[200],
+                width: 64, height: 64, color: Colors.grey[200],
                 child: const Icon(Icons.fastfood, color: Colors.grey, size: 28),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // Name + modifiers + price
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.menuItem.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14)),
-                if (item.selectedModifiers.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    item.selectedModifiers.map((m) => m.option).join(', '),
-                    style: const TextStyle(fontSize: 11, color: Colors.black45),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 4),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.menuItem.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              if (item.selectedModifiers.isNotEmpty) ...[
+                const SizedBox(height: 2),
                 Text(
-                  'ETB ${item.unitPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13),
+                  item.selectedModifiers.map((m) => m.option).join(', '),
+                  style: const TextStyle(fontSize: 11, color: Colors.black45),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
+              const SizedBox(height: 4),
+              Text(
+                'ETB ${item.unitPrice.toStringAsFixed(2)}',
+                style: const TextStyle(
+                    color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ]),
           ),
-          // Quantity stepper
           Row(mainAxisSize: MainAxisSize.min, children: [
             _StepperButton(
               icon: Icons.remove,
-              onTap: () => ref
-                  .read(cartProvider.notifier)
+              onTap: () => ref.read(cartProvider.notifier)
                   .updateQuantity(item.cartKey, item.quantity - 1),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Text('${item.quantity}',
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             ),
             _StepperButton(
               icon: Icons.add,
-              onTap: () => ref
-                  .read(cartProvider.notifier)
+              onTap: () => ref.read(cartProvider.notifier)
                   .updateQuantity(item.cartKey, item.quantity + 1),
             ),
           ]),
@@ -186,8 +168,7 @@ class _StepperButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 30,
-        height: 30,
+        width: 30, height: 30,
         decoration: BoxDecoration(
           color: Colors.orange.shade50,
           borderRadius: BorderRadius.circular(8),
@@ -199,7 +180,7 @@ class _StepperButton extends StatelessWidget {
   }
 }
 
-// ── Cart summary + checkout button ────────────────────────────────────────────
+// ── Cart summary ──────────────────────────────────────────────────────────────
 
 class _CartSummary extends StatelessWidget {
   final CartState cart;
@@ -207,6 +188,7 @@ class _CartSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
       decoration: BoxDecoration(
@@ -219,31 +201,26 @@ class _CartSummary extends StatelessWidget {
         ],
       ),
       child: Column(children: [
-        // Subtotal row
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Subtotal (${cart.totalItems} items)',
+          Text(l10n.subtotalWithCount(cart.totalItems),
               style: TextStyle(color: Colors.grey[600], fontSize: 13)),
           Text('ETB ${cart.subtotal.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 13)),
         ]),
         const SizedBox(height: 4),
-        // Delivery fee note
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Delivery fee',
+          Text(l10n.deliveryFee,
               style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          Text('Calculated at checkout',
+          Text(l10n.deliveryFeeNote,
               style: TextStyle(color: Colors.grey[500], fontSize: 12)),
         ]),
         const Divider(height: 16),
-        // Total
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Total',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(l10n.total,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           Text('ETB ${cart.subtotal.toStringAsFixed(2)}+',
               style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Colors.orange)),
+                  fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
         ]),
         const SizedBox(height: 14),
         SizedBox(
@@ -256,11 +233,9 @@ class _CartSummary extends StatelessWidget {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Proceed to Checkout',
-                style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold)),
+            child: Text(l10n.proceedToCheckout,
+                style: const TextStyle(
+                    fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ),
       ]),
