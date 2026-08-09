@@ -19,7 +19,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
 
@@ -34,10 +35,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _selectedCategory;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchCtrl.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-fetch restaurant list when app resumes so stale/error state recovers
+    if (state == AppLifecycleState.resumed && mounted) {
+      ref.invalidate(restaurantsProvider);
+    }
   }
 
   void _onSearchChanged(String value) {

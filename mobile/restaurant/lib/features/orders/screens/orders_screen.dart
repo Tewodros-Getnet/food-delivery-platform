@@ -29,12 +29,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   String? _restaurantId;
   bool _isOpen = true;
   io.Socket? _socket;
+  int _retryCount = 0;
+  static const int _maxAutoRetries = 4;       // retry up to 4× on resume
+  static const int _retryDelaySeconds = 8;    // 8s between retries (server wake-up)
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _load();
+    _loadWithRetry();
     _connect();
     onOrdersReloadRequested = () {
       if (mounted) _load();
@@ -43,9 +46,30 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Re-fetch when app comes back to foreground so stale/failed state is recovered
     if (state == AppLifecycleState.resumed && mounted) {
-      _load();
+      // Reset retry counter and try loading — will auto-retry if server
+      // is cold-starting (Render free tier spins down after inactivity).
+      _retryCount = 0;
+      _loadWithRetry();
+    }
+  }
+
+  Future<void> _loadWithRetry() async {
+    setState(() { _loading = true; _loadError = false; });
+    while (_retryCount <= _maxAutoRetries) {
+      try {
+        await _load();
+        return; // success — stop retrying
+      } catch (_) {
+        _retryCount++;
+        if (_retryCount > _maxAutoRetries) {
+          if (mounted) setState(() { _loading = false; _loadError = true; });
+          return;
+        }
+        // Wait before next retry so server has time to wake up
+        await Future.delayed(Duration(seconds: _retryDelaySeconds));
+        if (!mounted) return;
+      }
     }
   }
 
@@ -61,12 +85,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
         if (mounted) setState(() => _isOpen = (rData?['is_open'] as bool?) ?? true);
       } on DioException catch (e) {
         if (e.response?.statusCode == 404) {
-          // No restaurant registered yet — fall through to show setup prompt
           _restaurantId = null;
         } else {
-          // Genuine network/auth error — show retry
-          if (mounted) setState(() { _loading = false; _loadError = true; });
-          return;
+          // Rethrow so _loadWithRetry can catch it
+          rethrow;
         }
       }
 
@@ -88,10 +110,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             .toList();
         _loading = false;
         _loadError = false;
+        _retryCount = 0;
       });
     } catch (_) {
-      if (!mounted) return;
-      setState(() { _loading = false; _loadError = true; });
+      // Rethrow — caller (_loadWithRetry or manual retry) handles state
+      rethrow;
     }
   }
 
@@ -118,8 +141,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
-                setState(() { _loading = true; _loadError = false; });
-                _load();
+                _retryCount = 0;
+                _loadWithRetry();
               },
               icon: const Icon(Icons.refresh, color: Colors.white),
               label: const Text('Retry', style: TextStyle(color: Colors.white)),
@@ -754,51 +777,72 @@ class _RestaurantDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Drawer(
+      backgroundColor: Colors.white,
       child: Column(
         children: [
-          // Header
-          DrawerHeader(
+          // ── Header ────────────────────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 20,
+              bottom: 24,
+              left: 20,
+              right: 20,
+            ),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
+                colors: [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)],
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.4), width: 2),
                   ),
-                  child: const Icon(Icons.storefront,
+                  child: const Icon(Icons.storefront_outlined,
                       color: Colors.white, size: 28),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 const Text(
                   'Restaurant Dashboard',
                   style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Manage your restaurant',
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontSize: 12),
                 ),
               ],
             ),
           ),
-          // Nav items
+
+          // ── Nav items ─────────────────────────────────────────────────────
           Expanded(
             child: ListView(
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
+                // Operations section label
+                _SectionLabel('Operations'),
                 _DrawerItem(
                   icon: Icons.receipt_long_outlined,
                   label: 'Orders',
                   onTap: () => Navigator.pop(context),
+                  isActive: true,
                 ),
                 _DrawerItem(
                   icon: Icons.restaurant_menu_outlined,
@@ -820,6 +864,9 @@ class _RestaurantDrawer extends ConsumerWidget {
                     context.push('/riders');
                   },
                 ),
+
+                const SizedBox(height: 4),
+                _SectionLabel('Insights'),
                 _DrawerItem(
                   icon: Icons.bar_chart_outlined,
                   label: 'Analytics',
@@ -836,6 +883,9 @@ class _RestaurantDrawer extends ConsumerWidget {
                     context.push('/reviews');
                   },
                 ),
+
+                const SizedBox(height: 4),
+                _SectionLabel('Restaurant Setup'),
                 _DrawerItem(
                   icon: Icons.access_time_outlined,
                   label: 'Operating Hours',
@@ -852,7 +902,17 @@ class _RestaurantDrawer extends ConsumerWidget {
                     context.push('/banner');
                   },
                 ),
-                const Divider(indent: 16, endIndent: 16),
+                _DrawerItem(
+                  icon: Icons.photo_library_outlined,
+                  label: 'Restaurant Images',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/images');
+                  },
+                ),
+
+                const SizedBox(height: 4),
+                const Divider(indent: 16, endIndent: 16, height: 16),
                 _DrawerItem(
                   icon: Icons.person_outline,
                   label: 'Profile & Settings',
@@ -864,16 +924,41 @@ class _RestaurantDrawer extends ConsumerWidget {
               ],
             ),
           ),
-          // Logout at bottom
-          const Divider(height: 1),
-          _DrawerItem(
-            icon: Icons.logout,
-            label: 'Sign Out',
-            color: Colors.red,
-            onTap: () => ref.read(authProvider.notifier).logout(),
+
+          // ── Sign Out ──────────────────────────────────────────────────────
+          Container(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: _DrawerItem(
+              icon: Icons.logout_outlined,
+              label: 'Sign Out',
+              color: Colors.red.shade600,
+              onTap: () => ref.read(authProvider.notifier).logout(),
+            ),
           ),
           const SizedBox(height: 8),
         ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[500],
+          letterSpacing: 1.0,
+        ),
       ),
     );
   }
@@ -884,27 +969,61 @@ class _DrawerItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color? color;
+  final bool isActive;
 
   const _DrawerItem({
     required this.icon,
     required this.label,
     required this.onTap,
     this.color,
+    this.isActive = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? Colors.black87;
-    return ListTile(
-      leading: Icon(icon, color: c, size: 22),
-      title: Text(label,
-          style:
-              TextStyle(color: c, fontSize: 14, fontWeight: FontWeight.w500)),
-      onTap: onTap,
-      horizontalTitleGap: 8,
-      dense: true,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+    final c = color ?? Colors.grey[800]!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Material(
+        color: isActive
+            ? const Color(0xFF2E7D32).withValues(alpha: 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
+                        : Colors.grey.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon,
+                      size: 18,
+                      color: isActive ? const Color(0xFF2E7D32) : c),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight:
+                        isActive ? FontWeight.w600 : FontWeight.w500,
+                    color: isActive ? const Color(0xFF2E7D32) : c,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

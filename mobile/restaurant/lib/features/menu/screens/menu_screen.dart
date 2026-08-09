@@ -413,55 +413,61 @@ class _MenuItemCard extends StatelessWidget {
                     ]),
                     const SizedBox(height: 8),
                     // Action row
-                    Row(children: [
-                      // Availability toggle
-                      isToggling
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Color(0xFF2E7D32)))
-                          : Transform.scale(
-                              scale: 0.8,
-                              child: Switch(
-                                value: isAvailable,
-                                activeColor: const Color(0xFF2E7D32),
-                                onChanged: onToggle != null
-                                    ? (_) => onToggle!()
-                                    : null,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Availability toggle
+                        isToggling
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF2E7D32)))
+                            : Transform.scale(
+                                scale: 0.8,
+                                child: Switch(
+                                  value: isAvailable,
+                                  activeColor: const Color(0xFF2E7D32),
+                                  onChanged: onToggle != null
+                                      ? (_) => onToggle!()
+                                      : null,
+                                ),
+                              ),
+                        // Action buttons
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ActionChip(
+                              icon: Icons.tune,
+                              label: 'Mods',
+                              color: Colors.orange,
+                              onTap: onModifiers,
+                            ),
+                            const SizedBox(width: 6),
+                            _ActionChip(
+                              icon: Icons.edit_outlined,
+                              label: 'Edit',
+                              color: const Color(0xFF2E7D32),
+                              onTap: onEdit,
+                            ),
+                            const SizedBox(width: 6),
+                            GestureDetector(
+                              onTap: onDelete,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(Icons.delete_outline,
+                                    size: 16, color: Colors.red.shade600),
                               ),
                             ),
-                      const Spacer(),
-                      // Modifiers
-                      _ActionChip(
-                        icon: Icons.tune,
-                        label: 'Modifiers',
-                        color: Colors.orange,
-                        onTap: onModifiers,
-                      ),
-                      const SizedBox(width: 6),
-                      // Edit
-                      _ActionChip(
-                        icon: Icons.edit_outlined,
-                        label: 'Edit',
-                        color: const Color(0xFF2E7D32),
-                        onTap: onEdit,
-                      ),
-                      const SizedBox(width: 6),
-                      // Delete
-                      GestureDetector(
-                        onTap: onDelete,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Icon(Icons.delete_outline,
-                              size: 16, color: Colors.red.shade600),
+                          ],
                         ),
-                      ),
-                    ]),
+                      ],
+                    ),
                   ],
                 ),
               ),
