@@ -1,6 +1,6 @@
 class OrderItemModel {
   final String id;
-  final String menuItemId;
+  final String? menuItemId; // nullable — item may have been deleted from menu
   final int quantity;
   final double unitPrice;
   final String itemName;
@@ -9,7 +9,7 @@ class OrderItemModel {
 
   const OrderItemModel({
     required this.id,
-    required this.menuItemId,
+    this.menuItemId,
     required this.quantity,
     required this.unitPrice,
     required this.itemName,
@@ -19,7 +19,7 @@ class OrderItemModel {
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) => OrderItemModel(
         id: json['id'] as String,
-        menuItemId: json['menu_item_id'] as String,
+        menuItemId: json['menu_item_id'] as String? ?? '',
         quantity: (json['quantity'] as num).toInt(),
         unitPrice: double.parse(json['unit_price'].toString()),
         itemName: json['item_name'] as String,

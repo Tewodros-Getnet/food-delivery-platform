@@ -16,64 +16,10 @@ class DioClient {
   late final Dio _dio;
   final _storage = const FlutterSecureStorage();
 
+  // Fires once when the refresh token is rejected by the server.
+  // Listeners should log the user out and redirect to login.
   final _sessionExpiredController = StreamController<void>.broadcast();
   Stream<void> get sessionExpired => _sessionExpiredController.stream;
-
-  // ── Refresh mutex ─────────────────────────────────────────────────────────
-  // Prevents multiple simultaneous refresh calls (token rotation race).
-  // When a refresh is in progress, subsequent callers wait for it to finish
-  // and reuse the new token instead of firing their own refresh.
-  bool _refreshing = false;
-  final List<Completer<String?>> _refreshQueue = [];
-
-  Future<String?> _refreshOnce() async {
-    // If a refresh is already running, queue up and wait for its result
-    if (_refreshing) {
-      final completer = Completer<String?>();
-      _refreshQueue.add(completer);
-      return completer.future;
-    }
-
-    _refreshing = true;
-    String? newJwt;
-
-    try {
-      final rt = await _storage.read(key: 'refreshToken');
-      if (rt == null) {
-        await _storage.deleteAll();
-        _sessionExpiredController.add(null);
-        return null;
-      }
-
-      final res = await Dio().post(
-        '${ApiConstants.baseUrl}${ApiConstants.refresh}',
-        data: {'refreshToken': rt},
-      );
-      final data = res.data['data'] as Map<String, dynamic>;
-      newJwt = data['jwt'] as String;
-      final newRt = data['refreshToken'] as String;
-      await _storage.write(key: 'jwt', value: newJwt);
-      await _storage.write(key: 'refreshToken', value: newRt);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        await _storage.deleteAll();
-        _sessionExpiredController.add(null);
-      }
-      // Network/timeout errors: don't wipe tokens, just return null
-      newJwt = null;
-    } catch (_) {
-      newJwt = null;
-    } finally {
-      _refreshing = false;
-      // Wake up all queued callers with the new token (or null on failure)
-      for (final c in _refreshQueue) {
-        c.complete(newJwt);
-      }
-      _refreshQueue.clear();
-    }
-
-    return newJwt;
-  }
 
   DioClient() {
     _dio = Dio(BaseOptions(
@@ -91,13 +37,29 @@ class DioClient {
       },
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
-          final newJwt = await _refreshOnce();
-          if (newJwt != null) {
-            // Retry original request with the fresh token
-            error.requestOptions.headers['Authorization'] = 'Bearer $newJwt';
+          final rt = await _storage.read(key: 'refreshToken');
+          if (rt != null) {
             try {
+              final res = await Dio().post(
+                '${ApiConstants.baseUrl}${ApiConstants.refresh}',
+                data: {'refreshToken': rt},
+              );
+              final data = res.data['data'] as Map<String, dynamic>;
+              final newJwt = data['jwt'] as String;
+              final newRt = data['refreshToken'] as String;
+              await _storage.write(key: 'jwt', value: newJwt);
+              await _storage.write(key: 'refreshToken', value: newRt);
+              error.requestOptions.headers['Authorization'] = 'Bearer $newJwt';
               return handler.resolve(await _dio.fetch(error.requestOptions));
+            } on DioException catch (e) {
+              if (e.response?.statusCode == 401) {
+                await _storage.deleteAll();
+                _sessionExpiredController.add(null);
+              }
             } catch (_) {}
+          } else {
+            await _storage.deleteAll();
+            _sessionExpiredController.add(null);
           }
         }
         handler.next(error);
