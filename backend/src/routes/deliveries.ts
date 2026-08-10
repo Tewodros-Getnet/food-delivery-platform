@@ -115,7 +115,8 @@ router.post('/:id/decline', authenticate, authorize('rider'), async (req: Reques
   try {
     const order = await orderService.getOrderById(req.params.id);
     if (!order) { res.status(404).json(errorResponse('Order not found')); return; }
-    riderService.riderDeclined(order.id);
+    // Pass the rider's ID so dispatch records them as declined and never re-offers
+    riderService.riderDeclined(order.id, req.userId);
     res.json(successResponse({ message: 'Delivery request declined' }));
   } catch (err) { next(err); }
 });

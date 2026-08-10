@@ -123,6 +123,7 @@ const dispatchSessions = new Map<string, {
   startTime: number;
   riderIndex: number;
   riders: NearbyRider[];
+  declinedRiderIds: Set<string>;  // riders who already declined — never re-offer
   currentTimeout: ReturnType<typeof setTimeout> | null;
   restaurant: { name: string; address: string };
   customerAddress: string;
@@ -204,6 +205,7 @@ export async function startDispatch(orderId: string, restaurantId: string): Prom
     startTime: Date.now(),
     riderIndex: 0,
     riders,
+    declinedRiderIds: new Set<string>(),
     currentTimeout: null,
     restaurant: { name: restaurant.name, address: restaurant.address },
     customerAddress,
@@ -244,20 +246,28 @@ function scheduleRetry(
     }
 
     if (riders.length > 0) {
-      // Rider found — start normal dispatch
+      // Rider found — start normal dispatch, but exclude anyone who already declined
+      const previouslyDeclined = retrySessionsNoRider.get(orderId);
       retrySessionsNoRider.delete(orderId);
       await persistDeleteRetrySession(orderId);
       logger.info('Rider found on retry', { orderId, retryCount: session.retryCount });
+
+      // Filter out riders who previously declined this order
+      const declinedIds = (previouslyDeclined as unknown as { declinedRiderIds?: Set<string> })?.declinedRiderIds ?? new Set<string>();
+      const freshRiders = riders.filter(r => !declinedIds.has(r.rider_id));
+      const ridersToUse = freshRiders.length > 0 ? freshRiders : riders;
+
       dispatchSessions.set(orderId, {
         startTime: Date.now(),
         riderIndex: 0,
-        riders,
+        riders: ridersToUse,
+        declinedRiderIds: declinedIds,
         currentTimeout: null,
         restaurant: { name: restaurant.name, address: restaurant.address },
         customerAddress,
         deliveryFee,
       });
-      await persistUpsertDispatchSession(orderId, { riderIndex: 0, riders, restaurant: { name: restaurant.name, address: restaurant.address }, customerAddress, deliveryFee, startTime: Date.now() });
+      await persistUpsertDispatchSession(orderId, { riderIndex: 0, riders: ridersToUse, restaurant: { name: restaurant.name, address: restaurant.address }, customerAddress, deliveryFee, startTime: Date.now() });
       void sendToNextRider(orderId, restaurant, customerAddress, deliveryFee);
       return;
     }
@@ -384,7 +394,16 @@ async function sendToNextRider(
   session.currentTimeout = setTimeout(() => {
     const s = dispatchSessions.get(orderId);
     if (s) {
+      // Timeout counts as a decline — record this rider so they aren't re-offered
+      s.declinedRiderIds.add(rider.rider_id);
       s.riderIndex++;
+      // Skip past any already-declined riders
+      while (
+        s.riderIndex < s.riders.length &&
+        s.declinedRiderIds.has(s.riders[s.riderIndex].rider_id)
+      ) {
+        s.riderIndex++;
+      }
       void persistUpsertDispatchSession(orderId, { riderIndex: s.riderIndex, riders: s.riders, restaurant: s.restaurant, customerAddress: s.customerAddress, deliveryFee: s.deliveryFee, startTime: s.startTime });
       void sendToNextRider(orderId, restaurant, customerAddress, deliveryFee);
     }
@@ -399,12 +418,29 @@ export function riderAccepted(orderId: string) {
   cancelRetrySession(orderId); // also clear any no-rider retry session
 }
 
-export function riderDeclined(orderId: string) {
+export function riderDeclined(orderId: string, riderId?: string) {
   const session = dispatchSessions.get(orderId);
   if (!session) return;
   if (session.currentTimeout) clearTimeout(session.currentTimeout);
+
+  // Record this rider so they are never re-offered the same order
+  if (riderId) {
+    session.declinedRiderIds.add(riderId);
+  } else {
+    // Fallback: mark whoever was at the current index
+    const currentRider = session.riders[session.riderIndex];
+    if (currentRider) session.declinedRiderIds.add(currentRider.rider_id);
+  }
+
+  // Advance past any riders who have already declined
   session.riderIndex++;
-  // Persist the incremented index so server restarts don't re-send to the same rider
+  while (
+    session.riderIndex < session.riders.length &&
+    session.declinedRiderIds.has(session.riders[session.riderIndex].rider_id)
+  ) {
+    session.riderIndex++;
+  }
+
   void persistUpsertDispatchSession(orderId, {
     riderIndex: session.riderIndex,
     riders: session.riders,
@@ -491,6 +527,7 @@ export async function recoverDispatchSessions(): Promise<void> {
       startTime: row.start_time,
       riderIndex: row.rider_index,
       riders: row.riders,
+      declinedRiderIds: new Set<string>(),
       currentTimeout: null,
       restaurant: row.restaurant,
       customerAddress: row.customer_address,
