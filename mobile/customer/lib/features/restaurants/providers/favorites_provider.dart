@@ -17,8 +17,13 @@ class FavoritesNotifier extends StateNotifier<Set<String>> {
     try {
       final res = await _client.dio.get(ApiConstants.favorites);
       final list = res.data['data'] as List<dynamic>;
-      state =
-          list.map((e) => (e as Map<String, dynamic>)['id'] as String).toSet();
+      // Merge with current state — don't overwrite any toggles that happened
+      // while the load was in flight
+      final loaded = list
+          .map((e) => (e as Map<String, dynamic>)['id'] as String)
+          .toSet();
+      // Only update if state hasn't been modified (i.e. still empty = initial)
+      if (state.isEmpty) state = loaded;
     } catch (_) {}
   }
 

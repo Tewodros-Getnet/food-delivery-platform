@@ -7,6 +7,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/widgets/language_switcher.dart';
+import '../../../core/widgets/theme_switcher.dart';
 import '../../../l10n/app_localizations.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -102,7 +103,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final photoUrl = _profile!['profile_photo_url'] as String?;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: CustomScrollView(
         slivers: [
           // ── Hero header ──────────────────────────────────────────────────
@@ -337,6 +338,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _SectionLabel(AppLocalizations.of(context).language),
                   _MenuCard(children: [
                     const LanguageSwitcherTile(),
+                    _MenuDivider(),
+                    const ThemeSwitcherTile(),
                   ]),
 
                   const SizedBox(height: 20),
@@ -677,7 +680,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       prefixIcon: Icon(icon, size: 20),
       suffixIcon: suffix,
       filled: true,
-      fillColor: Colors.grey[50],
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -721,7 +724,7 @@ class _MenuCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -739,7 +742,10 @@ class _MenuDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Divider(
-        height: 1, indent: 56, endIndent: 0, color: Colors.grey[100]);
+        height: 1,
+        indent: 56,
+        endIndent: 0,
+        color: Theme.of(context).dividerColor.withValues(alpha: 0.5));
   }
 }
 
@@ -791,12 +797,16 @@ class _MenuItem extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: onTap != null
-                              ? Colors.black87
+                              ? Theme.of(context).colorScheme.onSurface
                               : Colors.grey[400])),
                   if (subtitle != null)
                     Text(subtitle!,
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey[500])),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.5))),
                 ],
               ),
             ),
@@ -834,7 +844,7 @@ class _StatChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -850,7 +860,7 @@ class _StatChip extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[700])),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ]),
         ),
       ),

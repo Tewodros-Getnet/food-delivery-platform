@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'l10n/app_localizations.dart';
 import 'core/router/app_router.dart';
 import 'core/providers/locale_provider.dart';
+import 'core/providers/theme_provider.dart';
 import 'core/network/dio_client.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/notifications/fcm_service.dart';
@@ -49,13 +50,28 @@ class _CustomerAppState extends ConsumerState<CustomerApp> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp.router(
       title: 'Food Delivery',
       debugShowCheckedModeBanner: false,
+      // Light theme
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.orange,
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
       ),
+      // Dark theme — same orange brand, dark surfaces
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.orange,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      themeMode: themeMode,
       locale: ref.watch(localeProvider),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

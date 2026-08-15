@@ -159,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.grey[100],
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none),
@@ -398,7 +398,7 @@ class _MenuItemSearchCard extends StatelessWidget {
 class _RestaurantPlaceholder extends StatelessWidget {
   final String name;
   final double height;
-  const _RestaurantPlaceholder({required this.name, required this.height});
+  const _RestaurantPlaceholder({required this.name, this.height = 180});
 
   /// Pick one of several warm gradient pairs based on the first letter so
   /// different restaurants get visually distinct colours.
@@ -505,172 +505,229 @@ class _RestaurantCard extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       clipBehavior: Clip.antiAlias,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () => context.push('/restaurant/${r.id}'),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Cover image with open/closed overlay
-          Stack(children: [
-            r.coverImageUrl != null
-                ? CachedNetworkImage(
-                    imageUrl: r.coverImageUrl!,
-                    height: 150,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => _RestaurantPlaceholder(name: r.name, height: 150),
-                    errorWidget: (_, __, ___) => _RestaurantPlaceholder(name: r.name, height: 150))
-                : _RestaurantPlaceholder(name: r.name, height: 150),
-            // Closed overlay
-            if (!r.isOpen)
+        child: SizedBox(
+          height: 180,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ── Cover image ───────────────────────────────────────────
+              r.coverImageUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: r.coverImageUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) =>
+                          _RestaurantPlaceholder(name: r.name, height: 180),
+                      errorWidget: (_, __, ___) =>
+                          _RestaurantPlaceholder(name: r.name, height: 180))
+                  : _RestaurantPlaceholder(name: r.name, height: 180),
+
+              // ── Bottom gradient overlay ───────────────────────────────
               Positioned.fill(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  alignment: Alignment.center,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.55),
+                        Colors.black.withValues(alpha: 0.85),
+                      ],
+                      stops: const [0.0, 0.35, 0.7, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Closed overlay ────────────────────────────────────────
+              if (!r.isOpen)
+                Positioned.fill(
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    color: Colors.black.withValues(alpha: 0.35),
+                    alignment: Alignment.center,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade700,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text('CLOSED',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              letterSpacing: 1)),
+                    ),
+                  ),
+                ),
+
+              // ── Category pill (top-left) ──────────────────────────────
+              if (r.category != null)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade700,
+                      color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text('CLOSED',
-                        style: TextStyle(
+                    child: Text(r.category!,
+                        style: const TextStyle(
                             color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            letterSpacing: 1)),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ),
-              ),
-            // Category pill (top-left)
-            if (r.category != null)
+
+              // ── Favorite button (top-right) ───────────────────────────
               Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(r.category!,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ),
-            // Favorite heart button (top-right)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: () => ref.read(favoritesProvider.notifier).toggle(r.id),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 4)
-                    ],
-                  ),
-                  child: Icon(
-                    isFav ? Icons.favorite : Icons.favorite_border,
-                    color: isFav ? Colors.red : Colors.grey[600],
-                    size: 18,
-                  ),
-                ),
-              ),
-            ),
-            // Logo avatar overlaid at bottom-left of cover image
-            if (r.logoUrl != null)
-              Positioned(
-                bottom: 10,
-                left: 12,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 6)
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: CachedNetworkImage(
-                      imageUrl: r.logoUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.storefront,
-                            size: 24, color: Colors.grey),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.storefront,
-                            size: 24, color: Colors.grey),
-                      ),
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  onTap: () =>
+                      ref.read(favoritesProvider.notifier).toggle(r.id),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 4)
+                      ],
+                    ),
+                    child: Icon(
+                      isFav ? Icons.favorite : Icons.favorite_border,
+                      color: isFav ? Colors.red : Colors.grey[600],
+                      size: 18,
                     ),
                   ),
                 ),
               ),
-          ]),
-          // Info row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(r.name,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Row(children: [
-                // Rating
-                const Icon(Icons.star_rounded, size: 15, color: Colors.amber),
-                const SizedBox(width: 3),
-                Text(r.averageRating.toStringAsFixed(1),
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600)),
-                const SizedBox(width: 12),
-                // Minimum order
-                if (r.minimumOrderValue != null &&
-                    r.minimumOrderValue! > 0) ...[
-                  const Icon(Icons.shopping_bag_outlined,
-                      size: 13, color: Colors.grey),
-                  const SizedBox(width: 3),
-                  Text('Min ETB ${r.minimumOrderValue!.toStringAsFixed(0)}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                  const SizedBox(width: 12),
-                ],
-                // Open status dot
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: r.isOpen ? Colors.green : Colors.red,
-                    shape: BoxShape.circle,
+
+              // ── Logo + Info bar at bottom ─────────────────────────────
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Logo
+                      if (r.logoUrl != null) ...[
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 6)
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: CachedNetworkImage(
+                              imageUrl: r.logoUrl!,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => Container(
+                                color: Colors.grey[800],
+                                child: const Icon(Icons.storefront,
+                                    size: 24, color: Colors.white70),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      // Name + rating
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              r.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                shadows: [
+                                  Shadow(blurRadius: 4, color: Colors.black54)
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(children: [
+                              const Icon(Icons.star_rounded,
+                                  size: 15, color: Colors.amber),
+                              const SizedBox(width: 3),
+                              Text(r.averageRating.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
+                              if (r.category != null) ...[
+                                const SizedBox(width: 6),
+                                Text('·',
+                                    style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.6))),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(r.category!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.85),
+                                          fontSize: 13)),
+                                ),
+                              ],
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: r.isOpen
+                                      ? Colors.green.withValues(alpha: 0.85)
+                                      : Colors.red.withValues(alpha: 0.85),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  r.isOpen ? 'Open' : 'Closed',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ]),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 4),
-                Text(r.isOpen ? 'Open' : 'Closed',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: r.isOpen ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.w500)),
-              ]),
-            ]),
+              ),
+            ],
           ),
-        ]),
+        ),
       ),
     );
   }

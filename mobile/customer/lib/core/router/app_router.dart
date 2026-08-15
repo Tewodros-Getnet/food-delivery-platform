@@ -45,7 +45,7 @@ class _ScaffoldWithBottomNavState extends ConsumerState<ScaffoldWithBottomNav> {
           index,
           initialLocation: index == widget.navigationShell.currentIndex,
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 8,
         shadowColor: Colors.black12,
         indicatorColor: Colors.orange.withValues(alpha: 0.15),
