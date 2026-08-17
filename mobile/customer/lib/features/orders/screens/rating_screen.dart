@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../services/order_service.dart';
+import 'order_history_screen.dart';
 
 /// Full-screen rating sheet shown after an order is delivered.
 /// Lets the customer rate the restaurant (1-5 stars), the rider (1-5 stars),
@@ -53,6 +54,8 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                 ? _reviewController.text.trim()
                 : null,
           );
+      // Refresh orders list so hasRated flips immediately
+      ref.invalidate(orderHistoryProvider);
       setState(() {
         _submitting = false;
         _submitted = true;

@@ -47,9 +47,36 @@ router.post('/', authenticate, authorize('customer'), createOrderValidation, asy
   } catch (err) { next(err); }
 });
 
-// GET /orders
+// GET /orders — paginated for customers, full list for other roles
 router.get('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Only paginate for customers — restaurant/rider/admin still get full list
+    if (req.userRole === 'customer') {
+      const page = Math.max(1, parseInt((req.query.page as string) ?? '1', 10));
+      const limit = Math.min(20, parseInt((req.query.limit as string) ?? '15', 10));
+      const offset = (page - 1) * limit;
+
+      const countResult = await query<{ total: string }>(
+        `SELECT COUNT(*) as total FROM orders
+         WHERE customer_id = $1 AND status != 'payment_failed'`,
+        [req.userId]
+      );
+      const total = parseInt(countResult.rows[0].total, 10);
+
+      const orders = await orderService.getOrdersByUserPaginated(req.userId!, limit, offset);
+      return res.json(successResponse({
+        orders,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+          hasMore: page * limit < total,
+        },
+      }));
+    }
+
+    // Non-customer roles — existing full list behaviour unchanged
     const orders = await orderService.getOrdersByUser(req.userId!, req.userRole!);
     res.json(successResponse(orders));
   } catch (err) { next(err); }

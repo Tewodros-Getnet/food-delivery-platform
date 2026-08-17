@@ -11,6 +11,34 @@ import '../../../l10n/app_localizations.dart';
 final orderHistoryProvider = FutureProvider<List<OrderModel>>(
     (ref) => ref.read(orderServiceProvider).getOrders());
 
+// ── Friendly status labels (customer-facing) ──────────────────────────────────
+
+String _friendlyStatus(String status) => const {
+      'pending_payment':    'Awaiting payment',
+      'pending_acceptance': 'Waiting for restaurant',
+      'confirmed':          'Being prepared',
+      'ready_for_pickup':   'Waiting for rider',
+      'rider_assigned':     'On the way',
+      'picked_up':          'On the way',
+      'delivered':          'Delivered',
+      'cancelled':          'Cancelled',
+      'payment_failed':     'Payment failed',
+    }[status] ??
+    status.replaceAll('_', ' ');
+
+Color _statusColor(String s) => const {
+      'pending_acceptance': Colors.orange,
+      'confirmed':          Colors.blue,
+      'ready_for_pickup':   Colors.amber,
+      'rider_assigned':     Colors.purple,
+      'picked_up':          Colors.purple,
+      'delivered':          Colors.green,
+      'cancelled':          Colors.red,
+      'payment_failed':     Colors.red,
+      'pending_payment':    Colors.grey,
+    }[s] ??
+    Colors.grey;
+
 class OrderHistoryScreen extends ConsumerStatefulWidget {
   const OrderHistoryScreen({super.key});
   @override
@@ -19,29 +47,99 @@ class OrderHistoryScreen extends ConsumerStatefulWidget {
 
 class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
     with WidgetsBindingObserver {
+  final _scrollController = ScrollController();
+  final List<OrderModel> _orders = [];
+  int _page = 1;
+  bool _loading = false;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  Object? _error;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_onScroll);
+    _load(reset: true);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && mounted) {
-      ref.invalidate(orderHistoryProvider);
+    if (state == AppLifecycleState.resumed && mounted) _load(reset: true);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_loadingMore &&
+        _hasMore) {
+      _load();
+    }
+  }
+
+  Future<void> _load({bool reset = false}) async {
+    if (reset) {
+      if (mounted) setState(() { _loading = true; _error = null; _page = 1; _hasMore = true; });
+    } else {
+      if (!_hasMore || _loadingMore) return;
+      if (mounted) setState(() => _loadingMore = true);
+    }
+
+    try {
+      final result = await ref
+          .read(orderServiceProvider)
+          .getOrdersPaginated(page: reset ? 1 : _page, limit: 15);
+      final newOrders = result['orders'] as List<OrderModel>;
+      final pagination = result['pagination'] as Map<String, dynamic>;
+
+      if (mounted) {
+        setState(() {
+          if (reset) _orders
+            ..clear()
+            ..addAll(newOrders);
+          else
+            _orders.addAll(newOrders);
+          _page = (pagination['page'] as int) + 1;
+          _hasMore = pagination['hasMore'] as bool? ?? false;
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _loadingMore = false; _error = e; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final ordersAsync = ref.watch(orderHistoryProvider);
+
+    // Keep orderHistoryProvider in sync so ref.invalidate works from RatingScreen
+    ref.listen<AsyncValue<List<OrderModel>>>(orderHistoryProvider, (_, next) {
+      next.whenData((_) => _load(reset: true));
+    });
+
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.myOrders)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null && _orders.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.myOrders)),
+        body: RetryWidget(error: _error!, onRetry: () => _load(reset: true)),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -50,27 +148,33 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: l10n.retry,
-            onPressed: () => ref.invalidate(orderHistoryProvider),
+            onPressed: () {
+              ref.invalidate(orderHistoryProvider);
+              _load(reset: true);
+            },
           ),
         ],
       ),
-      body: ordersAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => RetryWidget(
-          error: e,
-          onRetry: () => ref.invalidate(orderHistoryProvider),
-        ),
-        data: (orders) => orders.isEmpty
-            ? Center(child: Text(l10n.noOrders))
-            : RefreshIndicator(
-                onRefresh: () async => ref.invalidate(orderHistoryProvider),
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: orders.length,
-                  itemBuilder: (ctx, i) => _OrderCard(order: orders[i]),
-                ),
+      body: _orders.isEmpty
+          ? Center(child: Text(l10n.noOrders))
+          : RefreshIndicator(
+              onRefresh: () => _load(reset: true),
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: _orders.length + (_loadingMore ? 1 : 0),
+                itemBuilder: (ctx, i) {
+                  if (i == _orders.length) {
+                    // Loading more indicator at the bottom
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  return _OrderCard(order: _orders[i]);
+                },
               ),
-      ),
+            ),
     );
   }
 }
@@ -205,7 +309,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                 const SizedBox(width: 8),
                 Chip(
                   label: Text(
-                    o.status.replaceAll('_', ' ').toUpperCase(),
+                    _friendlyStatus(o.status),
                     style: const TextStyle(
                         color: Colors.white, fontSize: 10,
                         fontWeight: FontWeight.bold),
@@ -242,7 +346,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                       label: Text(l10n.track),
                     ),
                   ),
-                if (o.status == 'delivered') ...[
+                if (o.status == 'delivered' && !o.hasRated) ...[
                   if (isActive) const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
@@ -252,6 +356,15 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     ),
                   ),
                 ],
+                if (o.status == 'delivered' && o.hasRated)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.star_rounded,
+                          size: 16, color: Colors.amber),
+                      label: const Text('Rated'),
+                    ),
+                  ),
                 if (canReorder) ...[
                   const SizedBox(width: 8),
                   Expanded(
@@ -291,20 +404,6 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
     );
   }
 
-  Color _statusColor(String s) =>
-      const {
-        'pending_acceptance': Colors.orange,
-        'delivered': Colors.green,
-        'cancelled': Colors.red,
-        'confirmed': Colors.blue,
-        'picked_up': Colors.orange,
-        'ready_for_pickup': Colors.amber,
-        'rider_assigned': Colors.purple,
-        'pending_payment': Colors.grey,
-        'payment_failed': Colors.red,
-      }[s] ??
-      Colors.grey;
-
   void _showDisputeDialog(BuildContext context, WidgetRef ref, String orderId) {
     context.push('/order/$orderId/dispute', extra: {
       'restaurantName': widget.order.restaurantName,
@@ -316,4 +415,5 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
     context.push('/order/$orderId/rate',
         extra: {'restaurantName': widget.order.restaurantName, 'riderName': null});
   }
+
 }

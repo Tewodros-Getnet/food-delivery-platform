@@ -5,7 +5,8 @@ export interface RatingInput {
   customerId: string;
   restaurantRating?: number;
   riderRating?: number;
-  review?: string;
+  review?: string;       // restaurant review
+  riderReview?: string;  // rider review (optional, separate from restaurant)
 }
 
 export async function submitRating(input: RatingInput): Promise<void> {
@@ -28,11 +29,21 @@ export async function submitRating(input: RatingInput): Promise<void> {
     }
 
     if (input.restaurantRating !== undefined) {
-      await client.query(
-        `INSERT INTO ratings (order_id, customer_id, restaurant_id, rating, review)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [input.orderId, input.customerId, order.restaurant_id, input.restaurantRating, input.review ?? null]
-      );
+      try {
+        await client.query(
+          `INSERT INTO ratings (order_id, customer_id, restaurant_id, rating, review)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [input.orderId, input.customerId, order.restaurant_id, input.restaurantRating, input.review ?? null]
+        );
+      } catch (e: unknown) {
+        const pg = e as { code?: string };
+        if (pg.code === '23505') {
+          const err = new Error('You have already rated this restaurant for this order') as Error & { statusCode: number };
+          err.statusCode = 409;
+          throw err;
+        }
+        throw e;
+      }
       // Recalculate average
       await client.query(
         `UPDATE restaurants SET average_rating = (
@@ -43,11 +54,23 @@ export async function submitRating(input: RatingInput): Promise<void> {
     }
 
     if (input.riderRating !== undefined && order.rider_id) {
-      await client.query(
-        `INSERT INTO ratings (order_id, customer_id, rider_id, rating, review)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [input.orderId, input.customerId, order.rider_id, input.riderRating, input.review ?? null]
-      );
+      try {
+        await client.query(
+          `INSERT INTO ratings (order_id, customer_id, rider_id, rating, review)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [input.orderId, input.customerId, order.rider_id, input.riderRating,
+           // Use riderReview if provided separately, otherwise null for rider row
+           input.riderReview ?? null]
+        );
+      } catch (e: unknown) {
+        const pg = e as { code?: string };
+        if (pg.code === '23505') {
+          const err = new Error('You have already rated this rider for this order') as Error & { statusCode: number };
+          err.statusCode = 409;
+          throw err;
+        }
+        throw e;
+      }
     }
   });
 }

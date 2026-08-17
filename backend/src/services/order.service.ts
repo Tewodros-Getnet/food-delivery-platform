@@ -156,10 +156,15 @@ export async function getOrdersByUser(userId: string, role: string): Promise<Ord
       `SELECT o.*,
               r.name as restaurant_name,
               (SELECT STRING_AGG(oi.item_name || ' x' || oi.quantity, ', ' ORDER BY oi.id)
-               FROM order_items oi WHERE oi.order_id = o.id) as items_summary
+               FROM order_items oi WHERE oi.order_id = o.id) as items_summary,
+              EXISTS (
+                SELECT 1 FROM ratings rt
+                WHERE rt.order_id = o.id AND rt.customer_id = o.customer_id
+              ) as has_rated
        FROM orders o
        JOIN restaurants r ON r.id = o.restaurant_id
        WHERE o.customer_id = $1
+         AND o.status != 'payment_failed'
        ORDER BY o.created_at DESC`,
       [userId]
     );
@@ -189,6 +194,32 @@ export async function getOrdersByUser(userId: string, role: string): Promise<Ord
   } else {
     result = await query<Order>('SELECT * FROM orders ORDER BY created_at DESC', []);
   }
+  return result.rows;
+}
+
+// Paginated version for the customer orders screen
+export async function getOrdersByUserPaginated(
+  userId: string,
+  limit: number,
+  offset: number
+): Promise<Order[]> {
+  const result = await query<Order>(
+    `SELECT o.*,
+            r.name as restaurant_name,
+            (SELECT STRING_AGG(oi.item_name || ' x' || oi.quantity, ', ' ORDER BY oi.id)
+             FROM order_items oi WHERE oi.order_id = o.id) as items_summary,
+            EXISTS (
+              SELECT 1 FROM ratings rt
+              WHERE rt.order_id = o.id AND rt.customer_id = o.customer_id
+            ) as has_rated
+     FROM orders o
+     JOIN restaurants r ON r.id = o.restaurant_id
+     WHERE o.customer_id = $1
+       AND o.status != 'payment_failed'
+     ORDER BY o.created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset]
+  );
   return result.rows;
 }
 

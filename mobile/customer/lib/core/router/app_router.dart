@@ -5,6 +5,7 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
+import '../../features/auth/screens/landing_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/restaurants/screens/restaurant_detail_screen.dart';
 import '../../features/restaurants/screens/favorites_screen.dart';
@@ -36,15 +37,23 @@ class _ScaffoldWithBottomNavState extends ConsumerState<ScaffoldWithBottomNav> {
   Widget build(BuildContext context) {
     final unreadCount = ref.watch(notificationStoreProvider
         .select((list) => list.where((n) => !n.isRead).length));
+    final isGuest = ref.watch(authProvider).status == AuthStatus.guest;
 
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
-        onDestinationSelected: (index) => widget.navigationShell.goBranch(
-          index,
-          initialLocation: index == widget.navigationShell.currentIndex,
-        ),
+        onDestinationSelected: (index) {
+          // Tabs 1, 2, 3 (Orders, Alerts, Profile) require auth
+          if (isGuest && index > 0) {
+            _showGuestSignInSheet(context);
+            return;
+          }
+          widget.navigationShell.goBranch(
+            index,
+            initialLocation: index == widget.navigationShell.currentIndex,
+          );
+        },
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 8,
         shadowColor: Colors.black12,
@@ -82,6 +91,96 @@ class _ScaffoldWithBottomNavState extends ConsumerState<ScaffoldWithBottomNav> {
       ),
     );
   }
+
+  void _showGuestSignInSheet(BuildContext context) {
+    final router = GoRouter.of(context);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_outline,
+                  size: 30, color: Colors.orange),
+            ),
+            const SizedBox(height: 16),
+            const Text('Sign in to continue',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(
+              'Create an account or sign in to access\nyour orders, alerts, and profile.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: Colors.grey[600], fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  router.push('/register');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Create a free account',
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  router.push('/login');
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.orange,
+                  side: const BorderSide(color: Colors.orange),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Sign in',
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Keep browsing',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -91,20 +190,54 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/home',
     redirect: (ctx, state) {
-      final isAuth = auth.status == AuthStatus.authenticated;
+      final isAuth    = auth.status == AuthStatus.authenticated;
       final isUnknown = auth.status == AuthStatus.unknown;
       final isPending = auth.status == AuthStatus.pendingVerification;
-      final isPublic = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register' ||
-          state.matchedLocation == '/verify-otp';
-      if (isUnknown) return null;
-      if (isPending && state.matchedLocation != '/verify-otp') return '/verify-otp';
-      if (!isAuth && !isPending && !isPublic) return '/login';
-      if (isAuth && isPublic) return '/home';
+      final isGuest   = auth.status == AuthStatus.guest;
+      final loc       = state.matchedLocation;
+
+      // Public auth routes
+      final isAuthRoute = loc == '/landing' ||
+          loc == '/login' ||
+          loc == '/register' ||
+          loc == '/verify-otp';
+
+      // Routes that require a real account (not guest)
+      final isProtected = loc == '/orders' ||
+          loc == '/profile' ||
+          loc == '/notifications' ||
+          loc == '/cart' ||
+          loc == '/checkout' ||
+          loc == '/addresses' ||
+          loc == '/favorites' ||
+          loc.startsWith('/order/');
+
+      if (isUnknown) return null; // wait for token check
+
+      // OTP screen for pending verification
+      if (isPending && loc != '/verify-otp') return '/verify-otp';
+
+      // Unauthenticated (not guest) → landing
+      if (auth.status == AuthStatus.unauthenticated) {
+        if (!isAuthRoute) return '/landing';
+        return null;
+      }
+
+      // Guest → allow home + restaurants, block protected routes
+      if (isGuest) {
+        if (isProtected) return '/landing';
+        if (isAuthRoute && loc != '/landing') return '/home';
+        return null;
+      }
+
+      // Authenticated → block auth routes
+      if (isAuth && isAuthRoute) return '/home';
+
       return null;
     },
     routes: [
-      // ── Auth routes (no shell) ──────────────────────────────────────────
+      // ── Landing / auth routes ───────────────────────────────────────────
+      GoRoute(path: '/landing', builder: (_, __) => const LandingScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/verify-otp', builder: (_, __) => const OtpScreen()),

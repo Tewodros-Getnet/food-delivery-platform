@@ -95,8 +95,9 @@ class _CartItemTile extends ConsumerWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        color: Colors.red.shade50,
-        child: const Icon(Icons.delete_outline, color: Colors.red, size: 26),
+        color: Theme.of(context).colorScheme.errorContainer,
+        child: Icon(Icons.delete_outline,
+            color: Theme.of(context).colorScheme.error, size: 26),
       ),
       onDismissed: (_) =>
           ref.read(cartProvider.notifier).updateQuantity(item.cartKey, 0),
@@ -109,8 +110,11 @@ class _CartItemTile extends ConsumerWidget {
               imageUrl: item.menuItem.imageUrl,
               width: 64, height: 64, fit: BoxFit.cover,
               errorWidget: (_, __, ___) => Container(
-                width: 64, height: 64, color: Colors.grey[200],
-                child: const Icon(Icons.fastfood, color: Colors.grey, size: 28),
+                width: 64, height: 64,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: Icon(Icons.fastfood,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    size: 28),
               ),
             ),
           ),
@@ -123,7 +127,12 @@ class _CartItemTile extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   item.selectedModifiers.map((m) => m.option).join(', '),
-                  style: const TextStyle(fontSize: 11, color: Colors.black45),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.45)),
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -170,11 +179,13 @@ class _StepperButton extends StatelessWidget {
       child: Container(
         width: 30, height: 30,
         decoration: BoxDecoration(
-          color: Colors.orange.shade50,
+          color: Theme.of(context).colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.orange.shade200),
+          border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
         ),
-        child: Icon(icon, size: 16, color: Colors.orange),
+        child: Icon(icon, size: 16,
+            color: Theme.of(context).colorScheme.primary),
       ),
     );
   }
@@ -192,7 +203,7 @@ class _CartSummary extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.07),
@@ -203,24 +214,32 @@ class _CartSummary extends StatelessWidget {
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(l10n.subtotalWithCount(cart.totalItems),
-              style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 13)),
           Text('ETB ${cart.subtotal.toStringAsFixed(2)}',
               style: const TextStyle(fontSize: 13)),
         ]),
         const SizedBox(height: 4),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(l10n.deliveryFee,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 13)),
           Text(l10n.deliveryFeeNote,
-              style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12)),
         ]),
         const Divider(height: 16),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(l10n.total,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           Text('ETB ${cart.subtotal.toStringAsFixed(2)}+',
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.primary)),
         ]),
         const SizedBox(height: 14),
         SizedBox(
@@ -229,13 +248,14 @@ class _CartSummary extends StatelessWidget {
             onPressed: () => context.push('/checkout'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 15),
-              backgroundColor: Colors.orange,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
             child: Text(l10n.proceedToCheckout,
                 style: const TextStyle(
-                    fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold)),
+                    fontSize: 15, fontWeight: FontWeight.bold)),
           ),
         ),
       ]),

@@ -157,9 +157,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: Theme.of(context).colorScheme.surfaceContainerLowest,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant),
               ),
               child: Column(
                 children: [
@@ -180,8 +181,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                                     Text(
                                       item.selectedModifiers
                                           .map((m) => m.option).join(', '),
-                                      style: const TextStyle(
-                                          fontSize: 11, color: Colors.black45),
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.45)),
                                     ),
                                 ],
                               ),
@@ -200,7 +205,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(l10n.subtotal,
-                            style: TextStyle(color: Colors.grey[600])),
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
                         Text('ETB ${subtotal.toStringAsFixed(2)}'),
                       ],
                     ),
@@ -211,7 +219,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(l10n.deliveryFee,
-                            style: TextStyle(color: Colors.grey[600])),
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
                         _estimatingFee
                             ? const SizedBox(
                                 width: 14, height: 14,
@@ -223,8 +234,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                                     : '—',
                                 style: TextStyle(
                                     color: _estimatedFee != null
-                                        ? Colors.black87
-                                        : Colors.grey[400]),
+                                        ? Theme.of(context).colorScheme.onSurface
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.38)),
                               ),
                       ],
                     ),
@@ -308,13 +322,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                                 horizontal: 14, vertical: 12),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? Colors.orange.shade50
-                                  : Colors.grey[50],
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerLowest,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isSelected
-                                    ? Colors.orange
-                                    : Colors.grey.shade200,
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .outlineVariant,
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),
@@ -343,7 +363,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                                     Text(
                                       a['address_line'] as String,
                                       style: TextStyle(
-                                          color: Colors.grey[600],
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                           fontSize: 13),
                                     ),
                                   ],
@@ -363,16 +385,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12)),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                         width: 18, height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2)),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer)),
                     const SizedBox(width: 12),
-                    Text(l10n.waitingPayment),
+                    Text(l10n.waitingPayment,
+                        style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer)),
                   ],
                 ),
               ),
@@ -384,18 +412,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: Theme.of(context).colorScheme.errorContainer,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(
+                      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.4)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                    Text(_error!,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onErrorContainer)),
                     if (_pendingOrderId != null)
                       TextButton(
-                        onPressed: () =>
-                            _verifyAndNavigate(_pendingOrderId!),
+                        onPressed: () => _verifyAndNavigate(_pendingOrderId!),
                         child: Text(l10n.checkPaymentStatus),
                       ),
                   ],
@@ -410,7 +440,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                 onPressed: _isLoading ? null : _placeOrder,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.orange,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  disabledBackgroundColor:
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                  disabledForegroundColor:
+                      Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),

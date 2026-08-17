@@ -218,7 +218,9 @@ class _MessageBubble extends StatelessWidget {
           maxWidth: MediaQuery.of(context).size.width * 0.72,
         ),
         decoration: BoxDecoration(
-          color: isMe ? const Color(0xFF1565C0) : Colors.grey[200],
+          color: isMe
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -245,7 +247,9 @@ class _MessageBubble extends StatelessWidget {
             Text(
               msg.message,
               style: TextStyle(
-                color: isMe ? Colors.white : Colors.black87,
+                color: isMe
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : Theme.of(context).colorScheme.onSurface,
                 fontSize: 15,
               ),
             ),
@@ -254,7 +258,15 @@ class _MessageBubble extends StatelessWidget {
               _timeLabel(msg.createdAt),
               style: TextStyle(
                 fontSize: 10,
-                color: isMe ? Colors.white70 : Colors.grey[500],
+                color: isMe
+                    ? Theme.of(context)
+                        .colorScheme
+                        .onPrimary
+                        .withValues(alpha: 0.7)
+                    : Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -288,8 +300,10 @@ class _InputBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey[200]!)),
+          color: Theme.of(context).colorScheme.surface,
+          border: Border(
+              top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant)),
         ),
         child: Row(
           children: [
@@ -300,7 +314,8 @@ class _InputBar extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: 'Type a message...',
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor:
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   border: OutlineInputBorder(

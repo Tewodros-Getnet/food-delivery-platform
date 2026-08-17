@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 
-enum AuthStatus { unknown, authenticated, unauthenticated, pendingVerification }
+enum AuthStatus { unknown, authenticated, unauthenticated, pendingVerification, guest }
 
 class AuthState {
   final AuthStatus status;
@@ -96,6 +96,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     await _svc.logout();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  /// Continue without signing in — allows browsing but not ordering.
+  void continueAsGuest() {
+    state = state.copyWith(status: AuthStatus.guest);
   }
 }
 

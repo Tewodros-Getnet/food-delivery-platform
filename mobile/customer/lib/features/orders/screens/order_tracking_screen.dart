@@ -271,15 +271,15 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
-          color: Colors.orange.shade50,
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          color: Theme.of(context).colorScheme.primaryContainer,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(_statusLabel(_order!.status),
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Text(_order!.statusMessage,
-                style: TextStyle(color: Colors.grey[700])),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
             // Pending acceptance: show spinner
             if (_order!.status == 'pending_acceptance') ...[
               const SizedBox(height: 10),
@@ -364,8 +364,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                  bottom: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,7 +403,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                 Text(
                                   'ETB ${(item.unitPrice * item.quantity).toStringAsFixed(2)}',
                                   style: TextStyle(
-                                      fontSize: 13, color: Colors.grey[700]),
+                                      fontSize: 13,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant),
                                 ),
                               ],
                             ),
@@ -410,8 +415,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                 padding: const EdgeInsets.only(left: 8, top: 1),
                                 child: Text(
                                   item.modifiersSummary,
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Colors.black45),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.45)),
                                 ),
                               ),
                           ],
@@ -422,11 +431,17 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Delivery fee',
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
                       Text('ETB ${_order!.deliveryFee.toStringAsFixed(2)}',
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -739,15 +754,21 @@ class _Timeline extends StatelessWidget {
           Column(children: [
             CircleAvatar(
                 radius: 12,
-                backgroundColor: done ? Colors.orange : Colors.grey[300],
+                backgroundColor: done
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 child: done
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    ? Icon(Icons.check,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.onPrimary)
                     : null),
             if (i < steps.length - 1)
               Container(
                   width: 2,
                   height: 40,
-                  color: done ? Colors.orange : Colors.grey[300]),
+                  color: done
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.outlineVariant),
           ]),
           const SizedBox(width: 12),
           Text(

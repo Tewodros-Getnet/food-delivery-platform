@@ -34,10 +34,35 @@ class OrderService {
 
   Future<List<OrderModel>> getOrders() async {
     final res = await _client.dio.get(ApiConstants.orders);
-    final list = res.data['data'] as List<dynamic>;
+    final raw = res.data['data'];
+    // Handle both old (List) and new paginated (Map with orders key) response shapes
+    final list = raw is List
+        ? raw
+        : (raw as Map<String, dynamic>)['orders'] as List<dynamic>;
     return list
         .map((e) => OrderModel.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Paginated version used by the order history screen.
+  /// Returns orders + pagination metadata.
+  Future<Map<String, dynamic>> getOrdersPaginated({
+    int page = 1,
+    int limit = 15,
+  }) async {
+    final res = await _client.dio.get(
+      ApiConstants.orders,
+      queryParameters: {'page': page, 'limit': limit},
+    );
+    final data = res.data['data'] as Map<String, dynamic>;
+    // Backend returns { orders: [...], pagination: {...} }
+    final orders = (data['orders'] as List<dynamic>)
+        .map((e) => OrderModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return {
+      'orders': orders,
+      'pagination': data['pagination'] as Map<String, dynamic>,
+    };
   }
 
   Future<OrderModel> getById(String id) async {

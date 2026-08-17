@@ -95,6 +95,7 @@ class OrderModel {
   final List<OrderItemModel> items;
   final String? restaurantName; // from list endpoint JOIN
   final String? itemsSummary; // e.g. "Burger x2, Fries x1"
+  final bool hasRated;
 
   const OrderModel({
     required this.id,
@@ -116,6 +117,7 @@ class OrderModel {
     this.items = const [],
     this.restaurantName,
     this.itemsSummary,
+    this.hasRated = false,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
@@ -145,6 +147,7 @@ class OrderModel {
             const [],
         restaurantName: json['restaurant_name'] as String?,
         itemsSummary: json['items_summary'] as String?,
+        hasRated: json['has_rated'] as bool? ?? false,
       );
 
   String get statusMessage =>
