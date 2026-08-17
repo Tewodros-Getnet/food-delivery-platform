@@ -233,7 +233,6 @@ class _ScaffoldWithBottomNavState
   }
 
   void _showGuestSignInSheet(BuildContext context) {
-    final router = GoRouter.of(context);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -277,8 +276,9 @@ class _ScaffoldWithBottomNavState
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(ctx);
-                  router.push('/register');
+                  // Close sheet first, then navigate using the sheet's ctx
+                  // which has access to the root GoRouter
+                  ctx.go('/register');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
@@ -298,8 +298,7 @@ class _ScaffoldWithBottomNavState
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  Navigator.pop(ctx);
-                  router.push('/login');
+                  ctx.go('/login');
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.orange,

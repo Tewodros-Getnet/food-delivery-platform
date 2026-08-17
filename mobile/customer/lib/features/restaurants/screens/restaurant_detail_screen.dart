@@ -507,7 +507,6 @@ class _MenuTile extends ConsumerWidget {
   }
 
   void _showGuestPrompt(BuildContext context) {
-    final router = GoRouter.of(context);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -542,16 +541,14 @@ class _MenuTile extends ConsumerWidget {
             Text(
               'Create an account or sign in to add items\nto your cart and place orders.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.4),
+              style: TextStyle(
+                  color: Colors.grey[600], fontSize: 14, height: 1.4),
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  router.push('/register');
-                },
+                onPressed: () => ctx.go('/register'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
@@ -561,17 +558,15 @@ class _MenuTile extends ConsumerWidget {
                   elevation: 0,
                 ),
                 child: const Text('Create a free account',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  router.push('/login');
-                },
+                onPressed: () => ctx.go('/login'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.orange,
                   side: const BorderSide(color: Colors.orange),
@@ -580,7 +575,8 @@ class _MenuTile extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text('Sign in',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ),
             const SizedBox(height: 8),
