@@ -73,8 +73,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     final auth = ref.watch(authProvider);
     ref.listen(authProvider, (_, next) async {
       if (next.status == AuthStatus.authenticated) {
-        // Update profile with name/phone if provided from registration
-        if (widget.displayName != null || widget.phone != null) {
+        // Update profile with name/phone BEFORE navigating
+        // so the profile screen shows the correct data immediately
+        if ((widget.displayName?.isNotEmpty == true) ||
+            (widget.phone?.isNotEmpty == true)) {
           try {
             await ref.read(dioClientProvider).dio.put(
               ApiConstants.profile,
@@ -86,7 +88,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               },
             );
           } catch (_) {
-            // Non-critical — user can update profile later
+            // Non-critical — ignore, user can update profile later
           }
         }
         if (mounted) context.go('/home');
@@ -96,7 +98,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Verify Email')),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -21,148 +21,184 @@ import '../../features/orders/screens/dispute_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/notifications/notification_store.dart';
 
-// ── Auth change notifier — tells GoRouter to re-evaluate redirect ─────────────
-// The router is created ONCE. When auth changes, this notifier fires and the
-// router re-runs its redirect callback without recreating itself.
+// ── Router provider ───────────────────────────────────────────────────────────
+// Uses a Notifier so the GoRouter is created ONCE and never recreated.
+// Auth changes trigger redirect re-evaluation via refreshListenable.
 
-class _AuthNotifier extends ChangeNotifier {
-  _AuthNotifier(this._ref) {
-    _ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
-  }
+class _RouterNotifier extends ChangeNotifier {
   final Ref _ref;
-  AuthState get auth => _ref.read(authProvider);
+  late final GoRouter router;
+
+  _RouterNotifier(this._ref) {
+    // Listen to auth changes and refresh the router redirect
+    _ref.listen<AuthState>(authProvider, (_, __) {
+      notifyListeners();
+    });
+    router = _buildRouter();
+  }
+
+  AuthState get _auth => _ref.read(authProvider);
+
+  String? _redirect(BuildContext ctx, GoRouterState state) {
+    final auth = _auth;
+    final loc = state.matchedLocation;
+
+    // Auth screens (always accessible before login)
+    final isAuthScreen = loc == '/landing' ||
+        loc == '/login' ||
+        loc == '/register' ||
+        loc == '/verify-otp';
+
+    // Screens that require a full account
+    final isProtected = loc == '/orders' ||
+        loc == '/profile' ||
+        loc == '/notifications' ||
+        loc == '/cart' ||
+        loc == '/checkout' ||
+        loc == '/addresses' ||
+        loc == '/favorites' ||
+        loc.startsWith('/order/');
+
+    switch (auth.status) {
+      case AuthStatus.unknown:
+        // Still checking — don't redirect
+        return null;
+
+      case AuthStatus.pendingVerification:
+        if (loc != '/verify-otp') return '/verify-otp';
+        return null;
+
+      case AuthStatus.unauthenticated:
+        // Not logged in, not guest — force to landing
+        if (!isAuthScreen) return '/landing';
+        return null;
+
+      case AuthStatus.guest:
+        // Guest can browse home + restaurants only
+        if (isProtected) return '/landing';
+        // Guests are allowed on any auth screen (landing, login, register, otp)
+        // so they can sign in or create an account at any time
+        return null;
+
+      case AuthStatus.authenticated:
+        // Logged in — push away from auth screens
+        if (isAuthScreen) return '/home';
+        return null;
+    }
+  }
+
+  GoRouter _buildRouter() => GoRouter(
+        initialLocation: '/home',
+        refreshListenable: this,
+        redirect: _redirect,
+        routes: [
+          GoRoute(
+              path: '/landing',
+              builder: (_, __) => const LandingScreen()),
+          GoRoute(
+              path: '/login',
+              builder: (_, __) => const LoginScreen()),
+          GoRoute(
+              path: '/register',
+              builder: (_, __) => const RegisterScreen()),
+          GoRoute(
+            path: '/verify-otp',
+            builder: (_, s) {
+              final extra = s.extra as Map<String, dynamic>?;
+              return OtpScreen(
+                displayName: extra?['displayName'] as String?,
+                phone: extra?['phone'] as String?,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/restaurant/:id',
+            builder: (_, s) => RestaurantDetailScreen(
+                restaurantId: s.pathParameters['id']!),
+          ),
+          GoRoute(
+              path: '/cart', builder: (_, __) => const CartScreen()),
+          GoRoute(
+              path: '/checkout',
+              builder: (_, __) => const CheckoutScreen()),
+          GoRoute(
+            path: '/order/:id/track',
+            builder: (_, s) =>
+                OrderTrackingScreen(orderId: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/order/:id/chat',
+            builder: (_, s) => ChatScreen(
+              orderId: s.pathParameters['id']!,
+              currentUserId: s.extra as String,
+              title: 'Chat with Rider',
+            ),
+          ),
+          GoRoute(
+              path: '/addresses',
+              builder: (_, __) => const AddressesScreen()),
+          GoRoute(
+              path: '/favorites',
+              builder: (_, __) => const FavoritesScreen()),
+          GoRoute(
+            path: '/order/:id/rate',
+            builder: (_, s) {
+              final extra = s.extra as Map<String, dynamic>?;
+              return RatingScreen(
+                orderId: s.pathParameters['id']!,
+                restaurantName: extra?['restaurantName'] as String?,
+                riderName: extra?['riderName'] as String?,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/order/:id/dispute',
+            builder: (_, s) {
+              final extra = s.extra as Map<String, dynamic>?;
+              return DisputeScreen(
+                orderId: s.pathParameters['id']!,
+                restaurantName: extra?['restaurantName'] as String?,
+                itemsSummary: extra?['itemsSummary'] as String?,
+              );
+            },
+          ),
+          StatefulShellRoute.indexedStack(
+            builder: (_, __, shell) =>
+                ScaffoldWithBottomNav(navigationShell: shell),
+            branches: [
+              StatefulShellBranch(routes: [
+                GoRoute(
+                    path: '/home',
+                    builder: (_, __) => const HomeScreen()),
+              ]),
+              StatefulShellBranch(routes: [
+                GoRoute(
+                    path: '/orders',
+                    builder: (_, __) => const OrderHistoryScreen()),
+              ]),
+              StatefulShellBranch(routes: [
+                GoRoute(
+                    path: '/notifications',
+                    builder: (_, __) => const NotificationsScreen()),
+              ]),
+              StatefulShellBranch(routes: [
+                GoRoute(
+                    path: '/profile',
+                    builder: (_, __) => const ProfileScreen()),
+              ]),
+            ],
+          ),
+        ],
+      );
 }
 
-final _authNotifierProvider = Provider<_AuthNotifier>(
-  (ref) => _AuthNotifier(ref),
-);
+// Single global notifier — created once, never disposed
+final _routerNotifierProvider =
+    Provider<_RouterNotifier>((ref) => _RouterNotifier(ref));
 
-// ── Router — created once, refreshed via ChangeNotifier ──────────────────────
-
+// Exposes just the GoRouter instance
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final notifier = ref.watch(_authNotifierProvider);
-
-  return GoRouter(
-    initialLocation: '/home',
-    refreshListenable: notifier,
-    redirect: (ctx, state) {
-      final auth    = notifier.auth;
-      final isAuth  = auth.status == AuthStatus.authenticated;
-      final isUnknown = auth.status == AuthStatus.unknown;
-      final isPending = auth.status == AuthStatus.pendingVerification;
-      final isGuest = auth.status == AuthStatus.guest;
-      final loc     = state.matchedLocation;
-
-      final isAuthRoute = loc == '/landing' ||
-          loc == '/login' ||
-          loc == '/register' ||
-          loc == '/verify-otp';
-
-      final isProtected = loc == '/orders' ||
-          loc == '/profile' ||
-          loc == '/notifications' ||
-          loc == '/cart' ||
-          loc == '/checkout' ||
-          loc == '/addresses' ||
-          loc == '/favorites' ||
-          loc.startsWith('/order/');
-
-      if (isUnknown) return null;
-
-      if (isPending && loc != '/verify-otp') return '/verify-otp';
-
-      if (auth.status == AuthStatus.unauthenticated) {
-        if (!isAuthRoute) return '/landing';
-        return null;
-      }
-
-      if (isGuest) {
-        if (isProtected) return '/landing';
-        if (isAuthRoute && loc != '/landing') return '/home';
-        return null;
-      }
-
-      if (isAuth && isAuthRoute) return '/home';
-
-      return null;
-    },
-    routes: [
-      GoRoute(path: '/landing', builder: (_, __) => const LandingScreen()),
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(path: '/verify-otp', builder: (_, s) {
-        final extra = s.extra as Map<String, dynamic>?;
-        return OtpScreen(
-          displayName: extra?['displayName'] as String?,
-          phone: extra?['phone'] as String?,
-        );
-      }),
-
-      GoRoute(
-        path: '/restaurant/:id',
-        builder: (_, s) =>
-            RestaurantDetailScreen(restaurantId: s.pathParameters['id']!),
-      ),
-      GoRoute(path: '/cart', builder: (_, __) => const CartScreen()),
-      GoRoute(path: '/checkout', builder: (_, __) => const CheckoutScreen()),
-      GoRoute(
-        path: '/order/:id/track',
-        builder: (_, s) =>
-            OrderTrackingScreen(orderId: s.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/order/:id/chat',
-        builder: (_, s) => ChatScreen(
-          orderId: s.pathParameters['id']!,
-          currentUserId: s.extra as String,
-          title: 'Chat with Rider',
-        ),
-      ),
-      GoRoute(path: '/addresses', builder: (_, __) => const AddressesScreen()),
-      GoRoute(path: '/favorites', builder: (_, __) => const FavoritesScreen()),
-      GoRoute(
-        path: '/order/:id/rate',
-        builder: (_, s) {
-          final extra = s.extra as Map<String, dynamic>?;
-          return RatingScreen(
-            orderId: s.pathParameters['id']!,
-            restaurantName: extra?['restaurantName'] as String?,
-            riderName: extra?['riderName'] as String?,
-          );
-        },
-      ),
-      GoRoute(
-        path: '/order/:id/dispute',
-        builder: (_, s) {
-          final extra = s.extra as Map<String, dynamic>?;
-          return DisputeScreen(
-            orderId: s.pathParameters['id']!,
-            restaurantName: extra?['restaurantName'] as String?,
-            itemsSummary: extra?['itemsSummary'] as String?,
-          );
-        },
-      ),
-
-      StatefulShellRoute.indexedStack(
-        builder: (_, __, shell) =>
-            ScaffoldWithBottomNav(navigationShell: shell),
-        branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/orders', builder: (_, __) => const OrderHistoryScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
-          ]),
-        ],
-      ),
-    ],
-  );
+  return ref.watch(_routerNotifierProvider).router;
 });
 
 // ── Bottom nav shell ──────────────────────────────────────────────────────────
@@ -191,7 +227,7 @@ class _ScaffoldWithBottomNavState
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: (index) {
           if (isGuest && index > 0) {
-            // Simplest reliable approach: just go to landing page directly
+            // Guest taps protected tab → go to landing
             GoRouter.of(context).go('/landing');
             return;
           }
@@ -238,5 +274,4 @@ class _ScaffoldWithBottomNavState
       ),
     );
   }
-
 }
