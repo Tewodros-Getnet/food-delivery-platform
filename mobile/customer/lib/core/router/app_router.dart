@@ -191,7 +191,8 @@ class _ScaffoldWithBottomNavState
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: (index) {
           if (isGuest && index > 0) {
-            _showGuestSignInSheet(context);
+            // Simplest reliable approach: just go to landing page directly
+            GoRouter.of(context).go('/landing');
             return;
           }
           widget.navigationShell.goBranch(
@@ -238,95 +239,4 @@ class _ScaffoldWithBottomNavState
     );
   }
 
-  void _showGuestSignInSheet(BuildContext context) {
-    // Capture the outer context before entering the builder
-    // so GoRouter navigation works reliably
-    final outerContext = context;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2)),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              width: 64, height: 64,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.lock_outline,
-                  size: 30, color: Colors.orange),
-            ),
-            const SizedBox(height: 16),
-            const Text('Sign in to continue',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(
-              'Create an account or sign in to access\nyour orders, alerts, and profile.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.grey[600], fontSize: 14, height: 1.4),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  outerContext.go('/register');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: const Text('Create a free account',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  outerContext.go('/login');
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.orange,
-                  side: const BorderSide(color: Colors.orange),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Sign in',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Keep browsing',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
