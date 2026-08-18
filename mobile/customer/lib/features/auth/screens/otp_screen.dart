@@ -4,9 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
+import '../../../core/network/dio_client.dart';
+import '../../../core/constants/api_constants.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
-  const OtpScreen({super.key});
+  final String? displayName;
+  final String? phone;
+
+  const OtpScreen({super.key, this.displayName, this.phone});
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
@@ -66,8 +71,26 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
-    ref.listen(authProvider, (_, next) {
-      if (next.status == AuthStatus.authenticated) context.go('/home');
+    ref.listen(authProvider, (_, next) async {
+      if (next.status == AuthStatus.authenticated) {
+        // Update profile with name/phone if provided from registration
+        if (widget.displayName != null || widget.phone != null) {
+          try {
+            await ref.read(dioClientProvider).dio.put(
+              ApiConstants.profile,
+              data: {
+                if (widget.displayName?.isNotEmpty == true)
+                  'displayName': widget.displayName,
+                if (widget.phone?.isNotEmpty == true)
+                  'phone': widget.phone,
+              },
+            );
+          } catch (_) {
+            // Non-critical — user can update profile later
+          }
+        }
+        if (mounted) context.go('/home');
+      }
     });
 
     return Scaffold(

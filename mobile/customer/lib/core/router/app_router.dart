@@ -90,7 +90,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/landing', builder: (_, __) => const LandingScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(path: '/verify-otp', builder: (_, __) => const OtpScreen()),
+      GoRoute(path: '/verify-otp', builder: (_, s) {
+        final extra = s.extra as Map<String, dynamic>?;
+        return OtpScreen(
+          displayName: extra?['displayName'] as String?,
+          phone: extra?['phone'] as String?,
+        );
+      }),
 
       GoRoute(
         path: '/restaurant/:id',
@@ -233,6 +239,9 @@ class _ScaffoldWithBottomNavState
   }
 
   void _showGuestSignInSheet(BuildContext context) {
+    // Capture the outer context before entering the builder
+    // so GoRouter navigation works reliably
+    final outerContext = context;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -243,16 +252,14 @@ class _ScaffoldWithBottomNavState
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40,
-              height: 4,
+              width: 40, height: 4,
               decoration: BoxDecoration(
                   color: Colors.grey[300],
                   borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(height: 20),
             Container(
-              width: 64,
-              height: 64,
+              width: 64, height: 64,
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
@@ -262,8 +269,7 @@ class _ScaffoldWithBottomNavState
             ),
             const SizedBox(height: 16),
             const Text('Sign in to continue',
-                style:
-                    TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
               'Create an account or sign in to access\nyour orders, alerts, and profile.',
@@ -276,9 +282,8 @@ class _ScaffoldWithBottomNavState
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Close sheet first, then navigate using the sheet's ctx
-                  // which has access to the root GoRouter
-                  ctx.go('/register');
+                  Navigator.pop(ctx);
+                  outerContext.go('/register');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
@@ -298,7 +303,8 @@ class _ScaffoldWithBottomNavState
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  ctx.go('/login');
+                  Navigator.pop(ctx);
+                  outerContext.go('/login');
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.orange,
@@ -316,8 +322,7 @@ class _ScaffoldWithBottomNavState
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text('Keep browsing',
-                  style:
-                      TextStyle(color: Colors.grey[500], fontSize: 13)),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 13)),
             ),
           ],
         ),

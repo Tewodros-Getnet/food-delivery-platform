@@ -507,6 +507,7 @@ class _MenuTile extends ConsumerWidget {
   }
 
   void _showGuestPrompt(BuildContext context) {
+    final outerContext = context;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -533,10 +534,8 @@ class _MenuTile extends ConsumerWidget {
                   size: 32, color: Colors.orange),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Sign in to order',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+            const Text('Sign in to order',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
               'Create an account or sign in to add items\nto your cart and place orders.',
@@ -548,7 +547,10 @@ class _MenuTile extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => ctx.go('/register'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  outerContext.go('/register');
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
@@ -566,7 +568,10 @@ class _MenuTile extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () => ctx.go('/login'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  outerContext.go('/login');
+                },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.orange,
                   side: const BorderSide(color: Colors.orange),
