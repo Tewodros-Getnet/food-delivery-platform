@@ -136,8 +136,10 @@ export async function register(
   return { userId, email, pendingVerification: true, ...(devOtp && { devOtp }) };
 }
 
+const MAX_OTP_ATTEMPTS = 5;
+
 export async function verifyOtp(userId: string, code: string): Promise<AuthResult> {
-  const result = await query<{ id: string; code: string; expires_at: Date; used: boolean }>(
+  const result = await query<{ id: string; code: string; expires_at: Date; used: boolean; attempts: number }>(
     `SELECT * FROM verification_codes
      WHERE user_id = $1 AND used = FALSE
      ORDER BY created_at DESC LIMIT 1`,
@@ -151,16 +153,34 @@ export async function verifyOtp(userId: string, code: string): Promise<AuthResul
     throw err;
   }
   if (new Date() > record.expires_at) {
-    const err = new Error('Verification code has expired') as Error & { statusCode: number };
+    const err = new Error('Verification code has expired. Please request a new one.') as Error & { statusCode: number };
     err.statusCode = 400;
     throw err;
   }
+
+  // Increment attempt counter before checking — prevents timing oracle
+  const attempts = (record.attempts ?? 0) + 1;
+  await query('UPDATE verification_codes SET attempts = $1 WHERE id = $2', [attempts, record.id]);
+
+  if (attempts > MAX_OTP_ATTEMPTS) {
+    // Mark code as used so they can't keep trying
+    await query('UPDATE verification_codes SET used = TRUE WHERE id = $1', [record.id]);
+    const err = new Error('Too many incorrect attempts. Please request a new code.') as Error & { statusCode: number };
+    err.statusCode = 429;
+    throw err;
+  }
+
   // Timing-safe comparison — prevents timing-based OTP enumeration attacks
   const recordBuf = Buffer.from(record.code, 'utf8');
   const inputBuf = Buffer.from(code.padEnd(record.code.length, '\0').slice(0, record.code.length), 'utf8');
   const codesMatch = recordBuf.length === inputBuf.length && crypto.timingSafeEqual(recordBuf, inputBuf);
   if (!codesMatch) {
-    const err = new Error('Invalid verification code') as Error & { statusCode: number };
+    const remaining = MAX_OTP_ATTEMPTS - attempts;
+    const err = new Error(
+      remaining > 0
+        ? `Invalid code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
+        : 'Too many incorrect attempts. Please request a new code.'
+    ) as Error & { statusCode: number };
     err.statusCode = 400;
     throw err;
   }
