@@ -22,14 +22,32 @@ class CustomerApp extends ConsumerStatefulWidget {
   ConsumerState<CustomerApp> createState() => _CustomerAppState();
 }
 
-class _CustomerAppState extends ConsumerState<CustomerApp> {
+class _CustomerAppState extends ConsumerState<CustomerApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // FCM init is a one-time side effect — safe in initState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(fcmServiceProvider).initialize(context);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Fires when the app transitions between foreground and background.
+  /// On resume: proactively refresh an expired JWT so the first API call
+  /// after background doesn't hit a 401 and need a full round-trip.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(authProvider.notifier).recheck();
+    }
   }
 
   @override

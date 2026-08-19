@@ -144,10 +144,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                 _retryCount = 0;
                 _loadWithRetry();
               },
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              label: const Text('Retry', style: TextStyle(color: Colors.white)),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
                 minimumSize: const Size(160, 48),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
@@ -169,11 +168,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: Theme.of(context).colorScheme.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.storefront_outlined,
-                  size: 64, color: Color(0xFF2E7D32)),
+              child: Icon(Icons.storefront_outlined,
+                  size: 64, color: Theme.of(context).colorScheme.primary),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -190,12 +189,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             const SizedBox(height: 28),
             ElevatedButton.icon(
               onPressed: () => context.push('/setup'),
-              icon: const Icon(Icons.add_business, color: Colors.white),
+              icon: const Icon(Icons.add_business),
               label: const Text('Register Restaurant',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
@@ -324,8 +321,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Orders'),
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
+        // Inherits AppBarTheme — transparent bg, adaptive foreground.
         actions: [
           // Open/Closed chip stays in AppBar — it's a primary action
           Padding(
@@ -387,7 +383,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                         _SectionHeader(
                           title: 'Active Orders',
                           count: _activeOrders.length,
-                          color: const Color(0xFF2E7D32),
+                          color: Theme.of(context).colorScheme.primary,
                           icon: Icons.receipt_long,
                         ),
                         const SizedBox(height: 8),
@@ -413,12 +409,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                             child: Column(
                               children: [
                                 Icon(Icons.inbox_outlined,
-                                    size: 48, color: Colors.black26),
+                                    size: 48, color: Colors.grey),
                                 SizedBox(height: 12),
-                                Text(
-                                  'No orders right now',
-                                  style: TextStyle(color: Colors.black45),
-                                ),
+                                Text('No orders right now',
+                                    style: TextStyle(color: Colors.grey)),
                               ],
                             ),
                           ),
@@ -681,9 +675,11 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Preparing: ',
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
                   ),
                   ElapsedTimer(
                     since: order.updatedAt ?? order.createdAt,
@@ -694,8 +690,9 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     const SizedBox(width: 8),
                     Text(
                       '/ ${order.estimatedPrepTimeMinutes}m target',
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.black38),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35)),
                     ),
                   ],
                 ],
@@ -707,10 +704,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: widget.onMarkReady,
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32)),
-                  child: const Text('Mark Ready for Pickup',
-                      style: TextStyle(color: Colors.white)),
+                  child: const Text('Mark Ready for Pickup'),
                 ),
               ),
             ],
@@ -776,8 +770,9 @@ class _RestaurantDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     return Drawer(
-      backgroundColor: Colors.white,
+      // Surface color adapts to light/dark theme automatically
       child: Column(
         children: [
           // ── Header ────────────────────────────────────────────────────────
@@ -928,7 +923,7 @@ class _RestaurantDrawer extends ConsumerWidget {
           // ── Sign Out ──────────────────────────────────────────────────────
           Container(
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
             ),
             child: _DrawerItem(
               icon: Icons.logout_outlined,
@@ -949,6 +944,7 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Text(
@@ -956,7 +952,7 @@ class _SectionLabel extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.bold,
-          color: Colors.grey[500],
+          color: cs.onSurface.withValues(alpha: 0.4),
           letterSpacing: 1.0,
         ),
       ),
@@ -981,12 +977,14 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? Colors.grey[800]!;
+    final cs = Theme.of(context).colorScheme;
+    final activeColor = cs.primary;
+    final c = color ?? cs.onSurface.withValues(alpha: 0.75);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Material(
         color: isActive
-            ? const Color(0xFF2E7D32).withValues(alpha: 0.08)
+            ? activeColor.withValues(alpha: 0.08)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
@@ -1001,13 +999,13 @@ class _DrawerItem extends StatelessWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     color: isActive
-                        ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
-                        : Colors.grey.withValues(alpha: 0.08),
+                        ? activeColor.withValues(alpha: 0.12)
+                        : cs.onSurface.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(icon,
                       size: 18,
-                      color: isActive ? const Color(0xFF2E7D32) : c),
+                      color: isActive ? activeColor : c),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -1016,7 +1014,7 @@ class _DrawerItem extends StatelessWidget {
                     fontSize: 14,
                     fontWeight:
                         isActive ? FontWeight.w600 : FontWeight.w500,
-                    color: isActive ? const Color(0xFF2E7D32) : c,
+                    color: isActive ? activeColor : c,
                   ),
                 ),
               ],

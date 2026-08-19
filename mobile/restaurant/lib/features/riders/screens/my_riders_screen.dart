@@ -126,8 +126,6 @@ class _MyRidersScreenState extends ConsumerState<MyRidersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Riders'),
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.person_add),

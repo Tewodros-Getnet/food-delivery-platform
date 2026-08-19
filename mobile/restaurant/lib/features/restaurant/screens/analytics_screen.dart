@@ -74,8 +74,6 @@ class _RestaurantAnalyticsScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analytics'),
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

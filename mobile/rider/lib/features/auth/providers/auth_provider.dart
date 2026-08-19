@@ -50,6 +50,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  /// Called on app resume — proactively refreshes an expired JWT so the
+  /// first API call after background doesn't need a 401 round-trip.
+  Future<void> recheck() async {
+    if (state.status != AuthStatus.authenticated) return;
+    final still = await _svc.proactiveRefresh();
+    if (!still) {
+      await logout();
+    }
+  }
+
   Future<void> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {

@@ -439,11 +439,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         title: const Text('Rider Dashboard'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
@@ -473,8 +471,11 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
             // ── Availability toggle ──────────────────────────────────────────
             Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary,
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -498,8 +499,8 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                       const SizedBox(height: 2),
                       Text(
                         _isAvailable ? 'You are available' : 'You are offline',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.85),
+                        style: const TextStyle(
+                          color: Colors.white70,
                           fontSize: 13,
                         ),
                       ),
@@ -511,7 +512,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                         ? null
                         : (_) => _toggleAvailability(),
                     activeColor: Colors.white,
-                    activeTrackColor: Colors.white.withOpacity(0.4),
+                    activeTrackColor: Colors.white.withValues(alpha: 0.4),
                     inactiveThumbColor: Colors.white70,
                     inactiveTrackColor: Colors.white24,
                   ),

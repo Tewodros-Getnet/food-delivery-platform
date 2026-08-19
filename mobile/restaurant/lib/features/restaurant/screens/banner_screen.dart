@@ -159,8 +159,6 @@ class _PromoBannerScreenState extends ConsumerState<PromoBannerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Promotional Banner'),
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
         actions: [
           if (hasContent)
             IconButton(

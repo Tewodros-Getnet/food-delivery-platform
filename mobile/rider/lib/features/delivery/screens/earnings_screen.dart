@@ -68,14 +68,12 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Earnings'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
+          indicatorColor: Theme.of(context).colorScheme.primary,
+          labelColor: Theme.of(context).colorScheme.primary,
+          unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
           labelStyle:
               const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           tabs: _tabs.map((t) => Tab(text: t.label)).toList(),

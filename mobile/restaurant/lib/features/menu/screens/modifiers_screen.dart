@@ -118,8 +118,6 @@ class _ModifiersScreenState extends ConsumerState<ModifiersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Modifiers — ${widget.menuItemName}'),
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,

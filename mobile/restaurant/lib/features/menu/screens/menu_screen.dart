@@ -147,8 +147,6 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Menu Management'),
-        backgroundColor: _brandColor,
-        foregroundColor: Colors.white,
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(

@@ -104,8 +104,6 @@ class _RestaurantReviewsScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Customer Reviews'),
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

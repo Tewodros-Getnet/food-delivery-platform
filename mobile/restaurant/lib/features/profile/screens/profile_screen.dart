@@ -7,6 +7,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/widgets/language_switcher.dart';
+import '../../../core/widgets/theme_switcher.dart';
 
 const _brand = Color(0xFF2E7D32);
 
@@ -89,10 +90,7 @@ class _RestaurantProfileScreenState
   }
 
   Widget _buildError() => Scaffold(
-        appBar: AppBar(
-            title: const Text('Profile'),
-            backgroundColor: _brand,
-            foregroundColor: Colors.white),
+        appBar: AppBar(title: const Text('Profile')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -119,8 +117,7 @@ class _RestaurantProfileScreenState
         SliverAppBar(
           expandedHeight: 200,
           pinned: true,
-          backgroundColor: _brand,
-          foregroundColor: Colors.white,
+          // Inherits AppBarTheme — no hardcoded colors.
           title: const Text('Profile',
               style: TextStyle(fontWeight: FontWeight.bold)),
           flexibleSpace: FlexibleSpaceBar(
@@ -265,6 +262,8 @@ class _RestaurantProfileScreenState
                 const SizedBox(height: 8),
                 _SettingsCard(children: [
                   const LanguageSwitcherTile(),
+                  const _Divider(),
+                  const ThemeSwitcherTile(),
                 ]),
 
                 const SizedBox(height: 28),

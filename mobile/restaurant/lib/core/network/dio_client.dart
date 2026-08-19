@@ -53,12 +53,19 @@ class DioClient {
               return handler.resolve(await _dio.fetch(error.requestOptions));
             } on DioException catch (e) {
               if (e.response?.statusCode == 401) {
-                await _storage.deleteAll();
+                // Refresh token rejected — wipe only auth tokens, not all storage
+                await _storage.delete(key: 'jwt');
+                await _storage.delete(key: 'refreshToken');
                 _sessionExpiredController.add(null);
               }
-            } catch (_) {}
+              // Network/timeout errors: don't log out, just pass through
+            } catch (_) {
+              // JSON parse or unexpected error — don't wipe tokens
+            }
           } else {
-            await _storage.deleteAll();
+            // No refresh token at all — session is gone
+            await _storage.delete(key: 'jwt');
+            await _storage.delete(key: 'refreshToken');
             _sessionExpiredController.add(null);
           }
         }

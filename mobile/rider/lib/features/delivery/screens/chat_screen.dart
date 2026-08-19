@@ -163,8 +163,6 @@ class _RiderChatScreenState extends ConsumerState<RiderChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chat with Customer'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -328,7 +326,7 @@ class _InputBar extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             CircleAvatar(
-              backgroundColor: const Color(0xFF1565C0),
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: sending
                   ? const SizedBox(
                       width: 20,

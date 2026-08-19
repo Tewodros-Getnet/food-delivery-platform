@@ -108,8 +108,6 @@ class _RestaurantImagesScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Restaurant Images'),
-        backgroundColor: _brandColor,
-        foregroundColor: Colors.white,
       ),
       body: _loadingCurrent
           ? const Center(child: CircularProgressIndicator())

@@ -64,8 +64,6 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pick Restaurant Location'),
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
       ),
       body: Stack(
         children: [
