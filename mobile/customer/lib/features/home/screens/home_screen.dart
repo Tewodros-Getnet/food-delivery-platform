@@ -126,12 +126,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final cartCount = ref.watch(cartProvider).totalItems;
     final isSearchActive = _query != null && _query!.isNotEmpty;
 
+    // Determine the filtered list once so slivers can reference it.
+    final allRestaurants = restaurants.asData?.value ?? [];
+    final filtered = _selectedCategory == null
+        ? allRestaurants
+        : allRestaurants.where((r) => r.category == _selectedCategory).toList();
+    final cats = _categories(allRestaurants);
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context).appTitle),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-      ),
       floatingActionButton: cartCount > 0
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/cart'),
@@ -141,137 +143,128 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   style: const TextStyle(color: Colors.white)),
             )
           : null,
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: AppLocalizations.of(context).searchRestaurants,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: isSearchActive
-                    ? IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: _clearSearch,
-                      )
-                    : null,
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none),
-              ),
-            ),
-          ),
-
-          // Category chips — only shown when not searching and restaurants loaded
-          if (!isSearchActive)
-            restaurants.maybeWhen(
-              data: (list) {
-                final cats = _categories(list);
-                if (cats.isEmpty) return const SizedBox.shrink();
-                return SizedBox(
-                  height: 48,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    children: [
-                      // "All" chip
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(AppLocalizations.of(context).all),
-                          selected: _selectedCategory == null,
-                          onSelected: (_) =>
-                              setState(() => _selectedCategory = null),
-                          selectedColor: Colors.orange,
-                          checkmarkColor: Colors.white,
-                          labelStyle: TextStyle(
-                            color: _selectedCategory == null
-                                ? Colors.white
-                                : Colors.black87,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      // Category chips
-                      ...cats.map((cat) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              label: Text(cat),
-                              selected: _selectedCategory == cat,
-                              onSelected: (_) => setState(() =>
-                                  _selectedCategory =
-                                      _selectedCategory == cat ? null : cat),
-                              selectedColor: Colors.orange,
-                              checkmarkColor: Colors.white,
-                              labelStyle: TextStyle(
-                                color: _selectedCategory == cat
-                                    ? Colors.white
-                                    : Colors.black87,
-                                fontSize: 12,
-                              ),
-                            ),
-                          )),
-                    ],
-                  ),
-                );
-              },
-              orElse: () => const SizedBox.shrink(),
-            ),
-
-          // Body: search results or filtered restaurant list
-          Expanded(
-            child: isSearchActive
-                ? _SearchResults(
+      body: isSearchActive
+          // ── Search mode: plain scaffold with results list ──────────────
+          ? Column(
+              children: [
+                _buildSearchBar(context, isSearchActive),
+                Expanded(
+                  child: _SearchResults(
                     query: _query!,
                     searching: _searching,
                     restaurants: _searchRestaurants,
                     menuItems: _searchMenuItems,
                     error: _searchError,
-                  )
-                : restaurants.when(
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => RetryWidget(
-                      error: e,
-                      onRetry: () => ref.refresh(restaurantsProvider),
+                  ),
+                ),
+              ],
+            )
+          // ── Browse mode: CustomScrollView with SliverAppBar ────────────
+          : RefreshIndicator(
+              onRefresh: () => ref.refresh(restaurantsProvider.future),
+              child: CustomScrollView(
+                slivers: [
+                  // Floating app bar — collapses as user scrolls down
+                  SliverAppBar(
+                    floating: true,
+                    snap: true,
+                    title: Text(AppLocalizations.of(context).appTitle),
+                    // No backgroundColor / foregroundColor — inherits AppBarTheme
+                    bottom: PreferredSize(
+                      preferredSize: const Size.fromHeight(56),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                        child: _buildSearchBar(context, isSearchActive),
+                      ),
                     ),
-                    data: (list) {
-                      // Apply category filter
-                      final filtered = _selectedCategory == null
-                          ? list
-                          : list
-                              .where((r) => r.category == _selectedCategory)
-                              .toList();
+                  ),
 
-                      if (filtered.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.restaurant,
-                                  size: 56, color: Colors.grey),
-                              const SizedBox(height: 12),
-                              Text(
-                                '${AppLocalizations.of(context).noResultsFor} "$_selectedCategory"',
-                                style: const TextStyle(
-                                    color: Colors.grey, fontSize: 15),
+                  // Category chips
+                  if (cats.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 48,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                label: Text(AppLocalizations.of(context).all),
+                                selected: _selectedCategory == null,
+                                onSelected: (_) =>
+                                    setState(() => _selectedCategory = null),
+                                selectedColor: Colors.orange,
+                                checkmarkColor: Colors.white,
+                                labelStyle: TextStyle(
+                                  color: _selectedCategory == null
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  fontSize: 12,
+                                ),
                               ),
-                            ],
+                            ),
+                            ...cats.map((cat) => Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: FilterChip(
+                                    label: Text(cat),
+                                    selected: _selectedCategory == cat,
+                                    onSelected: (_) => setState(() =>
+                                        _selectedCategory =
+                                            _selectedCategory == cat
+                                                ? null
+                                                : cat),
+                                    selectedColor: Colors.orange,
+                                    checkmarkColor: Colors.white,
+                                    labelStyle: TextStyle(
+                                      color: _selectedCategory == cat
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Restaurant list / loading / error states
+                  restaurants.when(
+                    loading: () => const SliverFillRemaining(
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (e, _) => SliverFillRemaining(
+                      child: RetryWidget(
+                        error: e,
+                        onRetry: () => ref.refresh(restaurantsProvider),
+                      ),
+                    ),
+                    data: (_) {
+                      if (filtered.isEmpty) {
+                        return SliverFillRemaining(
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.restaurant,
+                                    size: 56, color: Colors.grey),
+                                const SizedBox(height: 12),
+                                Text(
+                                  '${AppLocalizations.of(context).noResultsFor} "$_selectedCategory"',
+                                  style: const TextStyle(
+                                      color: Colors.grey, fontSize: 15),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       }
-
-                      return RefreshIndicator(
-                        onRefresh: () =>
-                            ref.refresh(restaurantsProvider.future),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                      return SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        sliver: SliverList.builder(
                           itemCount: filtered.length,
                           itemBuilder: (ctx, i) =>
                               _RestaurantCard(restaurant: filtered[i]),
@@ -279,8 +272,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       );
                     },
                   ),
-          ),
-        ],
+                ],
+              ),
+            ),
+    );
+  }
+
+  /// Reusable search bar widget used in both browse and search layouts.
+  Widget _buildSearchBar(BuildContext context, bool isSearchActive) {
+    return TextField(
+      controller: _searchCtrl,
+      onChanged: _onSearchChanged,
+      decoration: InputDecoration(
+        hintText: AppLocalizations.of(context).searchRestaurants,
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: isSearchActive
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _clearSearch,
+              )
+            : null,
+        filled: true,
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+        isDense: true,
       ),
     );
   }

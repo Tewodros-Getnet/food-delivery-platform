@@ -110,8 +110,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
+            // Inherits AppBarTheme — no hardcoded colors.
+            // The flexibleSpace gradient provides the visual identity;
+            // the collapsed bar falls back to the theme surface color.
             title: Text(AppLocalizations.of(context).myProfile,
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             actions: [
@@ -256,17 +257,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       icon: Icons.person_outline,
                       iconColor: Colors.orange,
                       title: AppLocalizations.of(context).editProfile,
-                      subtitle: name,
-                      onTap: () => _showEditProfileDialog(context),
-                    ),
-                    _MenuDivider(),
-                    _MenuItem(
-                      icon: Icons.phone_outlined,
-                      iconColor: Colors.green,
-                      title: AppLocalizations.of(context).phoneNumber,
-                      subtitle: phone?.isNotEmpty == true
-                          ? phone!
-                          : AppLocalizations.of(context).notSet,
+                      // Show name + phone together so the row is informative
+                      // and there's no need for a separate phone row.
+                      subtitle: [
+                        name,
+                        if (phone?.isNotEmpty == true) phone!,
+                      ].join('  ·  '),
                       onTap: () => _showEditProfileDialog(context),
                     ),
                     _MenuDivider(),
@@ -461,6 +457,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 16),
               Text(AppLocalizations.of(ctx).editProfile,
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(
+                AppLocalizations.of(ctx).displayName + ' & ' + AppLocalizations.of(ctx).phoneNumber,
+                style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+              ),
               const SizedBox(height: 20),
               _field(nameCtrl, AppLocalizations.of(ctx).displayName, Icons.person_outline),
               const SizedBox(height: 12),

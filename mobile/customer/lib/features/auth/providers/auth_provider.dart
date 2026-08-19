@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../../cart/providers/cart_provider.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated, pendingVerification, guest }
 
@@ -36,7 +37,8 @@ class AuthState {
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _svc;
-  AuthNotifier(this._svc) : super(const AuthState()) {
+  final Ref _ref;
+  AuthNotifier(this._svc, this._ref) : super(const AuthState()) {
     _check();
   }
 
@@ -94,6 +96,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    _ref.read(cartProvider.notifier).clear();
     await _svc.logout();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
@@ -105,4 +108,4 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-    (ref) => AuthNotifier(ref.read(authServiceProvider)));
+    (ref) => AuthNotifier(ref.read(authServiceProvider), ref));

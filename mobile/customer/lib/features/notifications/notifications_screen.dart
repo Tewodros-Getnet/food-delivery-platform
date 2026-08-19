@@ -19,15 +19,20 @@ class NotificationsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
+        // backgroundColor / foregroundColor intentionally omitted — inherits
+        // the app-wide AppBarTheme (transparent, adaptive foreground).
         actions: [
           if (notifications.isNotEmpty)
             TextButton(
               onPressed: () =>
                   ref.read(notificationStoreProvider.notifier).clearAll(),
-              child: const Text('Clear all',
-                  style: TextStyle(color: Colors.white, fontSize: 13)),
+              child: Text(
+                'Clear all',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 13,
+                ),
+              ),
             ),
         ],
       ),

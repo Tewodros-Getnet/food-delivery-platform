@@ -63,6 +63,20 @@ class _CustomerAppState extends ConsumerState<CustomerApp> {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          // Uses surface color (white) in light mode — brand color stays on
+          // buttons/chips, not the chrome. Matches Uber Eats / DoorDash style.
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          scrolledUnderElevation: 2,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: Colors.black87,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -70,6 +84,18 @@ class _CustomerAppState extends ConsumerState<CustomerApp> {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 2,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       themeMode: themeMode,
       locale: ref.watch(localeProvider),
