@@ -144,16 +144,15 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         title: const Text('Menu Management'),
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddSheet(),
-        backgroundColor: _brandColor,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Item', style: TextStyle(color: Colors.white)),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Item'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -173,7 +172,6 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                         icon: const Icon(Icons.add),
                         label: const Text('Add your first item'),
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: _brandColor,
                             foregroundColor: Colors.white),
                       ),
                     ],
@@ -201,13 +199,16 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                     selected: _selectedCategory == null,
                                     onSelected: (_) => setState(
                                         () => _selectedCategory = null),
-                                    selectedColor:
-                                        _brandColor.withValues(alpha: 0.15),
-                                    checkmarkColor: _brandColor,
+                                    selectedColor: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: 0.15),
+                                    checkmarkColor:
+                                        Theme.of(context).colorScheme.primary,
                                     labelStyle: TextStyle(
                                       color: _selectedCategory == null
-                                          ? _brandColor
-                                          : Colors.black87,
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                                       fontWeight: _selectedCategory == null
                                           ? FontWeight.bold
                                           : FontWeight.normal,
@@ -222,13 +223,16 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                       selected: _selectedCategory == cat,
                                       onSelected: (_) => setState(
                                           () => _selectedCategory = cat),
-                                      selectedColor:
-                                          _brandColor.withValues(alpha: 0.15),
-                                      checkmarkColor: _brandColor,
+                                      selectedColor: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withValues(alpha: 0.15),
+                                      checkmarkColor:
+                                          Theme.of(context).colorScheme.primary,
                                       labelStyle: TextStyle(
                                         color: _selectedCategory == cat
-                                            ? _brandColor
-                                            : Colors.black87,
+                                            ? Theme.of(context).colorScheme.primary
+                                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                                         fontWeight: _selectedCategory == cat
                                             ? FontWeight.bold
                                             : FontWeight.normal,
@@ -628,14 +632,15 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
         labelText: label,
         prefixIcon: icon != null ? Icon(icon, size: 18) : null,
         filled: true,
-        fillColor: Colors.grey[50],
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _brandColor, width: 1.5),
+          borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -790,7 +795,6 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _brandColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),

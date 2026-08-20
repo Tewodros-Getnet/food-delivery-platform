@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
-import '../../../core/widgets/language_switcher.dart';
 import '../../../core/widgets/theme_switcher.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -248,8 +247,6 @@ class _RiderProfileScreenState extends ConsumerState<RiderProfileScreen> {
                 _SectionHeader('Preferences'),
                 const SizedBox(height: 8),
                 _SettingsCard(children: [
-                  const LanguageSwitcherTile(),
-                  const _Divider(),
                   const ThemeSwitcherTile(),
                 ]),
 

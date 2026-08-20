@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/cart_provider.dart';
 import '../models/cart_item.dart';
-import '../../../l10n/app_localizations.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -12,11 +11,10 @@ class CartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartProvider);
-    final l10n = AppLocalizations.of(context);
 
     if (cart.items.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(l10n.cart)),
+        appBar: AppBar(title: const Text('Cart')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -24,12 +22,12 @@ class CartScreen extends ConsumerWidget {
               Icon(Icons.shopping_cart_outlined,
                   size: 72, color: Colors.grey[300]),
               const SizedBox(height: 16),
-              Text(l10n.cartEmpty,
-                  style: const TextStyle(fontSize: 17, color: Colors.grey)),
+              const Text('Your cart is empty',
+                  style: TextStyle(fontSize: 17, color: Colors.grey)),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => context.pop(),
-                child: Text(l10n.browseRestaurants),
+                child: const Text('Browse restaurants'),
               ),
             ],
           ),
@@ -39,31 +37,31 @@ class CartScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.cart),
+        title: const Text('Cart'),
         actions: [
           TextButton(
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: Text(l10n.clearCart),
-                  content: Text(l10n.clearCartConfirm),
+                  title: const Text('Clear Cart'),
+                  content: const Text('Remove all items from your cart?'),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: Text(l10n.cancel)),
+                        child: const Text('Cancel')),
                     TextButton(
                         onPressed: () {
                           ref.read(cartProvider.notifier).clear();
                           Navigator.pop(ctx);
                         },
-                        child: Text(l10n.clear,
-                            style: const TextStyle(color: Colors.red))),
+                        child: const Text('Clear',
+                            style: TextStyle(color: Colors.red))),
                   ],
                 ),
               );
             },
-            child: Text(l10n.clear, style: const TextStyle(color: Colors.red)),
+            child: const Text('Clear', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -199,7 +197,6 @@ class _CartSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
       decoration: BoxDecoration(
@@ -213,7 +210,7 @@ class _CartSummary extends StatelessWidget {
       ),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(l10n.subtotalWithCount(cart.totalItems),
+          Text('Subtotal (${cart.totalItems} item${cart.totalItems == 1 ? '' : 's'})',
               style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 13)),
@@ -222,19 +219,19 @@ class _CartSummary extends StatelessWidget {
         ]),
         const SizedBox(height: 4),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(l10n.deliveryFee,
+          Text('Delivery fee',
               style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 13)),
-          Text(l10n.deliveryFeeNote,
+          Text('Calculated at checkout',
               style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 12)),
         ]),
         const Divider(height: 16),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(l10n.total,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text('Total',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           Text('ETB ${cart.subtotal.toStringAsFixed(2)}+',
               style: TextStyle(
                   fontWeight: FontWeight.bold,
@@ -253,7 +250,7 @@ class _CartSummary extends StatelessWidget {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            child: Text(l10n.proceedToCheckout,
+            child: const Text('Proceed to Checkout',
                 style: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.bold)),
           ),

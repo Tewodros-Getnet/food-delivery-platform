@@ -7,7 +7,6 @@ import '../../cart/providers/cart_provider.dart';
 import '../services/order_service.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
-import '../../../l10n/app_localizations.dart';
 
 final _addressesProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
@@ -75,7 +74,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
   }
 
   Future<void> _verifyAndNavigate(String orderId) async {
-    final l10n = AppLocalizations.of(context);
     setState(() { _isLoading = true; _error = null; });
     try {
       for (int i = 0; i < 5; i++) {
@@ -87,7 +85,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
           return;
         }
         if (order.status == 'payment_failed') {
-          setState(() => _error = l10n.paymentFailedRetry);
+          setState(() => _error = 'Payment failed. Please try again.');
           return;
         }
       }
@@ -100,11 +98,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
   }
 
   Future<void> _placeOrder() async {
-    final l10n = AppLocalizations.of(context);
     final cart = ref.read(cartProvider);
     if (cart.restaurantId == null || cart.items.isEmpty) return;
     if (_selectedAddressId == null) {
-      setState(() => _error = l10n.selectDeliveryAddress);
+      setState(() => _error = 'Please select a delivery address.');
       return;
     }
     setState(() { _isLoading = true; _error = null; });
@@ -121,7 +118,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
         final uri = Uri.parse(paymentUrl);
         final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
         if (!launched && mounted) {
-          setState(() => _error = l10n.couldNotOpenPayment);
+          setState(() => _error = 'Could not open payment page.');
           return;
         }
         setState(() {
@@ -139,21 +136,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final cart = ref.watch(cartProvider);
     final addressesAsync = ref.watch(_addressesProvider);
     final subtotal = cart.subtotal;
     final total = subtotal + (_estimatedFee ?? 0);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.checkout)),
+      appBar: AppBar(title: const Text('Checkout')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Order summary ──────────────────────────────────────────────
-            _SectionHeader(title: l10n.orderSummary),
+            _SectionHeader(title: 'Order Summary'),
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
@@ -204,7 +200,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(l10n.subtotal,
+                        Text('Subtotal',
                             style: TextStyle(
                                 color: Theme.of(context)
                                     .colorScheme
@@ -218,7 +214,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(l10n.deliveryFee,
+                        Text('Delivery fee',
                             style: TextStyle(
                                 color: Theme.of(context)
                                     .colorScheme
@@ -250,7 +246,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(l10n.total,
+                        Text('Total',
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 15)),
                         Text(
@@ -272,14 +268,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
             const SizedBox(height: 24),
 
             // ── Delivery address ───────────────────────────────────────────
-            _SectionHeader(title: l10n.deliveryAddress),
+            _SectionHeader(title: 'Delivery Address'),
             const SizedBox(height: 10),
             addressesAsync.when(
               loading: () => const Center(
                   child: Padding(
                       padding: EdgeInsets.all(16),
                       child: CircularProgressIndicator())),
-              error: (e, _) => Text('${l10n.failedToLoadAddresses}: $e',
+              error: (e, _) => Text('Failed to load addresses: $e',
                   style: const TextStyle(color: Colors.red)),
               data: (addresses) => addresses.isEmpty
                   ? Container(
@@ -292,14 +288,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(l10n.noSavedAddresses,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w500)),
+                          const Text('No saved addresses',
+                              style: TextStyle(fontWeight: FontWeight.w500)),
                           const SizedBox(height: 4),
                           GestureDetector(
                             onTap: () => context.push('/addresses'),
-                            child: Text(l10n.addDeliveryAddress,
-                                style: const TextStyle(
+                            child: const Text('Add a delivery address',
+                                style: TextStyle(
                                     color: Colors.orange,
                                     fontWeight: FontWeight.w600)),
                           ),
@@ -396,7 +391,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                             strokeWidth: 2,
                             color: Theme.of(context).colorScheme.onPrimaryContainer)),
                     const SizedBox(width: 12),
-                    Text(l10n.waitingPayment,
+                    Text('Waiting for payment confirmation...',
                         style: TextStyle(
                             color: Theme.of(context)
                                 .colorScheme
@@ -426,7 +421,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                     if (_pendingOrderId != null)
                       TextButton(
                         onPressed: () => _verifyAndNavigate(_pendingOrderId!),
-                        child: Text(l10n.checkPaymentStatus),
+                        child: const Text('Check payment status'),
                       ),
                   ],
                 ),
@@ -456,9 +451,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen>
                             color: Colors.white, strokeWidth: 2.5))
                     : Text(
                         _estimatedFee != null
-                            ? l10n.payWithChapaAmount(
-                                total.toStringAsFixed(2))
-                            : l10n.payWithChapa,
+                            ? 'Pay ETB ${total.toStringAsFixed(2)} with Chapa'
+                            : 'Pay with Chapa',
                         style: const TextStyle(
                             fontSize: 16,
                             color: Colors.white,

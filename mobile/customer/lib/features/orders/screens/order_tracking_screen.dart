@@ -486,7 +486,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                         ],
                         color: Colors.deepOrange,
                         strokeWidth: 3.5,
-                        isDotted: true,
                       ),
                     ],
                   ),

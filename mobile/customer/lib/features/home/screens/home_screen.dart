@@ -8,7 +8,6 @@ import '../../restaurants/models/restaurant_model.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../restaurants/providers/favorites_provider.dart';
 import '../../../core/widgets/retry_widget.dart';
-import '../../../l10n/app_localizations.dart';
 
 final restaurantsProvider = FutureProvider<List<RestaurantModel>>(
     (ref) => ref.read(restaurantServiceProvider).getRestaurants());
@@ -139,7 +138,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               onPressed: () => context.push('/cart'),
               backgroundColor: Colors.orange,
               icon: const Icon(Icons.shopping_cart, color: Colors.white),
-              label: Text('${AppLocalizations.of(context).cart} ($cartCount)',
+              label: Text('Cart ($cartCount)',
                   style: const TextStyle(color: Colors.white)),
             )
           : null,
@@ -168,7 +167,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   SliverAppBar(
                     floating: true,
                     snap: true,
-                    title: Text(AppLocalizations.of(context).appTitle),
+                    title: const Text('Food Delivery'),
                     // No backgroundColor / foregroundColor — inherits AppBarTheme
                     bottom: PreferredSize(
                       preferredSize: const Size.fromHeight(56),
@@ -192,7 +191,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: FilterChip(
-                                label: Text(AppLocalizations.of(context).all),
+                                label: const Text('All'),
                                 selected: _selectedCategory == null,
                                 onSelected: (_) =>
                                     setState(() => _selectedCategory = null),
@@ -253,7 +252,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     size: 56, color: Colors.grey),
                                 const SizedBox(height: 12),
                                 Text(
-                                  '${AppLocalizations.of(context).noResultsFor} "$_selectedCategory"',
+                                  'No results for "$_selectedCategory"',
                                   style: const TextStyle(
                                       color: Colors.grey, fontSize: 15),
                                 ),
@@ -284,7 +283,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       controller: _searchCtrl,
       onChanged: _onSearchChanged,
       decoration: InputDecoration(
-        hintText: AppLocalizations.of(context).searchRestaurants,
+        hintText: 'Search restaurants...',
         prefixIcon: const Icon(Icons.search),
         suffixIcon: isSearchActive
             ? IconButton(
@@ -332,7 +331,7 @@ class _SearchResults extends StatelessWidget {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.error_outline, color: Colors.grey, size: 48),
           const SizedBox(height: 8),
-          Text(AppLocalizations.of(context).searchFailed,
+          Text('Search failed. Please try again.',
               style: const TextStyle(color: Colors.grey)),
         ]),
       );
@@ -342,7 +341,7 @@ class _SearchResults extends StatelessWidget {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.search_off, color: Colors.grey, size: 56),
           const SizedBox(height: 12),
-          Text('${AppLocalizations.of(context).noResultsFor} "$query"',
+          Text('No results for "$query"',
               style: const TextStyle(color: Colors.grey, fontSize: 15)),
         ]),
       );
@@ -354,7 +353,7 @@ class _SearchResults extends StatelessWidget {
         if (restaurants.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(AppLocalizations.of(context).searchRestaurants,
+            child: const Text('Restaurants',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           ),
           ...restaurants.map((r) => _RestaurantCard(restaurant: r)),
@@ -362,7 +361,7 @@ class _SearchResults extends StatelessWidget {
         if (menuItems.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(AppLocalizations.of(context).menuItems,
+            child: const Text('Menu Items',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           ),
           ...menuItems.map((item) => _MenuItemSearchCard(item: item)),

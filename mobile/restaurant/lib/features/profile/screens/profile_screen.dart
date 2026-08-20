@@ -6,10 +6,9 @@ import 'dart:convert';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
-import '../../../core/widgets/language_switcher.dart';
 import '../../../core/widgets/theme_switcher.dart';
 
-const _brand = Color(0xFF2E7D32);
+const _brand = Color(0xFF2E7D32); // kept for gradient only
 
 class RestaurantProfileScreen extends ConsumerStatefulWidget {
   const RestaurantProfileScreen({super.key});
@@ -60,9 +59,9 @@ class _RestaurantProfileScreenState
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Profile photo updated'),
-              backgroundColor: _brand),
+          SnackBar(
+              content: const Text('Profile photo updated'),
+              backgroundColor: Theme.of(context).colorScheme.primary),
         );
       }
     } catch (e) {
@@ -80,7 +79,7 @@ class _RestaurantProfileScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
@@ -173,15 +172,17 @@ class _RestaurantProfileScreenState
                               color: Colors.white,
                               shape: BoxShape.circle,
                               border:
-                                  Border.all(color: _brand, width: 1.5),
+                                  Border.all(color: Theme.of(context).colorScheme.primary, width: 1.5),
                             ),
                             child: _uploadingPhoto
-                                ? const Padding(
-                                    padding: EdgeInsets.all(5),
+                                ? Padding(
+                                    padding: const EdgeInsets.all(5),
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: _brand))
-                                : const Icon(Icons.camera_alt,
-                                    size: 14, color: _brand),
+                                        strokeWidth: 2,
+                                        color: Theme.of(context).colorScheme.primary))
+                                : Icon(Icons.camera_alt,
+                                    size: 14,
+                                    color: Theme.of(context).colorScheme.primary),
                           ),
                         ),
                       ]),
@@ -233,7 +234,7 @@ class _RestaurantProfileScreenState
                 _SettingsCard(children: [
                   _SettingsTile(
                     icon: Icons.person_outline,
-                    iconColor: _brand,
+                    iconColor: Theme.of(context).colorScheme.primary,
                     title: 'Edit Profile',
                     subtitle: name,
                     onTap: () => _showEditProfileDialog(context),
@@ -261,8 +262,6 @@ class _RestaurantProfileScreenState
                 _SectionHeader('Preferences'),
                 const SizedBox(height: 8),
                 _SettingsCard(children: [
-                  const LanguageSwitcherTile(),
-                  const _Divider(),
                   const ThemeSwitcherTile(),
                 ]),
 
@@ -378,9 +377,9 @@ class _RestaurantProfileScreenState
                             await _load();
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Profile updated'),
-                                    backgroundColor: _brand),
+                                SnackBar(
+                                    content: const Text('Profile updated'),
+                                    backgroundColor: Theme.of(context).colorScheme.primary),
                               );
                             }
                           } catch (e) {
@@ -395,7 +394,6 @@ class _RestaurantProfileScreenState
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _brand,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
@@ -508,9 +506,9 @@ class _RestaurantProfileScreenState
                             if (ctx.mounted) Navigator.pop(ctx);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Password updated'),
-                                    backgroundColor: _brand),
+                                SnackBar(
+                                    content: const Text('Password updated'),
+                                    backgroundColor: Theme.of(context).colorScheme.primary),
                               );
                             }
                           } catch (e) {
@@ -525,7 +523,6 @@ class _RestaurantProfileScreenState
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _brand,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
@@ -568,14 +565,15 @@ class _RestaurantProfileScreenState
       prefixIcon: Icon(icon, size: 20),
       suffixIcon: suffix,
       filled: true,
-      fillColor: Colors.grey[50],
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _brand, width: 1.5),
+        borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary, width: 1.5),
       ),
     );
   }
@@ -612,7 +610,7 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -670,8 +668,8 @@ class _SettingsTile extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: onTap != null
-                              ? Colors.black87
-                              : Colors.grey[400])),
+                              ? Theme.of(context).colorScheme.onSurface
+                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35))),
                   if (subtitle != null)
                     Text(subtitle!,
                         style:

@@ -38,7 +38,9 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
       if (permission == LocationPermission.deniedForever) return;
 
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
       final loc = LatLng(pos.latitude, pos.longitude);
       setState(() => _pinPosition = loc);
@@ -110,7 +112,8 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.my_location, color: Color(0xFF2E7D32)),
+                  : Icon(Icons.my_location,
+                      color: Theme.of(context).colorScheme.primary),
             ),
           ),
 
@@ -158,8 +161,9 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.location_pin,
-                            color: Color(0xFF2E7D32), size: 18),
+                        Icon(Icons.location_pin,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 18),
                         const SizedBox(width: 8),
                         Text(
                           '${_pinPosition.latitude.toStringAsFixed(6)}, '
@@ -175,7 +179,6 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
                     label: const Text('Confirm Location',
                         style: TextStyle(color: Colors.white, fontSize: 16)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),

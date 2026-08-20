@@ -525,9 +525,10 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
             if (_pendingInvitation != null) ...[
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                 ),
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -538,19 +539,20 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2E7D32).withOpacity(0.12),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.store_outlined,
-                              color: Color(0xFF2E7D32), size: 18),
+                          child: Icon(Icons.store_outlined,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 18),
                         ),
                         const SizedBox(width: 10),
-                        const Text(
+                        Text(
                           'Restaurant Invitation',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF2E7D32),
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ],
@@ -566,7 +568,12 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                       const SizedBox(height: 4),
                       Text(
                         _pendingInvitation!['restaurant_address'] as String,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.55),
+                            fontSize: 12),
                       ),
                     ],
                     const SizedBox(height: 14),
@@ -574,14 +581,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () => _respondInvitation(true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E7D32),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: const Text('Accept',
-                              style: TextStyle(color: Colors.white)),
+                          child: const Text('Accept'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -608,31 +608,35 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
             if (_deliveryRequest != null) ...[
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Blue gradient header
+                    // Brand gradient header
                     Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+                          colors: [
+                            Theme.of(context).colorScheme.primary,
+                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                       ),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 14),
-                      child: Row(
+                      child: const Row(
                         children: [
-                          const Icon(Icons.delivery_dining,
+                          Icon(Icons.delivery_dining,
                               color: Colors.white, size: 22),
-                          const SizedBox(width: 10),
-                          const Text(
+                          SizedBox(width: 10),
+                          Text(
                             'New Delivery Request',
                             style: TextStyle(
                               fontSize: 16,
@@ -643,7 +647,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                         ],
                       ),
                     ),
-                    // White body
+                    // Body
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -672,17 +676,15 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                             child: ElevatedButton(
                               onPressed: _acceptDelivery,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
+                                backgroundColor: Colors.green.shade600,
+                                foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10)),
                               ),
                               child: const Text('Accept',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold)),
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -714,18 +716,19 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
             if (_onDelivery && _activeOrderId != null) ...[
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Orange accent header
+                    // Orange accent header (semantic — means "in progress")
                     Container(
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade600,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE65100), // deep orange — stands out in both modes
                       ),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 14),
@@ -770,7 +773,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                         ],
                       ),
                     ),
-                    // White body
+                    // Body
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -782,14 +785,14 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                             clipBehavior: Clip.antiAlias,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade200),
+                              border: Border.all(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .outlineVariant),
                             ),
                             child: FlutterMap(
                               mapController: _mapController,
                               options: MapOptions(
-                                // Centre on destination: restaurant before
-                                // pickup, customer after pickup.
-                                // Fall back to rider position if coords missing.
                                 initialCenter: _pickedUp
                                     ? LatLng(
                                         _customerLat ?? _currentLat ?? 9.03,
@@ -808,16 +811,16 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                                 ),
                                 MarkerLayer(
                                   markers: [
-                                    // Rider's current position (blue bike icon)
+                                    // Rider's current position
                                     if (_currentLat != null)
                                       Marker(
                                         point: LatLng(
                                             _currentLat!, _currentLon!),
                                         width: 40,
                                         height: 40,
-                                        child: const Icon(
+                                        child: Icon(
                                             Icons.delivery_dining,
-                                            color: Color(0xFF1565C0),
+                                            color: Theme.of(context).colorScheme.primary,
                                             size: 36),
                                       ),
                                     // Restaurant pin — shown before pickup
@@ -850,7 +853,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                             ),
                           ),
                           const SizedBox(height: 14),
-                          // Navigate button — full-width with icon
+                          // Navigate button
                           if (!_pickedUp)
                             SizedBox(
                               width: double.infinity,
@@ -858,15 +861,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                                   ? ElevatedButton.icon(
                                       onPressed: () => _openNavigation(
                                           _restaurantLat!, _restaurantLon!),
-                                      icon: const Icon(Icons.navigation,
-                                          color: Colors.white),
-                                      label: const Text(
-                                          'Navigate to Restaurant',
-                                          style:
-                                              TextStyle(color: Colors.white)),
+                                      icon: const Icon(Icons.navigation),
+                                      label: const Text('Navigate to Restaurant'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFF1565C0),
                                         elevation: 0,
                                         padding: const EdgeInsets.symmetric(
                                             vertical: 14),
@@ -875,9 +872,13 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                                                 BorderRadius.circular(10)),
                                       ),
                                     )
-                                  : const Text(
+                                  : Text(
                                       'Restaurant location unavailable',
-                                      style: TextStyle(color: Colors.grey),
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.45)),
                                       textAlign: TextAlign.center,
                                     ),
                             ),
@@ -888,14 +889,9 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                                   ? ElevatedButton.icon(
                                       onPressed: () => _openNavigation(
                                           _customerLat!, _customerLon!),
-                                      icon: const Icon(Icons.navigation,
-                                          color: Colors.white),
-                                      label: const Text('Navigate to Customer',
-                                          style:
-                                              TextStyle(color: Colors.white)),
+                                      icon: const Icon(Icons.navigation),
+                                      label: const Text('Navigate to Customer'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFF1565C0),
                                         elevation: 0,
                                         padding: const EdgeInsets.symmetric(
                                             vertical: 14),
@@ -904,21 +900,26 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                                                 BorderRadius.circular(10)),
                                       ),
                                     )
-                                  : const Text(
+                                  : Text(
                                       'Customer location unavailable',
-                                      style: TextStyle(color: Colors.grey),
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.45)),
                                       textAlign: TextAlign.center,
                                     ),
                             ),
                           const SizedBox(height: 10),
-                          // Action button — full-width
+                          // Action button
                           if (!_pickedUp)
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
                                 onPressed: _confirmPickup,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange.shade600,
+                                  backgroundColor: Colors.orange.shade700,
+                                  foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 14),
@@ -927,7 +928,6 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                                 ),
                                 child: const Text('Confirm Pickup',
                                     style: TextStyle(
-                                        color: Colors.white,
                                         fontWeight: FontWeight.bold)),
                               ),
                             ),
@@ -937,7 +937,8 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                               child: ElevatedButton(
                                 onPressed: _confirmDelivery,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
+                                  backgroundColor: Colors.green.shade600,
+                                  foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 14),
@@ -946,7 +947,6 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                                 ),
                                 child: const Text('Confirm Delivery',
                                     style: TextStyle(
-                                        color: Colors.white,
                                         fontWeight: FontWeight.bold)),
                               ),
                             ),
@@ -969,11 +969,17 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.delivery_dining,
-                          size: 64, color: Colors.grey.shade400),
+                          size: 64,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.35)),
                     ),
                     const SizedBox(height: 20),
                     Text(
@@ -981,15 +987,22 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade700,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'Go online to start earning',
                       textAlign: TextAlign.center,
-                      style:
-                          TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
+                          fontSize: 14),
                     ),
                   ],
                 ),
@@ -1004,7 +1017,12 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   Widget _detailRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey.shade600),
+        Icon(icon,
+            size: 16,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurface
+                .withValues(alpha: 0.55)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(text,
@@ -1035,7 +1053,7 @@ class _MapPin extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.4),
+                color: color.withValues(alpha: 0.4),
                 blurRadius: 6,
                 offset: const Offset(0, 3),
               ),

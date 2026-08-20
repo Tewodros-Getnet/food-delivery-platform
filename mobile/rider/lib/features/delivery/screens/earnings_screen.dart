@@ -130,15 +130,21 @@ class _EarningsTab extends ConsumerWidget {
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primary,
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.75),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF1565C0).withValues(alpha: 0.3),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -200,12 +206,20 @@ class _EarningsTab extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.delivery_dining,
-                                size: 64, color: Colors.grey[300]),
+                                size: 64,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.25)),
                             const SizedBox(height: 12),
                             Text(
                               'No deliveries ${EarningsPeriodLabel(period).toLowerCase()}',
                               style: TextStyle(
-                                  color: Colors.grey[500], fontSize: 15),
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.45),
+                                  fontSize: 15),
                             ),
                           ],
                         ),
@@ -222,15 +236,15 @@ class _EarningsTab extends ConsumerWidget {
                           return Card(
                             margin: const EdgeInsets.only(bottom: 10),
                             elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade200),
-                            ),
                             child: ListTile(
                               leading: CircleAvatar(
-                                backgroundColor: Colors.blue.shade50,
-                                child: const Icon(Icons.delivery_dining,
-                                    color: Color(0xFF1565C0)),
+                                backgroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer,
+                                child: Icon(Icons.delivery_dining,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary),
                               ),
                               title: Text(
                                 d['restaurant_name'] as String? ?? 'Restaurant',
@@ -245,19 +259,29 @@ class _EarningsTab extends ConsumerWidget {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                        color: Colors.grey[600], fontSize: 12),
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.55),
+                                        fontSize: 12),
                                   ),
                                   Text(
                                     _formatDate(date),
                                     style: TextStyle(
-                                        color: Colors.grey[500], fontSize: 11),
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.4),
+                                        fontSize: 11),
                                   ),
                                 ],
                               ),
                               trailing: Text(
                                 'ETB ${fee.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                    color: Color(0xFF1565C0),
+                                style: TextStyle(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15),
                               ),

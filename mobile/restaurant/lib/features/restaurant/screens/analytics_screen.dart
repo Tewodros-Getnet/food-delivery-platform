@@ -113,10 +113,11 @@ class _RestaurantAnalyticsScreenState
     final week  = double.tryParse(_data!['week']['revenue'].toString()) ?? 0.0;
     final month = double.tryParse(_data!['month']['revenue'].toString()) ?? 0.0;
 
+    final cs = Theme.of(context).colorScheme;
     final bars = [
-      _BarData(label: 'Today', value: today, color: Colors.blue),
+      _BarData(label: 'Today', value: today, color: cs.primary),
       _BarData(label: '7 Days', value: week, color: Colors.orange),
-      _BarData(label: '30 Days', value: month, color: const Color(0xFF2E7D32)),
+      _BarData(label: '30 Days', value: month, color: Colors.green.shade600),
     ];
 
     return _SectionCard(
@@ -147,7 +148,7 @@ class _RestaurantAnalyticsScreenState
               label: 'Today',
               orders: int.tryParse(today['orders'].toString()) ?? 0,
               revenue: double.tryParse(today['revenue'].toString()) ?? 0.0,
-              color: Colors.blue,
+              color: Theme.of(context).colorScheme.primary,
             )),
             const SizedBox(width: 8),
             Expanded(
@@ -163,7 +164,7 @@ class _RestaurantAnalyticsScreenState
               label: '30 Days',
               orders: int.tryParse(month['orders'].toString()) ?? 0,
               revenue: double.tryParse(month['revenue'].toString()) ?? 0.0,
-              color: const Color(0xFF2E7D32),
+              color: Colors.green.shade600,
             )),
           ],
         ),
@@ -181,9 +182,10 @@ class _RestaurantAnalyticsScreenState
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         children: [
@@ -191,8 +193,13 @@ class _RestaurantAnalyticsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Average Rating',
-                    style: TextStyle(color: Colors.black54, fontSize: 12)),
+                Text('Average Rating',
+                    style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.55),
+                        fontSize: 12)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -203,8 +210,13 @@ class _RestaurantAnalyticsScreenState
                       style: const TextStyle(
                           fontSize: 22, fontWeight: FontWeight.bold),
                     ),
-                    const Text(' / 5',
-                        style: TextStyle(color: Colors.black38, fontSize: 14)),
+                    Text(' / 5',
+                        style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.35),
+                            fontSize: 14)),
                   ],
                 ),
               ],
@@ -215,8 +227,13 @@ class _RestaurantAnalyticsScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Avg Prep Time',
-                      style: TextStyle(color: Colors.black54, fontSize: 12)),
+                  Text('Avg Prep Time',
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.55),
+                          fontSize: 12)),
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -281,7 +298,12 @@ class _RestaurantAnalyticsScreenState
                     child: Text(name, style: const TextStyle(fontSize: 13))),
                 Text(
                   '$qty ${qty == 1 ? 'order' : 'orders'}',
-                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  style: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                      fontSize: 12),
                 ),
               ],
             ),
@@ -380,8 +402,12 @@ class _RestaurantAnalyticsScreenState
                       if (summary.isNotEmpty)
                         Text(
                           summary,
-                          style: const TextStyle(
-                              color: Colors.black54, fontSize: 11),
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.5),
+                              fontSize: 11),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -501,9 +527,10 @@ class _SectionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -582,7 +609,9 @@ class _BarChart extends StatelessWidget {
           ),
         ),
         // Baseline
-        Container(height: 1, color: Colors.grey.shade200),
+        Builder(builder: (context) => Container(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant)),
         const SizedBox(height: 8),
         // Labels
         Row(

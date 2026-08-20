@@ -286,8 +286,8 @@ class _PromoBannerScreenState extends ConsumerState<PromoBannerScreen> {
                   ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    foregroundColor: const Color(0xFF2E7D32),
-                    side: const BorderSide(color: Color(0xFF2E7D32)),
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    side: BorderSide(color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -298,7 +298,6 @@ class _PromoBannerScreenState extends ConsumerState<PromoBannerScreen> {
                   child: ElevatedButton(
                     onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: _saving

@@ -6,7 +6,6 @@ import '../services/order_service.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../restaurants/services/restaurant_service.dart';
 import '../../../core/widgets/retry_widget.dart';
-import '../../../l10n/app_localizations.dart';
 
 final orderHistoryProvider = FutureProvider<List<OrderModel>>(
     (ref) => ref.read(orderServiceProvider).getOrders());
@@ -120,8 +119,6 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
     // Keep orderHistoryProvider in sync so ref.invalidate works from RatingScreen
     ref.listen<AsyncValue<List<OrderModel>>>(orderHistoryProvider, (_, next) {
       next.whenData((_) => _load(reset: true));
@@ -129,25 +126,25 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
 
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: Text(l10n.myOrders)),
+        appBar: AppBar(title: const Text('My Orders')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null && _orders.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(l10n.myOrders)),
+        appBar: AppBar(title: const Text('My Orders')),
         body: RetryWidget(error: _error!, onRetry: () => _load(reset: true)),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.myOrders),
+        title: const Text('My Orders'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: l10n.retry,
+            tooltip: 'Refresh',
             onPressed: () {
               ref.invalidate(orderHistoryProvider);
               _load(reset: true);
@@ -156,7 +153,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen>
         ],
       ),
       body: _orders.isEmpty
-          ? Center(child: Text(l10n.noOrders))
+          ? const Center(child: Text('No orders yet'))
           : RefreshIndicator(
               onRefresh: () => _load(reset: true),
               child: ListView.builder(
@@ -191,7 +188,6 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
   bool _reordering = false;
 
   Future<void> _reorder() async {
-    final l10n = AppLocalizations.of(context);
     setState(() => _reordering = true);
     try {
       final full = await ref.read(orderServiceProvider).getById(widget.order.id);
@@ -199,7 +195,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       if (full.items.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.noItemsFound)),
+            const SnackBar(content: Text('No items found')),
           );
         }
         return;
@@ -211,7 +207,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${restaurant.name} ${l10n.closed.toLowerCase()}'),
+              content: Text('${restaurant.name} is closed'),
               backgroundColor: Colors.red,
             ),
           );
@@ -225,8 +221,8 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       if (availableItems.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.allItemsUnavailable),
+            const SnackBar(
+              content: Text('All items are currently unavailable'),
               backgroundColor: Colors.red,
             ),
           );
@@ -249,7 +245,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
           final names = unavailableItems.map((i) => i.itemName).join(', ');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(l10n.someItemsUnavailable(names)),
+              content: Text('Some items unavailable and were skipped: $names'),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 4),
             ),
@@ -262,7 +258,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.failedToReorder(e.toString())),
+            content: Text('Failed to reorder: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -274,7 +270,6 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final o = widget.order;
     final canReorder = o.status == 'delivered' || o.status == 'cancelled';
     final isActive = [
@@ -301,7 +296,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 15),
                             overflow: TextOverflow.ellipsis),
-                      Text('${l10n.orderNumber}${o.id.substring(0, 8)}',
+                      Text('Order #${o.id.substring(0, 8)}',
                           style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                     ],
                   ),
@@ -343,7 +338,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     child: OutlinedButton.icon(
                       onPressed: () => context.push('/order/${o.id}/track'),
                       icon: const Icon(Icons.track_changes, size: 16),
-                      label: Text(l10n.track),
+                      label: const Text('Track'),
                     ),
                   ),
                 if (o.status == 'delivered' && !o.hasRated) ...[
@@ -352,7 +347,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     child: OutlinedButton.icon(
                       onPressed: () => _showRatingDialog(context, ref, o.id),
                       icon: const Icon(Icons.star_outline, size: 16),
-                      label: Text(l10n.rate),
+                      label: const Text('Rate'),
                     ),
                   ),
                 ],
@@ -377,7 +372,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                                   strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.replay, size: 16, color: Colors.white),
                       label: Text(
-                        _reordering ? l10n.adding : l10n.reorder,
+                        _reordering ? 'Adding...' : 'Reorder',
                         style: const TextStyle(color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -393,8 +388,8 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                 child: TextButton.icon(
                   onPressed: () => _showDisputeDialog(context, ref, o.id),
                   icon: const Icon(Icons.flag_outlined, size: 15, color: Colors.grey),
-                  label: Text(l10n.reportProblem,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  label: const Text('Report a problem',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ),
               ),
             ],

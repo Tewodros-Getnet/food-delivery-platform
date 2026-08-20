@@ -227,7 +227,7 @@ class _OperatingHoursScreenState extends ConsumerState<OperatingHoursScreen> {
                             // Open/closed toggle
                             Switch(
                               value: s.isOpen,
-                              activeThumbColor: const Color(0xFF2E7D32),
+                              activeThumbColor: Theme.of(context).colorScheme.primary,
                               onChanged: (v) => setState(() => s.isOpen = v),
                             ),
                             const SizedBox(width: 8),
@@ -267,7 +267,6 @@ class _OperatingHoursScreenState extends ConsumerState<OperatingHoursScreen> {
                     child: ElevatedButton(
                       onPressed: _saving ? null : _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: _saving
