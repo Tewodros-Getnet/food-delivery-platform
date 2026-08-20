@@ -194,12 +194,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         final rt = await storage.getRefreshToken();
         if (rt != null) {
           try {
-            final tokens = await ref.read(authServiceProvider).refreshToken(rt);
-            if (tokens != null) {
-              await storage.saveTokens(
-                jwt: tokens['jwt']!,
-                refreshToken: tokens['refreshToken']!,
-              );
+            final refreshed = await ref.read(authServiceProvider).proactiveRefresh();
+            if (refreshed) {
               _connect(); // reconnect with fresh token
             }
           } catch (_) {}

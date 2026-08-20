@@ -11,7 +11,8 @@ class RestaurantMapPickerScreen extends StatefulWidget {
       _RestaurantMapPickerScreenState();
 }
 
-class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
+class _RestaurantMapPickerScreenState
+    extends State<RestaurantMapPickerScreen> {
   final MapController _mapController = MapController();
 
   // Default to Addis Ababa center
@@ -78,7 +79,8 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate:
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.fooddelivery.restaurant',
               ),
               MarkerLayer(
@@ -112,40 +114,48 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Icon(Icons.my_location,
-                      color: Theme.of(context).colorScheme.primary),
+                  : const Icon(Icons.my_location),
             ),
           ),
 
-          // Hint
+          // Instruction hint
           Positioned(
             top: 12,
             left: 12,
             right: 60,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.92),
+                color: Colors.white.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
-                'Tap on the map to pin your restaurant location',
+                'Tap on the map to place your restaurant pin',
                 style: TextStyle(fontSize: 12, color: Colors.black87),
               ),
             ),
           ),
 
-          // Bottom confirm panel
+          // Coordinates + confirm button
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black26)],
+                borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [
+                  BoxShadow(blurRadius: 10, color: Colors.black26)
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -161,14 +171,13 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.location_pin,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 18),
+                        const Icon(Icons.location_pin,
+                            color: Colors.green, size: 18),
                         const SizedBox(width: 8),
                         Text(
-                          '${_pinPosition.latitude.toStringAsFixed(6)}, '
-                          '${_pinPosition.longitude.toStringAsFixed(6)}',
-                          style: const TextStyle(fontSize: 13),
+                          '${_pinPosition.latitude.toStringAsFixed(5)}, '
+                          '${_pinPosition.longitude.toStringAsFixed(5)}',
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ],
                     ),
@@ -176,8 +185,11 @@ class _RestaurantMapPickerScreenState extends State<RestaurantMapPickerScreen> {
                   ElevatedButton.icon(
                     onPressed: _confirm,
                     icon: const Icon(Icons.check, color: Colors.white),
-                    label: const Text('Confirm Location',
-                        style: TextStyle(color: Colors.white, fontSize: 16)),
+                    label: const Text(
+                      'Confirm Location',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
