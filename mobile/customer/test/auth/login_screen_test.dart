@@ -11,7 +11,6 @@ import 'package:food_delivery_customer/core/network/dio_client.dart';
 import 'package:food_delivery_customer/core/storage/secure_storage.dart';
 
 // ── Fake AuthService stub ─────────────────────────────────────────────────────
-// Uses real constructors to satisfy null safety, overrides all methods.
 
 class _FakeAuthService extends AuthService {
   _FakeAuthService() : super(DioClient(), SecureStorageService());
@@ -21,10 +20,17 @@ class _FakeAuthService extends AuthService {
   Future<void> logout() async {}
 }
 
+// ── Fake Ref stub (AuthNotifier requires a Ref for cart clearing on logout) ──
+
+class _FakeRef implements Ref {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
 // ── Fake notifiers ────────────────────────────────────────────────────────────
 
 class FakeLoginNotifier extends AuthNotifier {
-  FakeLoginNotifier() : super(_FakeAuthService());
+  FakeLoginNotifier() : super(_FakeAuthService(), _FakeRef());
   bool loginCalled = false;
   String? lastEmail;
   String? lastPassword;
@@ -49,7 +55,7 @@ class FakeLoginNotifier extends AuthNotifier {
 }
 
 class FakeLoginErrorNotifier extends AuthNotifier {
-  FakeLoginErrorNotifier() : super(_FakeAuthService());
+  FakeLoginErrorNotifier() : super(_FakeAuthService(), _FakeRef());
 
   @override
   Future<void> login(String email, String password) async {
@@ -62,7 +68,7 @@ class FakeLoginErrorNotifier extends AuthNotifier {
 }
 
 class FakeLoginLoadingNotifier extends AuthNotifier {
-  FakeLoginLoadingNotifier() : super(_FakeAuthService());
+  FakeLoginLoadingNotifier() : super(_FakeAuthService(), _FakeRef());
 
   @override
   Future<void> login(String email, String password) async {

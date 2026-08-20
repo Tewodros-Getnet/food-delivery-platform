@@ -19,10 +19,17 @@ class _FakeAuthService extends AuthService {
   Future<void> logout() async {}
 }
 
+// ── Fake Ref stub ─────────────────────────────────────────────────────────────
+
+class _FakeRef implements Ref {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
 // ── Fake notifiers ────────────────────────────────────────────────────────────
 
 class FakeOtpNotifier extends AuthNotifier {
-  FakeOtpNotifier() : super(_FakeAuthService());
+  FakeOtpNotifier() : super(_FakeAuthService(), _FakeRef());
   bool verifyCalled = false;
   String? lastCode;
 
@@ -37,7 +44,7 @@ class FakeOtpNotifier extends AuthNotifier {
 }
 
 class FakeOtpErrorNotifier extends AuthNotifier {
-  FakeOtpErrorNotifier() : super(_FakeAuthService());
+  FakeOtpErrorNotifier() : super(_FakeAuthService(), _FakeRef());
 
   @override
   Future<void> verifyOtp(String code) async {

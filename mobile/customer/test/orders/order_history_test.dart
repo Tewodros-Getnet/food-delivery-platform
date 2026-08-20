@@ -20,6 +20,22 @@ class FakeOrderService extends OrderService {
 
   @override
   Future<List<OrderModel>> getOrders() async => orders;
+
+  // OrderHistoryScreen uses getOrdersPaginated — return all orders on page 1
+  @override
+  Future<Map<String, dynamic>> getOrdersPaginated({
+    int page = 1,
+    int limit = 15,
+  }) async =>
+      {
+        'orders': orders,
+        'pagination': {
+          'page': 1,
+          'limit': limit,
+          'total': orders.length,
+          'totalPages': 1,
+        },
+      };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

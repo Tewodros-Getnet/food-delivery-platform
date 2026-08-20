@@ -10,7 +10,7 @@ import 'package:food_delivery_customer/features/restaurants/providers/favorites_
 import 'package:food_delivery_customer/features/restaurants/models/restaurant_model.dart';
 import 'package:food_delivery_customer/core/network/dio_client.dart';
 
-// Fake restaurant data
+// ── Fake data ─────────────────────────────────────────────────────────────────
 
 RestaurantModel _makeRestaurant(String id, String name) => RestaurantModel(
       id: id,
@@ -40,10 +40,11 @@ class _FakeNotifier extends FavoritesNotifier {
   }
 }
 
-// Helper: build FavoritesScreen with overridden providers
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
+/// Build a FavoritesScreen with pre-resolved favorite restaurant data.
 Widget _buildScreen({
-  required AsyncValue<List<RestaurantModel>> favAsync,
+  required List<RestaurantModel> restaurants,
   Set<String> favIds = const {},
 }) {
   final router = GoRouter(
@@ -59,53 +60,67 @@ Widget _buildScreen({
 
   return ProviderScope(
     overrides: [
-      favoriteRestaurantsProvider.overrideWith((_) async {
-        return favAsync.when(
-          data: (d) => d,
-          loading: () => throw UnimplementedError(),
-          error: (e, _) => throw e,
-        );
-      }),
+      favoriteRestaurantsProvider
+          .overrideWith((_) async => restaurants),
       favoritesProvider.overrideWith((_) => _FakeNotifier(favIds)),
     ],
     child: MaterialApp.router(routerConfig: router),
   );
 }
 
+/// Build a FavoritesScreen that simulates a loading state (never resolves).
+Widget _buildLoadingScreen() {
+  return ProviderScope(
+    overrides: [
+      favoriteRestaurantsProvider.overrideWith((_) async {
+        await Future<void>.delayed(const Duration(hours: 1));
+        return <RestaurantModel>[];
+      }),
+      favoritesProvider.overrideWith((_) => _FakeNotifier({})),
+    ],
+    child: const MaterialApp(home: FavoritesScreen()),
+  );
+}
+
+/// Build a FavoritesScreen that simulates an error.
+Widget _buildErrorScreen() {
+  return ProviderScope(
+    overrides: [
+      favoriteRestaurantsProvider.overrideWith((_) async {
+        throw Exception('Network error');
+      }),
+      favoritesProvider.overrideWith((_) => _FakeNotifier({})),
+    ],
+    child: const MaterialApp(home: FavoritesScreen()),
+  );
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
 void main() {
   group('FavoritesScreen - structure', () {
     testWidgets('renders Saved Restaurants AppBar', (tester) async {
-      await tester.pumpWidget(_buildScreen(favAsync: const AsyncData([])));
+      await tester.pumpWidget(_buildScreen(restaurants: []));
       await tester.pumpAndSettle();
       expect(find.text('Saved Restaurants'), findsOneWidget);
     });
 
     testWidgets('shows loading indicator while fetching', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            favoriteRestaurantsProvider.overrideWith((_) async {
-              await Future<void>.delayed(const Duration(hours: 1));
-              return <RestaurantModel>[];
-            }),
-            favoritesProvider.overrideWith((_) => _FakeNotifier({})),
-          ],
-          child: const MaterialApp(home: FavoritesScreen()),
-        ),
-      );
-      await tester.pump();
+      await tester.pumpWidget(_buildLoadingScreen());
+      await tester.pump(); // one frame — provider is still pending
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // Drain the fake timer so the test completes cleanly
       await tester.pump(const Duration(hours: 2));
     });
 
     testWidgets('shows empty state when no favorites', (tester) async {
-      await tester.pumpWidget(_buildScreen(favAsync: const AsyncData([])));
+      await tester.pumpWidget(_buildScreen(restaurants: []));
       await tester.pumpAndSettle();
       expect(find.text('No saved restaurants yet'), findsOneWidget);
     });
 
     testWidgets('shows hint text in empty state', (tester) async {
-      await tester.pumpWidget(_buildScreen(favAsync: const AsyncData([])));
+      await tester.pumpWidget(_buildScreen(restaurants: []));
       await tester.pumpAndSettle();
       expect(find.textContaining('Tap the'), findsOneWidget);
     });
@@ -119,7 +134,7 @@ void main() {
 
     testWidgets('renders restaurant names', (tester) async {
       await tester.pumpWidget(
-          _buildScreen(favAsync: AsyncData(restaurants), favIds: {'r1', 'r2'}));
+          _buildScreen(restaurants: restaurants, favIds: {'r1', 'r2'}));
       await tester.pumpAndSettle();
       expect(find.text('Pizza Palace'), findsOneWidget);
       expect(find.text('Burger Barn'), findsOneWidget);
@@ -127,29 +142,27 @@ void main() {
 
     testWidgets('shows category for each restaurant', (tester) async {
       await tester.pumpWidget(
-          _buildScreen(favAsync: AsyncData(restaurants), favIds: {'r1', 'r2'}));
+          _buildScreen(restaurants: restaurants, favIds: {'r1', 'r2'}));
       await tester.pumpAndSettle();
       expect(find.text('Fast Food'), findsWidgets);
     });
 
     testWidgets('shows Open status for open restaurants', (tester) async {
       await tester.pumpWidget(
-          _buildScreen(favAsync: AsyncData(restaurants), favIds: {'r1', 'r2'}));
+          _buildScreen(restaurants: restaurants, favIds: {'r1', 'r2'}));
       await tester.pumpAndSettle();
       expect(find.text('Open'), findsWidgets);
     });
 
     testWidgets('shows filled heart icon for each favorite', (tester) async {
       await tester.pumpWidget(
-          _buildScreen(favAsync: AsyncData(restaurants), favIds: {'r1', 'r2'}));
+          _buildScreen(restaurants: restaurants, favIds: {'r1', 'r2'}));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.favorite), findsWidgets);
     });
 
     testWidgets('shows error message when loading fails', (tester) async {
-      await tester.pumpWidget(_buildScreen(
-        favAsync: AsyncError('Network error', StackTrace.empty),
-      ));
+      await tester.pumpWidget(_buildErrorScreen());
       await tester.pumpAndSettle();
       expect(find.textContaining('Error'), findsOneWidget);
     });

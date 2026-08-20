@@ -9,7 +9,7 @@ import 'package:food_delivery_customer/features/auth/services/auth_service.dart'
 import 'package:food_delivery_customer/core/network/dio_client.dart';
 import 'package:food_delivery_customer/core/storage/secure_storage.dart';
 
-// ── Fake AuthService (minimal stub) ──────────────────────────────────────────
+// ── Fake AuthService ──────────────────────────────────────────────────────────
 
 class _FakeAuthService extends AuthService {
   _FakeAuthService() : super(DioClient(), SecureStorageService());
@@ -19,10 +19,17 @@ class _FakeAuthService extends AuthService {
   Future<void> logout() async {}
 }
 
+// ── Fake Ref stub ─────────────────────────────────────────────────────────────
+
+class _FakeRef implements Ref {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
 // ── Fake notifiers ────────────────────────────────────────────────────────────
 
 class FakeRegisterNotifier extends AuthNotifier {
-  FakeRegisterNotifier() : super(_FakeAuthService());
+  FakeRegisterNotifier() : super(_FakeAuthService(), _FakeRef());
   bool registerCalled = false;
   String? lastEmail;
 
@@ -39,7 +46,7 @@ class FakeRegisterNotifier extends AuthNotifier {
 }
 
 class FakeRegisterErrorNotifier extends AuthNotifier {
-  FakeRegisterErrorNotifier() : super(_FakeAuthService());
+  FakeRegisterErrorNotifier() : super(_FakeAuthService(), _FakeRef());
 
   @override
   Future<void> register(String email, String password) async {
