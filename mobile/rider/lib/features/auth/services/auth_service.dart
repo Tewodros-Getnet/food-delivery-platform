@@ -43,11 +43,20 @@ class AuthService {
   Future<({String userId, String? devOtp})> register({
     required String email,
     required String password,
+    String? displayName,
+    String? phone,
   }) async {
     try {
       final res = await _client.dio.post(
         ApiConstants.register,
-        data: {'email': email, 'password': password, 'role': 'rider'},
+        data: {
+          'email': email,
+          'password': password,
+          'role': 'rider',
+          if (displayName != null && displayName.isNotEmpty)
+            'displayName': displayName,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
+        },
       );
       final data = res.data['data'] as Map<String, dynamic>;
       return (

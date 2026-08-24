@@ -27,7 +27,6 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   bool _onDelivery = false;
   String? _activeOrderId;
   Map<String, dynamic>? _deliveryRequest;
-  Map<String, dynamic>? _pendingInvitation; // pending restaurant invitation
   // Navigation coordinates set when rider accepts a delivery
   double? _restaurantLat, _restaurantLon;
   double? _customerLat, _customerLon;
@@ -91,38 +90,6 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
 
     _connectSocket();
     _restoreAvailability();
-    _checkInvitation();
-  }
-
-  Future<void> _checkInvitation() async {
-    try {
-      final res = await ref.read(riderServiceProvider).getPendingInvitation();
-      if (mounted && res != null) {
-        setState(() => _pendingInvitation = res);
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _respondInvitation(bool accept) async {
-    final id = _pendingInvitation?['id'] as String?;
-    if (id == null) return;
-    try {
-      await ref.read(riderServiceProvider).respondInvitation(id, accept);
-      setState(() => _pendingInvitation = null);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(accept
-              ? 'You joined the restaurant team!'
-              : 'Invitation declined'),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
   }
 
   // Restore persisted availability on app start / return from background
@@ -281,12 +248,13 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     _socket!.on('disconnect',
         (reason) => debugPrint('Rider socket disconnected: $reason'));
 
-    // Real-time invitation from restaurant — show banner without needing app restart
+    // Real-time invitation from restaurant — delegate to authProvider
+    // so the router can navigate to /invitation automatically.
     _socket!.on('rider:invitation', (data) {
       if (!mounted) return;
       final payload = data['data'] as Map<String, dynamic>? ?? {};
       if (payload.isEmpty) return;
-      setState(() => _pendingInvitation = payload);
+      ref.read(authProvider.notifier).onInvitationReceived(payload);
     });
   }
 
@@ -520,89 +488,6 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
               ),
             ),
             const SizedBox(height: 12),
-
-            // ── Pending invitation card ──────────────────────────────────
-            if (_pendingInvitation != null) ...[
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(Icons.store_outlined,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 18),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Restaurant Invitation',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      '${_pendingInvitation!['restaurant_name']} wants you to join their delivery team.',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    if ((_pendingInvitation!['restaurant_address'] as String?)
-                            ?.isNotEmpty ==
-                        true) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        _pendingInvitation!['restaurant_address'] as String,
-                        style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.55),
-                            fontSize: 12),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Row(children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _respondInvitation(true),
-                          child: const Text('Accept'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _respondInvitation(false),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: const Text('Decline'),
-                        ),
-                      ),
-                    ]),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
 
             // ── Delivery request card ────────────────────────────────────
             if (_deliveryRequest != null) ...[

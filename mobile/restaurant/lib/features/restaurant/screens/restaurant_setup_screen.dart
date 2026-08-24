@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../features/auth/providers/auth_provider.dart';
 import 'map_picker_screen.dart';
 
 class RestaurantSetupScreen extends ConsumerStatefulWidget {
@@ -13,16 +14,14 @@ class RestaurantSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
+  final _formKey     = GlobalKey<FormState>();
+  final _nameCtrl    = TextEditingController();
+  final _descCtrl    = TextEditingController();
   final _addressCtrl = TextEditingController();
   double? _latitude;
   double? _longitude;
   bool _isLoading = false;
   String? _error;
-
-  static const _brandColor = Color(0xFF2E7D32);
 
   @override
   void dispose() {
@@ -39,7 +38,7 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
     );
     if (result != null) {
       setState(() {
-        _latitude = result['latitude'] as double;
+        _latitude  = result['latitude']  as double;
         _longitude = result['longitude'] as double;
       });
     }
@@ -47,100 +46,106 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_latitude == null || _longitude == null) {
-      setState(
-          () => _error = 'Please pick your restaurant location on the map');
+    if (_latitude == null) {
+      setState(() => _error = 'Please pin your restaurant location on the map');
       return;
     }
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    setState(() { _isLoading = true; _error = null; });
     try {
       await ref.read(dioClientProvider).dio.post(
         ApiConstants.restaurants,
         data: {
-          'name': _nameCtrl.text.trim(),
+          'name':        _nameCtrl.text.trim(),
           'description': _descCtrl.text.trim(),
-          'address': _addressCtrl.text.trim(),
-          'latitude': _latitude,
-          'longitude': _longitude,
+          'address':     _addressCtrl.text.trim(),
+          'latitude':    _latitude,
+          'longitude':   _longitude,
         },
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Restaurant submitted for approval!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        context.go('/orders');
+        // Tell AuthNotifier a restaurant now exists with pending status
+        ref.read(authProvider.notifier).onRestaurantCreated();
+        // Router redirect will pick up the state change and go to
+        // /pending-approval automatically, but we also push explicitly
+        // to be safe.
+        context.go('/pending-approval');
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  InputDecoration _field(String label, IconData icon, {String? hint}) =>
-      InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 20),
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _brandColor, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 1.5),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isRejection =
+        ref.watch(authProvider).restaurantStatus == 'rejected';
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       body: CustomScrollView(
         slivers: [
-          // ── Hero header ────────────────────────────────────────────────
+          // ── Hero SliverAppBar ───────────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 180,
+            expandedHeight: 200,
             pinned: true,
-            backgroundColor: _brandColor,
-            foregroundColor: Colors.white,
-            title: const Text('Register Restaurant',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            automaticallyImplyLeading: false,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      cs.primary.withValues(alpha: 0.9),
+                      cs.primary,
+                    ],
                   ),
                 ),
-                child: const SafeArea(
+                child: SafeArea(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(height: 40),
-                      Icon(Icons.storefront, size: 52, color: Colors.white),
-                      SizedBox(height: 10),
-                      Text('Tell us about your restaurant',
-                          style:
-                              TextStyle(color: Colors.white70, fontSize: 14)),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              width: 2),
+                        ),
+                        child: Icon(
+                          isRejection
+                              ? Icons.refresh_rounded
+                              : Icons.add_business_rounded,
+                          size: 30,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        isRejection
+                            ? 'Re-submit Application'
+                            : 'Register Restaurant',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isRejection
+                            ? 'Update your details and re-apply'
+                            : 'Start accepting orders on our platform',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13),
+                      ),
                     ],
                   ),
                 ),
@@ -151,70 +156,111 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
           // ── Form ───────────────────────────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 48),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Info banner
+                    // Info / rejection banner
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.green.shade200),
-                      ),
-                      child: const Row(children: [
-                        Icon(Icons.info_outline,
-                            color: Color(0xFF2E7D32), size: 16),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Your restaurant will be reviewed by our team before going live.',
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xFF2E7D32)),
-                          ),
+                        color: isRejection
+                            ? cs.errorContainer
+                            : cs.primaryContainer.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isRejection
+                              ? cs.error.withValues(alpha: 0.3)
+                              : cs.primary.withValues(alpha: 0.2),
                         ),
-                      ]),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            isRejection
+                                ? Icons.warning_amber_rounded
+                                : Icons.info_outline_rounded,
+                            size: 16,
+                            color: isRejection
+                                ? cs.onErrorContainer
+                                : cs.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              isRejection
+                                  ? 'Your previous application was rejected. '
+                                      'Please review and update your details before re-submitting.'
+                                  : 'Your restaurant will be reviewed by our team before going live. '
+                                      'Approval usually takes 1–2 business days.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.45,
+                                color: isRejection
+                                    ? cs.onErrorContainer
+                                    : cs.primary.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 20),
+
+                    const SizedBox(height: 24),
 
                     // Restaurant name
+                    _Label('Restaurant Name'),
+                    const SizedBox(height: 6),
                     TextFormField(
                       controller: _nameCtrl,
                       textCapitalization: TextCapitalization.words,
-                      decoration:
-                          _field('Restaurant Name', Icons.storefront_outlined),
+                      textInputAction: TextInputAction.next,
+                      decoration: _dec(context,
+                          hint: 'e.g. Bella Vista Kitchen',
+                          icon: Icons.storefront_outlined),
                       validator: (v) =>
                           v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
-                    const SizedBox(height: 12),
+
+                    const SizedBox(height: 20),
 
                     // Description
+                    _Label('Description (optional)'),
+                    const SizedBox(height: 6),
                     TextFormField(
                       controller: _descCtrl,
                       maxLines: 3,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration: _field(
-                          'Description (optional)', Icons.description_outlined,
-                          hint: 'e.g. Traditional Ethiopian cuisine...'),
+                      decoration: _dec(context,
+                          hint:
+                              'e.g. Authentic Ethiopian cuisine with a modern twist...',
+                          icon: Icons.description_outlined),
                     ),
-                    const SizedBox(height: 12),
+
+                    const SizedBox(height: 20),
 
                     // Address
+                    _Label('Address / Area'),
+                    const SizedBox(height: 6),
                     TextFormField(
                       controller: _addressCtrl,
                       textCapitalization: TextCapitalization.words,
-                      decoration: _field(
-                          'Address / Area Name', Icons.location_city_outlined,
-                          hint: 'e.g. Bole, Addis Ababa'),
+                      textInputAction: TextInputAction.done,
+                      decoration: _dec(context,
+                          hint: 'e.g. Bole, Addis Ababa',
+                          icon: Icons.location_city_outlined),
                       validator: (v) =>
                           v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
-                    const SizedBox(height: 16),
 
-                    // Map picker
+                    const SizedBox(height: 20),
+
+                    // Map location picker
+                    _Label('Pin Location on Map'),
+                    const SizedBox(height: 6),
                     GestureDetector(
                       onTap: _pickLocation,
                       child: Container(
@@ -222,25 +268,35 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
                             horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
                           color: _latitude != null
-                              ? Colors.green.shade50
-                              : Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
+                              ? cs.primaryContainer.withValues(alpha: 0.35)
+                              : cs.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: _latitude != null
-                                ? _brandColor
-                                : Colors.grey.shade300,
+                                ? cs.primary.withValues(alpha: 0.4)
+                                : cs.outline.withValues(alpha: 0.25),
                             width: _latitude != null ? 1.5 : 1,
                           ),
                         ),
                         child: Row(children: [
-                          Icon(
-                            _latitude != null
-                                ? Icons.location_on
-                                : Icons.add_location_alt_outlined,
-                            color: _latitude != null
-                                ? _brandColor
-                                : Colors.grey[500],
-                            size: 20,
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: _latitude != null
+                                  ? cs.primary.withValues(alpha: 0.1)
+                                  : cs.onSurface.withValues(alpha: 0.06),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _latitude != null
+                                  ? Icons.location_on_rounded
+                                  : Icons.add_location_alt_outlined,
+                              size: 20,
+                              color: _latitude != null
+                                  ? cs.primary
+                                  : cs.onSurface.withValues(alpha: 0.45),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -250,77 +306,89 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
                                 Text(
                                   _latitude != null
                                       ? 'Location selected ✓'
-                                      : 'Pick Location on Map',
+                                      : 'Tap to drop a pin on the map',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
                                     color: _latitude != null
-                                        ? _brandColor
-                                        : Colors.grey[700],
+                                        ? cs.primary
+                                        : cs.onSurface.withValues(alpha: 0.7),
                                   ),
                                 ),
-                                if (_latitude != null)
-                                  Text(
-                                    '${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey[500],
-                                        fontFamily: 'monospace'),
-                                  )
-                                else
-                                  Text('Required — tap to open map',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[500])),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _latitude != null
+                                      ? '${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}'
+                                      : 'Required — customers use this to find you',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: cs.onSurface.withValues(alpha: 0.45),
+                                    fontFamily:
+                                        _latitude != null ? 'monospace' : null,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          Icon(Icons.chevron_right,
-                              color: Colors.grey[400], size: 20),
+                          Icon(Icons.chevron_right_rounded,
+                              color: cs.onSurface.withValues(alpha: 0.3)),
                         ]),
                       ),
                     ),
 
-                    // Error
+                    // Error messages
                     if (_error != null) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.red.shade200),
+                          color: cs.errorContainer,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(_error!,
-                            style: TextStyle(
-                                color: Colors.red.shade700, fontSize: 13)),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.error_outline_rounded,
+                                size: 16, color: cs.onErrorContainer),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _error!,
+                                style: TextStyle(
+                                    color: cs.onErrorContainer,
+                                    fontSize: 13,
+                                    height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
 
                     // Submit button
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _brandColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white))
-                            : const Text('Submit for Approval',
-                                style: TextStyle(
-                                    fontSize: 15, fontWeight: FontWeight.bold)),
+                    FilledButton(
+                      onPressed: _isLoading ? null : _submit,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 52),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
                       ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2.5, color: Colors.white))
+                          : Text(
+                              isRejection
+                                  ? 'Re-submit Application'
+                                  : 'Submit for Approval',
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold),
+                            ),
                     ),
                   ],
                 ),
@@ -331,4 +399,64 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
       ),
     );
   }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+class _Label extends StatelessWidget {
+  final String text;
+  const _Label(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: cs.onSurface.withValues(alpha: 0.7),
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
+InputDecoration _dec(
+  BuildContext context, {
+  required String hint,
+  required IconData icon,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(
+        fontSize: 14, color: cs.onSurface.withValues(alpha: 0.35)),
+    prefixIcon:
+        Icon(icon, size: 20, color: cs.onSurface.withValues(alpha: 0.45)),
+    filled: true,
+    fillColor: cs.surfaceContainerLowest,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: cs.primary, width: 1.8),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: cs.error),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: cs.error, width: 1.8),
+    ),
+    contentPadding:
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  );
 }
