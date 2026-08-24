@@ -50,6 +50,8 @@ interface ActiveOrder {
   items_summary: string | null;
 }
 
+type RestaurantAction = 'approve' | 'reject' | 'suspend' | 'unsuspend' | 'reopen';
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, string> = {
@@ -74,6 +76,12 @@ const ORDER_STATUS_STYLES: Record<string, string> = {
   delivered:         'bg-green-50 text-green-700',
   cancelled:         'bg-red-50 text-red-600',
 };
+
+const DAY_LABELS: Record<string, string> = {
+  monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu',
+  friday: 'Fri', saturday: 'Sat', sunday: 'Sun',
+};
+const DAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
 
@@ -120,7 +128,7 @@ function RejectModal({ onConfirm, onCancel }: { onConfirm: (reason: string) => v
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-1">Reject Restaurant</h3>
-        <p className="text-sm text-gray-500 mb-4">Provide a reason so the owner knows what to fix.</p>
+        <p className="text-sm text-gray-500 mb-4">Provide a reason so the owner knows what to fix and can re-submit.</p>
         <textarea
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400"
           rows={4}
@@ -149,18 +157,27 @@ type DrawerTab = 'info' | 'menu' | 'orders';
 
 function DetailDrawer({
   restaurant,
+  acting,
   onClose,
   onAction,
 }: {
   restaurant: Restaurant;
+  acting: boolean;
   onClose: () => void;
-  onAction: (id: string, action: 'approve' | 'reject' | 'suspend' | 'unsuspend') => void;
+  onAction: (id: string, action: RestaurantAction) => void;
 }) {
   const [tab, setTab] = useState<DrawerTab>('info');
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // Reset lazy-loaded tabs when restaurant changes
+  useEffect(() => {
+    setTab('info');
+    setMenu([]);
+    setOrders([]);
+  }, [restaurant.id]);
 
   useEffect(() => {
     if (tab === 'menu' && menu.length === 0) {
@@ -181,7 +198,7 @@ function DetailDrawer({
 
   const tabs: { key: DrawerTab; label: string; count?: number }[] = [
     { key: 'info',   label: 'Details' },
-    { key: 'menu',   label: 'Menu',   count: parseInt(restaurant.menu_count) },
+    { key: 'menu',   label: 'Menu',         count: parseInt(restaurant.menu_count) },
     { key: 'orders', label: 'Active Orders', count: parseInt(restaurant.active_orders_count) },
   ];
 
@@ -189,7 +206,8 @@ function DetailDrawer({
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-xl bg-white shadow-2xl flex flex-col h-full overflow-hidden">
-        {/* Drawer header */}
+
+        {/* Header */}
         <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
             {restaurant.logo_url ? (
@@ -244,17 +262,19 @@ function DetailDrawer({
           {/* ── INFO TAB ── */}
           {tab === 'info' && (
             <div className="space-y-5">
+
               {/* Cover image */}
               {restaurant.cover_image_url && (
                 <img src={restaurant.cover_image_url} alt="cover" className="w-full h-36 object-cover rounded-xl" />
               )}
 
-              {/* Stats row */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* Stats row — now includes total_orders */}
+              <div className="grid grid-cols-4 gap-3">
                 {[
-                  { label: 'Rating', value: `${Number(restaurant.average_rating).toFixed(1)} ★` },
-                  { label: 'Menu Items', value: restaurant.menu_count },
+                  { label: 'Rating',        value: `${Number(restaurant.average_rating).toFixed(1)} ★` },
+                  { label: 'Menu Items',    value: restaurant.menu_count },
                   { label: 'Active Orders', value: restaurant.active_orders_count },
+                  { label: 'Total Orders',  value: restaurant.total_orders },
                 ].map((s) => (
                   <div key={s.label} className="bg-gray-50 rounded-xl p-3 text-center">
                     <p className="text-lg font-bold text-gray-900">{s.value}</p>
@@ -263,32 +283,77 @@ function DetailDrawer({
                 ))}
               </div>
 
+              {/* Rejection reason — shown prominently when rejected */}
+              {restaurant.status === 'rejected' && restaurant.rejection_reason && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    <p className="text-xs font-semibold text-red-700">Rejection Reason</p>
+                  </div>
+                  <p className="text-sm text-red-700">{restaurant.rejection_reason}</p>
+                </div>
+              )}
+
               {/* Info fields */}
               {[
-                { label: 'Owner', value: `${restaurant.owner_name ?? '—'} · ${restaurant.owner_email}` },
-                { label: 'Phone', value: restaurant.owner_phone ?? '—' },
+                { label: 'Owner',   value: `${restaurant.owner_name ?? '—'} · ${restaurant.owner_email}` },
+                { label: 'Phone',   value: restaurant.owner_phone ?? '—' },
                 { label: 'Address', value: restaurant.address },
                 { label: 'Category', value: restaurant.category ?? '—' },
-                { label: 'Joined', value: new Date(restaurant.created_at).toLocaleDateString() },
+                { label: 'Joined',  value: new Date(restaurant.created_at).toLocaleDateString() },
+                { label: 'Updated', value: new Date(restaurant.updated_at).toLocaleDateString() },
               ].map((f) => (
                 <div key={f.label} className="flex gap-3">
-                  <span className="w-24 text-xs text-gray-400 shrink-0 pt-0.5">{f.label}</span>
+                  <span className="w-20 text-xs text-gray-400 shrink-0 pt-0.5">{f.label}</span>
                   <span className="text-sm text-gray-800 break-all">{f.value}</span>
                 </div>
               ))}
 
               {restaurant.description && (
                 <div className="flex gap-3">
-                  <span className="w-24 text-xs text-gray-400 shrink-0 pt-0.5">Description</span>
+                  <span className="w-20 text-xs text-gray-400 shrink-0 pt-0.5">Description</span>
                   <span className="text-sm text-gray-600">{restaurant.description}</span>
                 </div>
               )}
 
-              {/* Rejection reason */}
-              {restaurant.status === 'rejected' && restaurant.rejection_reason && (
-                <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-red-600 mb-1">Rejection Reason</p>
-                  <p className="text-sm text-red-700">{restaurant.rejection_reason}</p>
+              {/* Operating hours */}
+              {restaurant.operating_hours && Object.keys(restaurant.operating_hours).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Operating Hours</p>
+                  <div className="bg-gray-50 rounded-xl overflow-hidden divide-y divide-gray-100">
+                    {DAY_ORDER.filter((d) => restaurant.operating_hours![d]).map((day) => {
+                      const h = restaurant.operating_hours![day];
+                      return (
+                        <div key={day} className="flex items-center justify-between px-4 py-2.5">
+                          <span className="text-sm font-medium text-gray-700 w-12">{DAY_LABELS[day]}</span>
+                          <span className="text-sm text-gray-600">
+                            {h.open} – {h.close}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Location map — OpenStreetMap iframe, no API key needed */}
+              {restaurant.latitude && restaurant.longitude && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Location</p>
+                  <div className="rounded-xl overflow-hidden border border-gray-100 h-48">
+                    <iframe
+                      title="Restaurant location"
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${restaurant.longitude - 0.005},${restaurant.latitude - 0.005},${restaurant.longitude + 0.005},${restaurant.latitude + 0.005}&layer=mapnik&marker=${restaurant.latitude},${restaurant.longitude}`}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {restaurant.latitude.toFixed(5)}, {restaurant.longitude.toFixed(5)}
+                  </p>
                 </div>
               )}
             </div>
@@ -299,9 +364,7 @@ function DetailDrawer({
             <div>
               {loadingMenu ? (
                 <div className="space-y-3">
-                  {[1,2,3].map((i) => (
-                    <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
-                  ))}
+                  {[1,2,3].map((i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
                 </div>
               ) : menu.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
@@ -342,9 +405,7 @@ function DetailDrawer({
             <div>
               {loadingOrders ? (
                 <div className="space-y-3">
-                  {[1,2,3].map((i) => (
-                    <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
-                  ))}
+                  {[1,2,3].map((i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
                 </div>
               ) : orders.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
@@ -382,26 +443,34 @@ function DetailDrawer({
         <div className="shrink-0 border-t border-gray-100 px-6 py-4 flex gap-2 flex-wrap">
           {restaurant.status === 'pending' && (
             <>
-              <button onClick={() => onAction(restaurant.id, 'approve')}
-                className="flex-1 text-sm bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl transition-colors font-medium">
-                Approve
+              <button onClick={() => onAction(restaurant.id, 'approve')} disabled={acting}
+                className="flex-1 text-sm bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
+                ✓ Approve
               </button>
-              <button onClick={() => onAction(restaurant.id, 'reject')}
-                className="flex-1 text-sm bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl transition-colors font-medium">
-                Reject
+              <button onClick={() => onAction(restaurant.id, 'reject')} disabled={acting}
+                className="flex-1 text-sm bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
+                ✕ Reject
               </button>
             </>
           )}
           {restaurant.status === 'approved' && (
-            <button onClick={() => onAction(restaurant.id, 'suspend')}
-              className="flex-1 text-sm bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-xl transition-colors font-medium">
-              Suspend
+            <button onClick={() => onAction(restaurant.id, 'suspend')} disabled={acting}
+              className="flex-1 text-sm bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
+              Suspend Restaurant
             </button>
           )}
           {restaurant.status === 'suspended' && (
-            <button onClick={() => onAction(restaurant.id, 'unsuspend')}
-              className="flex-1 text-sm bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl transition-colors font-medium">
-              Reactivate
+            <button onClick={() => onAction(restaurant.id, 'unsuspend')} disabled={acting}
+              className="flex-1 text-sm bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
+              Reactivate Restaurant
+            </button>
+          )}
+          {/* Rejected restaurants can be moved back to pending so the owner
+              can fix issues and the admin can re-review */}
+          {restaurant.status === 'rejected' && (
+            <button onClick={() => onAction(restaurant.id, 'reopen')} disabled={acting}
+              className="flex-1 text-sm bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
+              Re-open for Review
             </button>
           )}
         </div>
@@ -416,8 +485,8 @@ export default function RestaurantsPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
-  const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Restaurant | null>(null);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
@@ -435,7 +504,7 @@ export default function RestaurantsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Debounce search
+  // Debounced search
   useEffect(() => {
     const t = setTimeout(() => {
       setSearch(searchInput);
@@ -444,26 +513,38 @@ export default function RestaurantsPage() {
     return () => clearTimeout(t);
   }, [searchInput, filter, load]);
 
-  const doAction = async (id: string, action: 'approve' | 'reject' | 'suspend' | 'unsuspend', reason?: string) => {
+  const doAction = async (
+    id: string,
+    action: RestaurantAction,
+    reason?: string,
+  ) => {
+    // Reject requires a reason — open the modal first
     if (action === 'reject' && reason === undefined) {
       setRejectTarget(id);
       return;
     }
     setActing(id);
     try {
-      const endpoints: Record<string, string> = {
-        approve:   `/restaurants/${id}/approve`,
-        reject:    `/restaurants/${id}/reject`,
-        suspend:   `/restaurants/${id}/suspend`,
+      // All admin-scoped endpoints now consistently use the /admin/ prefix.
+      // The backend routes these through admin middleware which checks the role.
+      const endpoints: Record<RestaurantAction, string> = {
+        approve:   `/admin/restaurants/${id}/approve`,
+        reject:    `/admin/restaurants/${id}/reject`,
+        suspend:   `/admin/restaurants/${id}/suspend`,
         unsuspend: `/admin/restaurants/${id}/unsuspend`,
+        reopen:    `/admin/restaurants/${id}/reopen`,
       };
-      const methods: Record<string, 'post' | 'put'> = {
-        approve: 'post', reject: 'post', suspend: 'put', unsuspend: 'put',
+      const methods: Record<RestaurantAction, 'post' | 'put'> = {
+        approve:   'post',
+        reject:    'post',
+        suspend:   'put',
+        unsuspend: 'put',
+        reopen:    'put',
       };
       const body = action === 'reject' && reason ? { reason } : undefined;
       await api[methods[action]](endpoints[action], body);
       load(filter || undefined, search || undefined);
-      // Refresh drawer if open
+      // Refresh the drawer if the acted-on restaurant is currently open
       if (selected?.id === id) {
         const res = await api.get(`/admin/restaurants/${id}`);
         setSelected(res.data.data as Restaurant);
@@ -478,6 +559,7 @@ export default function RestaurantsPage() {
   const counts = {
     pending:  restaurants.filter((r) => r.status === 'pending').length,
     approved: restaurants.filter((r) => r.status === 'approved').length,
+    rejected: restaurants.filter((r) => r.status === 'rejected').length,
   };
 
   return (
@@ -492,6 +574,7 @@ export default function RestaurantsPage() {
       {selected && (
         <DetailDrawer
           restaurant={selected}
+          acting={acting === selected.id}
           onClose={() => setSelected(null)}
           onAction={(id, action) => { void doAction(id, action); }}
         />
@@ -504,9 +587,12 @@ export default function RestaurantsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Restaurants</h1>
             <p className="text-gray-500 text-sm mt-0.5">
               {counts.pending > 0 && (
-                <span className="text-amber-600 font-medium">{counts.pending} pending approval · </span>
+                <span className="text-amber-600 font-medium">{counts.pending} pending · </span>
               )}
               {counts.approved} active
+              {counts.rejected > 0 && (
+                <span className="text-red-500 font-medium"> · {counts.rejected} rejected</span>
+              )}
             </p>
           </div>
 
@@ -536,6 +622,24 @@ export default function RestaurantsPage() {
             </select>
           </div>
         </div>
+
+        {/* Pending alert banner */}
+        {counts.pending > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-amber-800 flex-1">
+              <span className="font-semibold">{counts.pending} restaurant{counts.pending !== 1 ? 's' : ''}</span> awaiting approval.
+            </p>
+            <button
+              onClick={() => { setFilter('pending'); load('pending', search || undefined); }}
+              className="text-sm font-semibold text-amber-700 hover:underline whitespace-nowrap"
+            >
+              Show pending →
+            </button>
+          </div>
+        )}
 
         {/* Table */}
         {loading ? <TableSkeleton /> : (
@@ -572,7 +676,15 @@ export default function RestaurantsPage() {
                             {r.name[0].toUpperCase()}
                           </div>
                         )}
-                        <span className="font-medium text-gray-800">{r.name}</span>
+                        <div>
+                          <span className="font-medium text-gray-800">{r.name}</span>
+                          {/* Rejection reason snippet visible directly in the row */}
+                          {r.status === 'rejected' && r.rejection_reason && (
+                            <p className="text-xs text-red-500 mt-0.5 max-w-[180px] truncate" title={r.rejection_reason}>
+                              ✕ {r.rejection_reason}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-5 py-4">
@@ -590,7 +702,7 @@ export default function RestaurantsPage() {
                     </td>
                     <td className="px-5 py-4"><StarRating value={r.average_rating} /></td>
                     <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-1.5 flex-wrap">
                         {r.status === 'pending' && (
                           <>
                             <button onClick={() => void doAction(r.id, 'approve')} disabled={acting === r.id}
@@ -613,6 +725,12 @@ export default function RestaurantsPage() {
                           <button onClick={() => void doAction(r.id, 'unsuspend')} disabled={acting === r.id}
                             className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
                             Reactivate
+                          </button>
+                        )}
+                        {r.status === 'rejected' && (
+                          <button onClick={() => void doAction(r.id, 'reopen')} disabled={acting === r.id}
+                            className="text-xs bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
+                            Re-open
                           </button>
                         )}
                       </div>
