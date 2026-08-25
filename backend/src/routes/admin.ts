@@ -99,57 +99,75 @@ router.get('/restaurants/:id/active-orders', ...adminAuth, async (req: Request, 
   } catch (err) { next(err); }
 });
 
-// GET /admin/users — Fix 1: correct LIMIT/OFFSET parameterization + Fix 5: pagination metadata
+// GET /admin/users
 router.get('/users', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { search, role, page, limit } = req.query as Record<string, string>;
-    const pageNum = parseInt(page ?? '1', 10);
+    const { search, role, status, verified, page, limit } = req.query as Record<string, string>;
+    const pageNum  = parseInt(page  ?? '1',  10);
     const limitNum = Math.min(parseInt(limit ?? '20', 10), 100);
-    const offset = (pageNum - 1) * limitNum;
+    const offset   = (pageNum - 1) * limitNum;
 
     const conditions: string[] = [];
-    const values: unknown[] = [];
+    const values: unknown[]    = [];
     let idx = 1;
 
     if (search) {
-      conditions.push('(email ILIKE $' + idx + ' OR display_name ILIKE $' + idx + ')');
+      conditions.push(`(email ILIKE $${idx} OR display_name ILIKE $${idx} OR phone ILIKE $${idx})`);
       values.push(`%${search}%`);
       idx++;
     }
     if (role) {
-      conditions.push('role = $' + idx);
+      conditions.push(`role = $${idx++}`);
       values.push(role);
-      idx++;
+    }
+    // status filter: 'active' | 'suspended'
+    if (status) {
+      conditions.push(`status = $${idx++}`);
+      values.push(status);
+    }
+    // verified filter: 'true' | 'false'
+    if (verified === 'true' || verified === 'false') {
+      conditions.push(`email_verified = $${idx++}`);
+      values.push(verified === 'true');
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Count total for pagination
     const countResult = await query(
       `SELECT COUNT(*) as total FROM users ${where}`,
-      values.slice()
+      values.slice(),
     );
     const total = parseInt(countResult.rows[0].total as string, 10);
 
+    // Also count unverified active users so the UI can show an alert banner
+    const unverifiedResult = await query(
+      `SELECT COUNT(*) as total FROM users WHERE email_verified = false AND status = 'active'`,
+      [],
+    );
+    const unverifiedCount = parseInt(unverifiedResult.rows[0].total as string, 10);
+
     values.push(limitNum, offset);
-    const limitParam = '$' + idx;
-    const offsetParam = '$' + (idx + 1);
+    const limitParam  = `$${idx}`;
+    const offsetParam = `$${idx + 1}`;
 
     const result = await query(
-      `SELECT id, email, role, display_name, phone, status, email_verified, created_at,
+      `SELECT id, email, role, display_name, phone, status, email_verified,
+              profile_photo_url, created_at, updated_at,
               CASE
-                WHEN role = 'customer' THEN (SELECT COUNT(*) FROM orders WHERE customer_id = users.id)::text
-                WHEN role = 'rider'    THEN (SELECT COUNT(*) FROM orders WHERE rider_id = users.id AND status = 'delivered')::text
-                WHEN role = 'restaurant' THEN (SELECT COUNT(*) FROM restaurants WHERE owner_id = users.id)::text
+                WHEN role = 'customer'    THEN (SELECT COUNT(*) FROM orders      WHERE customer_id = users.id)::text
+                WHEN role = 'rider'       THEN (SELECT COUNT(*) FROM orders      WHERE rider_id    = users.id AND status = 'delivered')::text
+                WHEN role = 'restaurant'  THEN (SELECT COUNT(*) FROM restaurants WHERE owner_id    = users.id)::text
                 ELSE '—'
               END as order_count
        FROM users ${where}
-       ORDER BY created_at DESC LIMIT ${limitParam} OFFSET ${offsetParam}`,
-      values
+       ORDER BY created_at DESC
+       LIMIT ${limitParam} OFFSET ${offsetParam}`,
+      values,
     );
 
     res.json(successResponse({
-      users: result.rows,
+      users:          result.rows,
+      unverifiedCount,
       pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
     }));
   } catch (err) { next(err); }
