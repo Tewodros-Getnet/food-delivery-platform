@@ -214,7 +214,7 @@ function DetailDrawer({
               <img src={restaurant.logo_url} alt={restaurant.name} className="w-12 h-12 rounded-xl object-cover" />
             ) : (
               <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 font-bold text-lg">
-                {restaurant.name[0].toUpperCase()}
+                {(restaurant.name || '?')[0].toUpperCase()}
               </div>
             )}
             <div>
@@ -302,8 +302,8 @@ function DetailDrawer({
                 { label: 'Phone',   value: restaurant.owner_phone ?? '—' },
                 { label: 'Address', value: restaurant.address },
                 { label: 'Category', value: restaurant.category ?? '—' },
-                { label: 'Joined',  value: new Date(restaurant.created_at).toLocaleDateString() },
-                { label: 'Updated', value: new Date(restaurant.updated_at).toLocaleDateString() },
+                { label: 'Joined',  value: restaurant.created_at ? new Date(restaurant.created_at).toLocaleDateString() : '—' },
+                { label: 'Updated', value: restaurant.updated_at ? new Date(restaurant.updated_at).toLocaleDateString() : '—' },
               ].map((f) => (
                 <div key={f.label} className="flex gap-3">
                   <span className="w-20 text-xs text-gray-400 shrink-0 pt-0.5">{f.label}</span>
@@ -673,7 +673,7 @@ export default function RestaurantsPage() {
                           <img src={r.logo_url} alt={r.name} className="w-8 h-8 rounded-lg object-cover shrink-0" />
                         ) : (
                           <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 font-bold text-sm shrink-0">
-                            {r.name[0].toUpperCase()}
+                            {(r.name || '?')[0].toUpperCase()}
                           </div>
                         )}
                         <div>

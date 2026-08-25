@@ -2,6 +2,16 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Safely format a date string — returns '—' if the value is null/undefined/invalid */
+function safeDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+}
+import { api } from '@/lib/api';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface User {
@@ -67,7 +77,7 @@ function exportCSV(users: User[]) {
     u.status,
     u.email_verified ? 'Yes' : 'No',
     u.order_count !== '—' ? `${u.order_count} ${ROLE_ACTIVITY_LABEL[u.role] ?? ''}`.trim() : '—',
-    new Date(u.created_at).toLocaleDateString(),
+    safeDate(u.created_at),
   ]);
   const csv = [headers, ...rows]
     .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
@@ -187,6 +197,44 @@ function BulkBar({
   );
 }
 
+// ── Copyable User ID ──────────────────────────────────────────────────────────
+
+function CopyableId({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = () => {
+    navigator.clipboard.writeText(id).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      onClick={copy}
+      title="Click to copy full ID"
+      className="flex items-center gap-1.5 group"
+    >
+      <span className="text-gray-400 text-xs font-mono">
+        {id.slice(0, 8)}…
+      </span>
+      {copied ? (
+        <svg className="w-3 h-3 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="w-3 h-3 text-gray-300 group-hover:text-gray-500 shrink-0 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      )}
+      {copied && (
+        <span className="text-green-500 text-xs font-medium">Copied!</span>
+      )}
+    </button>
+  );
+}
+
 // ── User detail drawer ────────────────────────────────────────────────────────
 
 function UserDrawer({
@@ -252,16 +300,18 @@ function UserDrawer({
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
             {user.profile_photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={user.profile_photo_url}
                 alt={user.display_name ?? user.email}
+                referrerPolicy="no-referrer"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
                 className="w-12 h-12 rounded-full object-cover shrink-0"
               />
-            ) : (
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${avatarColor(user.role)}`}>
-                {initials(user)}
-              </div>
-            )}
+            ) : null}
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${avatarColor(user.role)} ${user.profile_photo_url ? 'hidden' : ''}`}>
+              {initials(user)}
+            </div>
             <div>
               <p className="font-semibold text-gray-900 text-sm leading-tight">
                 {user.display_name || <span className="italic text-gray-400">No name</span>}
@@ -308,9 +358,9 @@ function UserDrawer({
                 </span>
               )],
               ['Phone', <span key="p" className="text-gray-700 text-xs">{user.phone || '—'}</span>],
-              ['Joined', <span key="j" className="text-gray-700 text-xs">{new Date(user.created_at).toLocaleDateString()}</span>],
-              ['Last updated', <span key="u" className="text-gray-700 text-xs">{new Date(user.updated_at).toLocaleDateString()}</span>],
-              ['User ID', <span key="id" className="text-gray-400 text-xs font-mono truncate">{user.id.slice(0, 16)}…</span>],
+              ['Joined', <span key="j" className="text-gray-700 text-xs">{safeDate(user.created_at)}</span>],
+              ['Last updated', <span key="u" className="text-gray-700 text-xs">{safeDate(user.updated_at)}</span>],
+              ['User ID', <CopyableId key="id" id={user.id} />],
             ] as [string, React.ReactNode][]).map(([label, val]) => (
               <div key={label} className="bg-gray-50 rounded-xl px-3 py-2.5">
                 <p className="text-xs text-gray-400 mb-0.5">{label}</p>
@@ -794,16 +844,22 @@ export default function UsersPage() {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             {u.profile_photo_url ? (
-                              <img src={u.profile_photo_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${avatarColor(u.role)}`}>
-                                {initials(u)}
-                              </div>
-                            )}
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={u.profile_photo_url}
+                                alt=""
+                                referrerPolicy="no-referrer"
+                                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
+                                className="w-8 h-8 rounded-full object-cover shrink-0"
+                              />
+                            ) : null}
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${avatarColor(u.role)} ${u.profile_photo_url ? 'hidden' : ''}`}>
+                              {initials(u)}
+                            </div>
                             <div className="min-w-0">
                               <p className="font-medium text-gray-900 truncate">{u.display_name || <span className="text-gray-400 italic">No name</span>}</p>
                               <p className="text-xs text-gray-400 truncate">{u.email}</p>
-                              {u.phone && <p className="text-xs text-gray-300">{u.phone}</p>}
+                              {u.phone && <p className="text-xs text-gray-500">{u.phone}</p>}
                             </div>
                           </div>
                         </td>
@@ -850,7 +906,7 @@ export default function UsersPage() {
 
                         {/* Joined */}
                         <td className="px-4 py-4 text-gray-400 text-xs whitespace-nowrap">
-                          {new Date(u.created_at).toLocaleDateString()}
+                          {safeDate(u.created_at)}
                         </td>
 
                         {/* Inline quick actions — stop propagation so drawer doesn't open */}
