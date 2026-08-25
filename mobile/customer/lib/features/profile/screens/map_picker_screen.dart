@@ -22,7 +22,9 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   @override
   void initState() {
     super.initState();
-    _goToMyLocation();
+    // Wait for the first frame so FlutterMap has mounted and registered
+    // the MapController before we call move() on it.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _goToMyLocation());
   }
 
   @override
@@ -33,24 +35,53 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   }
 
   Future<void> _goToMyLocation() async {
+    if (!mounted) return;
     setState(() => _locating = true);
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location services are disabled. Please enable GPS.'),
+            ),
+          );
+        }
+        return;
+      }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) return;
       }
-      if (permission == LocationPermission.deniedForever) return;
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Location permission permanently denied. '
+                'Please enable it in app settings.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
 
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+      if (!mounted) return;
       final loc = LatLng(pos.latitude, pos.longitude);
       setState(() => _pinPosition = loc);
       _mapController.move(loc, 16);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not get location: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _locating = false);
     }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -34,6 +35,17 @@ class _RestaurantDetailScreenState
   final _categoryKeys = <String, GlobalKey>{};
   List<String> _categories = [];
   bool _suppressTabListener = false;
+
+  // Drives the AppBar background opacity:
+  //   0.0 = fully transparent (cover image visible behind the bar)
+  //   1.0 = fully opaque surface color (cover collapsed, menu visible)
+  double _appBarOpacity = 0.0;
+
+  // The transition runs between these two scroll offsets.
+  // expandedHeight is 260; toolbar height ~56; transition starts just before
+  // the image is fully hidden and finishes when the bar is pinned on solid.
+  static const double _collapseStart = 160.0;
+  static const double _collapseEnd   = 220.0;
 
   @override
   void initState() {
@@ -75,6 +87,18 @@ class _RestaurantDetailScreenState
   }
 
   void _onScroll() {
+    // ── AppBar opacity ──────────────────────────────────────────────────────
+    if (_scrollController.hasClients) {
+      final offset = _scrollController.offset;
+      final opacity = ((offset - _collapseStart) /
+              (_collapseEnd - _collapseStart))
+          .clamp(0.0, 1.0);
+      if ((opacity - _appBarOpacity).abs() > 0.01) {
+        setState(() => _appBarOpacity = opacity);
+      }
+    }
+
+    // ── Category tab sync ───────────────────────────────────────────────────
     if (_tabController == null || _categories.isEmpty) return;
     int nearest = 0;
     double nearestDist = double.infinity;
@@ -117,15 +141,44 @@ class _RestaurantDetailScreenState
               SliverAppBar(
                 expandedHeight: 260,
                 pinned: true,
-                title: Text(r.name),
+                // Background interpolates from transparent → surface color.
+                // Using a Builder so we can read the theme inside the sliver.
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surface
+                    .withValues(alpha: _appBarOpacity),
+                // Foreground: white while the image shows, theme-color once collapsed.
+                foregroundColor: _appBarOpacity < 0.5
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.onSurface,
+                // Keep the status bar icons readable over both states.
+                systemOverlayStyle: _appBarOpacity < 0.5
+                    ? const SystemUiOverlayStyle(
+                        statusBarBrightness: Brightness.dark,
+                        statusBarIconBrightness: Brightness.light,
+                      )
+                    : null,
+                // Drop-shadow only appears when fully collapsed.
+                elevation: _appBarOpacity >= 1.0 ? 2 : 0,
+                shadowColor: Colors.black.withValues(alpha: 0.15),
+                title: AnimatedOpacity(
+                  opacity: _appBarOpacity,
+                  duration: const Duration(milliseconds: 80),
+                  child: Text(r.name),
+                ),
                 actions: [
                   Consumer(builder: (ctx, ref, _) {
                     final isFav = ref.watch(favoritesProvider
                         .select((s) => s.contains(widget.restaurantId)));
+                    // Icon color tracks the AppBar foreground transition:
+                    // white over the cover image, theme onSurface once collapsed.
+                    final iconColor = _appBarOpacity < 0.5
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.onSurface;
                     return IconButton(
                       icon: Icon(
                         isFav ? Icons.favorite : Icons.favorite_border,
-                        color: isFav ? Colors.red : Colors.white,
+                        color: isFav ? Colors.red : iconColor,
                       ),
                       onPressed: () => ref
                           .read(favoritesProvider.notifier)

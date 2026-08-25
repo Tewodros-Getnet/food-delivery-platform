@@ -70,7 +70,8 @@ class _FakeAuthService extends AuthService {
 // ── Fake AuthNotifier ─────────────────────────────────────────────────────────
 
 class FakeAuthNotifier extends AuthNotifier {
-  FakeAuthNotifier() : super(_FakeAuthService());
+  FakeAuthNotifier()
+      : super(_FakeAuthService(), _FakeDioClient());
 }
 
 // ── Fake RiderService ─────────────────────────────────────────────────────────
