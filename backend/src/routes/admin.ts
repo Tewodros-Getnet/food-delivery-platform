@@ -512,39 +512,124 @@ router.put('/config/:key', ...adminAuth, async (req: Request, res: Response, nex
 
 // ── Riders (Medium #8) ────────────────────────────────────────────────────────
 
-// GET /admin/riders
+// GET /admin/riders — paginated list with filters
 router.get('/riders', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { page, limit } = req.query as Record<string, string>;
-    const pageNum = parseInt(page ?? '1', 10);
+    const { page, limit, search, status, availability } = req.query as Record<string, string>;
+    const pageNum  = parseInt(page  ?? '1',  10);
     const limitNum = Math.min(parseInt(limit ?? '20', 10), 100);
-    const offset = (pageNum - 1) * limitNum;
+    const offset   = (pageNum - 1) * limitNum;
+
+    const conditions: string[] = [`u.role = 'rider'`];
+    const values: unknown[]    = [];
+    let idx = 1;
+
+    if (search) {
+      conditions.push(`(u.email ILIKE $${idx} OR u.display_name ILIKE $${idx} OR u.phone ILIKE $${idx})`);
+      values.push(`%${search}%`);
+      idx++;
+    }
+    if (status) {
+      conditions.push(`u.status = $${idx++}`);
+      values.push(status);
+    }
+    if (availability) {
+      conditions.push(`rl.availability = $${idx++}`);
+      values.push(availability);
+    }
+
+    const where = conditions.join(' AND ');
 
     const countResult = await query(
-      `SELECT COUNT(*) as total FROM users WHERE role = 'rider'`
+      `SELECT COUNT(*) as total FROM users u
+       LEFT JOIN rider_locations rl ON rl.rider_id = u.id
+       WHERE ${where}`,
+      values.slice(),
     );
     const total = parseInt(countResult.rows[0].total as string, 10);
 
+    values.push(limitNum, offset);
     const result = await query(
       `SELECT u.id, u.email, u.display_name, u.phone, u.status, u.created_at,
               rl.availability, rl.timestamp as last_seen,
               rr.restaurant_id,
               r.name as restaurant_name,
+              ri.status as invitation_status,
+              rinv.name as invited_by,
               (SELECT COUNT(*) FROM orders WHERE rider_id = u.id AND status = 'delivered') as total_deliveries,
-              (SELECT AVG(rating) FROM ratings WHERE rider_id = u.id) as average_rating
+              (SELECT AVG(rating)::numeric(3,2) FROM ratings WHERE rider_id = u.id) as average_rating
        FROM users u
-       LEFT JOIN rider_locations rl ON rl.rider_id = u.id
-       LEFT JOIN restaurant_riders rr ON rr.rider_id = u.id
-       LEFT JOIN restaurants r ON r.id = rr.restaurant_id
-       WHERE u.role = 'rider'
+       LEFT JOIN rider_locations    rl   ON rl.rider_id   = u.id
+       LEFT JOIN restaurant_riders  rr   ON rr.rider_id   = u.id
+       LEFT JOIN restaurants        r    ON r.id           = rr.restaurant_id
+       -- rider_invitations stores the rider's email, not rider_id
+       LEFT JOIN rider_invitations  ri   ON ri.rider_email = u.email
+       LEFT JOIN restaurants        rinv ON rinv.id        = ri.restaurant_id
+       WHERE ${where}
        ORDER BY u.created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [limitNum, offset]
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      values,
     );
 
     res.json(successResponse({
-      riders: result.rows,
+      riders:     result.rows,
       pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+    }));
+  } catch (err) { next(err); }
+});
+
+// GET /admin/riders/:id — single rider detail with recent deliveries
+router.get('/riders/:id', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const riderResult = await query(
+      `SELECT u.id, u.email, u.display_name, u.phone, u.status,
+              u.profile_photo_url, u.created_at, u.updated_at,
+              rl.availability, rl.timestamp as last_seen,
+              rr.restaurant_id,
+              r.name  as restaurant_name,
+              ri.status as invitation_status,
+              rinv.name as invited_by,
+              (SELECT COUNT(*)            FROM orders WHERE rider_id = u.id AND status = 'delivered')                 as total_deliveries,
+              (SELECT COUNT(*)            FROM orders WHERE rider_id = u.id AND status = 'delivered'
+                AND created_at >= NOW() - INTERVAL '7 days')                                                          as this_week_deliveries,
+              (SELECT COUNT(*)            FROM orders WHERE rider_id = u.id AND status = 'delivered'
+                AND created_at >= NOW() - INTERVAL '30 days')                                                         as this_month_deliveries,
+              (SELECT AVG(rating)::numeric(3,2) FROM ratings WHERE rider_id = u.id)                                   as average_rating
+       FROM users u
+       LEFT JOIN rider_locations    rl   ON rl.rider_id   = u.id
+       LEFT JOIN restaurant_riders  rr   ON rr.rider_id   = u.id
+       LEFT JOIN restaurants        r    ON r.id           = rr.restaurant_id
+       LEFT JOIN rider_invitations  ri   ON ri.rider_email = u.email
+       LEFT JOIN restaurants        rinv ON rinv.id        = ri.restaurant_id
+       WHERE u.id = $1 AND u.role = 'rider'`,
+      [id],
+    );
+
+    if (!riderResult.rows[0]) {
+      res.status(404).json({ success: false, data: null, error: 'Rider not found' });
+      return;
+    }
+
+    const deliveriesResult = await query(
+      `SELECT o.id, o.status, o.total, o.created_at,
+              r.name  as restaurant_name,
+              u.display_name as customer_name
+       FROM   orders o
+       JOIN   restaurants r ON r.id = o.restaurant_id
+       JOIN   users        u ON u.id = o.customer_id
+       WHERE  o.rider_id = $1
+       ORDER  BY o.created_at DESC
+       LIMIT  10`,
+      [id],
+    );
+
+    res.json(successResponse({
+      ...riderResult.rows[0],
+      // suspension_reason is not stored in a dedicated table — omit rather than crash
+      suspension_reason: null,
+      recent_deliveries: deliveriesResult.rows,
     }));
   } catch (err) { next(err); }
 });

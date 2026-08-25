@@ -196,7 +196,46 @@ function BulkBar({
   );
 }
 
-// ── Copyable User ID ──────────────────────────────────────────────────────────
+// ── Safe image with fallback ──────────────────────────────────────────────────
+// Renders an <img> for the given src; falls back to the initial-letter avatar
+// if the image fails to load or src is null. Uses React state — no direct DOM
+// manipulation — so it works correctly in SSR and production builds.
+
+function UserAvatar({
+  src,
+  name,
+  role,
+  size = 'md',
+}: {
+  src: string | null;
+  name: string;
+  role: string;
+  size?: 'sm' | 'md';
+}) {
+  const [failed, setFailed] = useState(false);
+  const initial = (name || '?')[0].toUpperCase();
+  const color   = avatarColor(role);
+  const dim     = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-12 h-12 text-lg';
+
+  if (!src || failed) {
+    return (
+      <div className={`${dim} rounded-full flex items-center justify-center font-bold shrink-0 ${color}`}>
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={name}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className={`${dim} rounded-full object-cover shrink-0`}
+    />
+  );
+}
 
 function CopyableId({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
@@ -298,19 +337,12 @@ function UserDrawer({
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
-            {user.profile_photo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={user.profile_photo_url}
-                alt={user.display_name ?? user.email}
-                referrerPolicy="no-referrer"
-                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
-                className="w-12 h-12 rounded-full object-cover shrink-0"
-              />
-            ) : null}
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${avatarColor(user.role)} ${user.profile_photo_url ? 'hidden' : ''}`}>
-              {initials(user)}
-            </div>
+            <UserAvatar
+              src={user.profile_photo_url}
+              name={user.display_name || user.email}
+              role={user.role}
+              size="md"
+            />
             <div>
               <p className="font-semibold text-gray-900 text-sm leading-tight">
                 {user.display_name || <span className="italic text-gray-400">No name</span>}
@@ -842,19 +874,12 @@ export default function UsersPage() {
                         {/* User */}
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
-                            {u.profile_photo_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={u.profile_photo_url}
-                                alt=""
-                                referrerPolicy="no-referrer"
-                                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
-                                className="w-8 h-8 rounded-full object-cover shrink-0"
-                              />
-                            ) : null}
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${avatarColor(u.role)} ${u.profile_photo_url ? 'hidden' : ''}`}>
-                              {initials(u)}
-                            </div>
+                            <UserAvatar
+                              src={u.profile_photo_url}
+                              name={u.display_name || u.email}
+                              role={u.role}
+                              size="sm"
+                            />
                             <div className="min-w-0">
                               <p className="font-medium text-gray-900 truncate">{u.display_name || <span className="text-gray-400 italic">No name</span>}</p>
                               <p className="text-xs text-gray-400 truncate">{u.email}</p>

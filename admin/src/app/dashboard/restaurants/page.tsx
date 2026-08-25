@@ -120,7 +120,78 @@ function TableSkeleton() {
   );
 }
 
-// ── Rejection reason modal ────────────────────────────────────────────────────
+// ── Safe image components ─────────────────────────────────────────────────────
+// Uses React state to track load failure — no direct DOM mutation.
+
+function RestaurantLogo({
+  src,
+  name,
+  size = 'md',
+}: {
+  src: string | null;
+  name: string;
+  size?: 'sm' | 'md';
+}) {
+  const [failed, setFailed] = useState(false);
+  const initial = (name || '?')[0].toUpperCase();
+  const dim = size === 'sm'
+    ? 'w-8 h-8 rounded-lg text-sm'
+    : 'w-12 h-12 rounded-xl text-lg';
+
+  if (!src || failed) {
+    return (
+      <div className={`${dim} bg-orange-50 flex items-center justify-center text-orange-500 font-bold shrink-0`}>
+        {initial}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={name}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className={`${dim} object-cover shrink-0`}
+    />
+  );
+}
+
+function CoverImage({ src }: { src: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="cover"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="w-full h-36 object-cover rounded-xl"
+    />
+  );
+}
+
+function MenuItemImage({ src, name }: { src: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center text-orange-400 text-xl shrink-0">
+        🍴
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={name}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="w-12 h-12 rounded-lg object-cover shrink-0"
+    />
+  );
+}
 
 function RejectModal({ onConfirm, onCancel }: { onConfirm: (reason: string) => void; onCancel: () => void }) {
   const [reason, setReason] = useState('');
@@ -210,19 +281,7 @@ function DetailDrawer({
         {/* Header */}
         <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
-            {restaurant.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={restaurant.logo_url}
-                alt={restaurant.name}
-                referrerPolicy="no-referrer"
-                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
-                className="w-12 h-12 rounded-xl object-cover"
-              />
-            ) : null}
-            <div className={`w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 font-bold text-lg ${restaurant.logo_url ? 'hidden' : ''}`}>
-              {(restaurant.name || '?')[0].toUpperCase()}
-            </div>
+            <RestaurantLogo src={restaurant.logo_url} name={restaurant.name} size="md" />
             <div>
               <h2 className="font-semibold text-gray-900 text-lg leading-tight">{restaurant.name}</h2>
               <div className="flex items-center gap-2 mt-0.5">
@@ -270,16 +329,7 @@ function DetailDrawer({
             <div className="space-y-5">
 
               {/* Cover image */}
-              {restaurant.cover_image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={restaurant.cover_image_url}
-                  alt="cover"
-                  referrerPolicy="no-referrer"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  className="w-full h-36 object-cover rounded-xl"
-                />
-              )}
+              <CoverImage src={restaurant.cover_image_url} />
 
               {/* Stats row — now includes total_orders */}
               <div className="grid grid-cols-4 gap-3">
@@ -388,17 +438,7 @@ function DetailDrawer({
                 <div className="space-y-2">
                   {menu.map((item) => (
                     <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
-                      {item.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.image_url}
-                          alt={item.name}
-                          referrerPolicy="no-referrer"
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
-                          className="w-12 h-12 rounded-lg object-cover shrink-0"
-                        />
-                      ) : null}
-                      <div className={`w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center text-orange-400 text-xl shrink-0 ${item.image_url ? 'hidden' : ''}`}>🍴</div>
+                      <MenuItemImage src={item.image_url} name={item.name} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium text-gray-800 truncate">{item.name}</p>
@@ -502,13 +542,12 @@ function DetailDrawer({
 
 export default function RestaurantsPage() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('');
+  const [loading, setLoading]         = useState(true);
+  const [filter, setFilter]           = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Restaurant | null>(null);
+  const [selected, setSelected]       = useState<Restaurant | null>(null);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
-  const [acting, setActing] = useState<string | null>(null);
+  const [acting, setActing]           = useState<string | null>(null);
 
   const load = useCallback((status?: string, q?: string) => {
     setLoading(true);
@@ -523,16 +562,15 @@ export default function RestaurantsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Debounced search
+  // Debounced search — fires 350ms after the user stops typing
   useEffect(() => {
     const t = setTimeout(() => {
-      setSearch(searchInput);
       load(filter || undefined, searchInput || undefined);
     }, 350);
     return () => clearTimeout(t);
   }, [searchInput, filter, load]);
 
-  const doAction = async (
+  const doAction = useCallback(async (
     id: string,
     action: RestaurantAction,
     reason?: string,
@@ -544,8 +582,6 @@ export default function RestaurantsPage() {
     }
     setActing(id);
     try {
-      // All admin-scoped endpoints now consistently use the /admin/ prefix.
-      // The backend routes these through admin middleware which checks the role.
       const endpoints: Record<RestaurantAction, string> = {
         approve:   `/admin/restaurants/${id}/approve`,
         reject:    `/admin/restaurants/${id}/reject`,
@@ -562,18 +598,26 @@ export default function RestaurantsPage() {
       };
       const body = action === 'reject' && reason ? { reason } : undefined;
       await api[methods[action]](endpoints[action], body);
-      load(filter || undefined, search || undefined);
+      // Re-fetch the current filter + search state
+      setRestaurants((prev) => {
+        load(filter || undefined, searchInput || undefined);
+        return prev;
+      });
       // Refresh the drawer if the acted-on restaurant is currently open
-      if (selected?.id === id) {
-        const res = await api.get(`/admin/restaurants/${id}`);
-        setSelected(res.data.data as Restaurant);
-      }
+      setSelected((prev) => {
+        if (prev?.id === id) {
+          api.get(`/admin/restaurants/${id}`)
+            .then((res) => setSelected(res.data.data as Restaurant))
+            .catch(console.error);
+        }
+        return prev;
+      });
     } catch (e) {
       console.error(e);
     } finally {
       setActing(null);
     }
-  };
+  }, [filter, searchInput, load]);
 
   const counts = {
     pending:  restaurants.filter((r) => r.status === 'pending').length,
@@ -631,7 +675,7 @@ export default function RestaurantsPage() {
             </div>
             <select
               value={filter}
-              onChange={(e) => { setFilter(e.target.value); load(e.target.value || undefined, search || undefined); }}
+              onChange={(e) => { setFilter(e.target.value); load(e.target.value || undefined, searchInput || undefined); }}
               className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
             >
               <option value="">All Statuses</option>
@@ -652,7 +696,7 @@ export default function RestaurantsPage() {
               <span className="font-semibold">{counts.pending} restaurant{counts.pending !== 1 ? 's' : ''}</span> awaiting approval.
             </p>
             <button
-              onClick={() => { setFilter('pending'); load('pending', search || undefined); }}
+              onClick={() => { setFilter('pending'); load('pending', searchInput || undefined); }}
               className="text-sm font-semibold text-amber-700 hover:underline whitespace-nowrap"
             >
               Show pending →
@@ -688,19 +732,7 @@ export default function RestaurantsPage() {
                   >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        {r.logo_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={r.logo_url}
-                            alt={r.name}
-                            referrerPolicy="no-referrer"
-                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
-                            className="w-8 h-8 rounded-lg object-cover shrink-0"
-                          />
-                        ) : null}
-                        <div className={`w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 font-bold text-sm shrink-0 ${r.logo_url ? 'hidden' : ''}`}>
-                          {(r.name || '?')[0].toUpperCase()}
-                        </div>
+                        <RestaurantLogo src={r.logo_url} name={r.name} size="sm" />
                         <div>
                           <span className="font-medium text-gray-800">{r.name}</span>
                           {/* Rejection reason snippet visible directly in the row */}
