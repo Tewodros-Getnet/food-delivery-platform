@@ -598,20 +598,14 @@ export default function RestaurantsPage() {
       };
       const body = action === 'reject' && reason ? { reason } : undefined;
       await api[methods[action]](endpoints[action], body);
-      // Re-fetch the current filter + search state
-      setRestaurants((prev) => {
-        load(filter || undefined, searchInput || undefined);
-        return prev;
-      });
+      // Reload the list with current filters
+      load(filter || undefined, searchInput || undefined);
       // Refresh the drawer if the acted-on restaurant is currently open
-      setSelected((prev) => {
-        if (prev?.id === id) {
-          api.get(`/admin/restaurants/${id}`)
-            .then((res) => setSelected(res.data.data as Restaurant))
-            .catch(console.error);
-        }
-        return prev;
-      });
+      if (selected?.id === id) {
+        api.get(`/admin/restaurants/${id}`)
+          .then((res) => setSelected(res.data.data as Restaurant))
+          .catch(console.error);
+      }
     } catch (e) {
       console.error(e);
     } finally {

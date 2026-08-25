@@ -409,7 +409,6 @@ export default function RidersPage() {
   const [loading, setLoading]         = useState(true);
   const [page, setPage]               = useState(1);
   const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch]           = useState('');
   const [statusFilter, setStatusFilter]     = useState('');
   const [availFilter, setAvailFilter]       = useState('');
   const [selectedId, setSelectedId]         = useState<string | null>(null);
@@ -446,7 +445,6 @@ export default function RidersPage() {
   useEffect(() => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      setSearch(searchInput);
       setPage(1);
       load(1, searchInput || undefined, statusFilter || undefined, availFilter || undefined);
     }, 350);
@@ -455,7 +453,7 @@ export default function RidersPage() {
 
   const goToPage = (p: number) => {
     setPage(p);
-    load(p, search || undefined, statusFilter || undefined, availFilter || undefined);
+    load(p, searchInput || undefined, statusFilter || undefined, availFilter || undefined);
   };
 
   const doAction = async (id: string, action: RiderAction, reason?: string) => {
@@ -483,7 +481,7 @@ export default function RidersPage() {
         : undefined;
       await api[methods[action]](endpoints[action], body);
       // Reload the list
-      load(page, search || undefined, statusFilter || undefined, availFilter || undefined);
+      load(page, searchInput || undefined, statusFilter || undefined, availFilter || undefined);
       // Close drawer if the acted-on rider was selected
       if (selectedId === id) setSelectedId(null);
     } catch (e) {
@@ -556,7 +554,7 @@ export default function RidersPage() {
             </p>
           </div>
           <button
-            onClick={() => load(page, search || undefined, statusFilter || undefined, availFilter || undefined)}
+            onClick={() => load(page, searchInput || undefined, statusFilter || undefined, availFilter || undefined)}
             className="flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-2 text-sm hover:bg-gray-50 transition-colors"
           >
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -576,7 +574,7 @@ export default function RidersPage() {
               <span className="font-semibold">{pendingCount} rider{pendingCount !== 1 ? 's' : ''}</span> awaiting approval.
             </p>
             <button
-              onClick={() => { setStatusFilter('pending'); setPage(1); load(1, search || undefined, 'pending', availFilter || undefined); }}
+              onClick={() => { setStatusFilter('pending'); setPage(1); load(1, searchInput || undefined, 'pending', availFilter || undefined); }}
               className="text-sm font-semibold text-amber-700 hover:underline whitespace-nowrap"
             >
               Show pending →
@@ -603,7 +601,7 @@ export default function RidersPage() {
           {/* Status filter */}
           <select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); load(1, search || undefined, e.target.value || undefined, availFilter || undefined); }}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); load(1, searchInput || undefined, e.target.value || undefined, availFilter || undefined); }}
             className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
           >
             <option value="">All Statuses</option>
@@ -615,7 +613,7 @@ export default function RidersPage() {
           {/* Availability filter */}
           <select
             value={availFilter}
-            onChange={(e) => { setAvailFilter(e.target.value); setPage(1); load(1, search || undefined, statusFilter || undefined, e.target.value || undefined); }}
+            onChange={(e) => { setAvailFilter(e.target.value); setPage(1); load(1, searchInput || undefined, statusFilter || undefined, e.target.value || undefined); }}
             className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
           >
             <option value="">All Availability</option>
@@ -628,7 +626,7 @@ export default function RidersPage() {
           {(searchInput || statusFilter || availFilter) && (
             <button
               onClick={() => {
-                setSearchInput(''); setSearch('');
+                setSearchInput('');
                 setStatusFilter(''); setAvailFilter('');
                 setPage(1); load(1);
               }}
