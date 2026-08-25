@@ -10,7 +10,6 @@ function safeDate(value: string | null | undefined): string {
   const d = new Date(value);
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
 }
-import { api } from '@/lib/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

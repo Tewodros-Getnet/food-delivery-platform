@@ -211,12 +211,18 @@ function DetailDrawer({
         <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
             {restaurant.logo_url ? (
-              <img src={restaurant.logo_url} alt={restaurant.name} className="w-12 h-12 rounded-xl object-cover" />
-            ) : (
-              <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 font-bold text-lg">
-                {(restaurant.name || '?')[0].toUpperCase()}
-              </div>
-            )}
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={restaurant.logo_url}
+                alt={restaurant.name}
+                referrerPolicy="no-referrer"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
+                className="w-12 h-12 rounded-xl object-cover"
+              />
+            ) : null}
+            <div className={`w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 font-bold text-lg ${restaurant.logo_url ? 'hidden' : ''}`}>
+              {(restaurant.name || '?')[0].toUpperCase()}
+            </div>
             <div>
               <h2 className="font-semibold text-gray-900 text-lg leading-tight">{restaurant.name}</h2>
               <div className="flex items-center gap-2 mt-0.5">
@@ -265,7 +271,14 @@ function DetailDrawer({
 
               {/* Cover image */}
               {restaurant.cover_image_url && (
-                <img src={restaurant.cover_image_url} alt="cover" className="w-full h-36 object-cover rounded-xl" />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={restaurant.cover_image_url}
+                  alt="cover"
+                  referrerPolicy="no-referrer"
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  className="w-full h-36 object-cover rounded-xl"
+                />
               )}
 
               {/* Stats row — now includes total_orders */}
@@ -376,10 +389,16 @@ function DetailDrawer({
                   {menu.map((item) => (
                     <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
                       {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center text-orange-400 text-xl shrink-0">🍴</div>
-                      )}
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          referrerPolicy="no-referrer"
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
+                          className="w-12 h-12 rounded-lg object-cover shrink-0"
+                        />
+                      ) : null}
+                      <div className={`w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center text-orange-400 text-xl shrink-0 ${item.image_url ? 'hidden' : ''}`}>🍴</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium text-gray-800 truncate">{item.name}</p>
@@ -670,12 +689,18 @@ export default function RestaurantsPage() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         {r.logo_url ? (
-                          <img src={r.logo_url} alt={r.name} className="w-8 h-8 rounded-lg object-cover shrink-0" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 font-bold text-sm shrink-0">
-                            {(r.name || '?')[0].toUpperCase()}
-                          </div>
-                        )}
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={r.logo_url}
+                            alt={r.name}
+                            referrerPolicy="no-referrer"
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.setProperty('display','flex'); }}
+                            className="w-8 h-8 rounded-lg object-cover shrink-0"
+                          />
+                        ) : null}
+                        <div className={`w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 font-bold text-sm shrink-0 ${r.logo_url ? 'hidden' : ''}`}>
+                          {(r.name || '?')[0].toUpperCase()}
+                        </div>
                         <div>
                           <span className="font-medium text-gray-800">{r.name}</span>
                           {/* Rejection reason snippet visible directly in the row */}
