@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { authorize } from '../middleware/rbac';
 import {
   createMenuItemHandler, createMenuItemValidation,
@@ -12,7 +12,10 @@ import {
 const router = Router({ mergeParams: true });
 
 // Mounted at /restaurants/:restaurantId/menu
-router.get('/', listMenuItemsHandler);
+// optionalAuthenticate: unauthenticated requests (customer app / public browsing)
+// get the customer view (available items only). Authenticated restaurant owners
+// get all their items including unavailable ones so they can re-enable them.
+router.get('/', optionalAuthenticate, listMenuItemsHandler);
 router.post('/', authenticate, authorize('restaurant'), createMenuItemValidation, createMenuItemHandler);
 
 // Mounted at /menu

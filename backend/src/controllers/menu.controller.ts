@@ -46,11 +46,20 @@ export async function createMenuItemHandler(req: Request, res: Response, next: N
 export async function listMenuItemsHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const { category } = req.query as Record<string, string>;
-    const customerView = req.userRole === 'customer' || !req.userId;
+
+    // Show unavailable items only to the restaurant owner of this specific
+    // restaurant. Customers, riders, admins, and unauthenticated guests all
+    // get the filtered (available-only) view.
+    let ownerView = false;
+    if (req.userId && req.userRole === 'restaurant') {
+      const restaurant = await restaurantService.getRestaurantById(req.params.restaurantId);
+      ownerView = restaurant?.owner_id === req.userId;
+    }
+
     const items = await menuService.getMenuItems({
       restaurantId: req.params.restaurantId,
       category,
-      customerView,
+      customerView: !ownerView,
     });
     res.json(successResponse(items));
   } catch (err) { next(err); }
