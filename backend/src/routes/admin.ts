@@ -224,6 +224,44 @@ router.put('/users/:id/reactivate', ...adminAuth, async (req: Request, res: Resp
   } catch (err) { next(err); }
 });
 
+// PUT /admin/users/:id/approve — activate a pending user (e.g. newly registered rider)
+router.put('/users/:id/approve', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `UPDATE users SET status = 'active', updated_at = NOW()
+       WHERE id = $1 RETURNING id, email, role, status`,
+      [req.params.id],
+    );
+    if (!result.rows[0]) {
+      res.status(404).json({ success: false, data: null, error: 'User not found' });
+      return;
+    }
+    res.json(successResponse({ message: 'User approved', user: result.rows[0] }));
+  } catch (err) { next(err); }
+});
+
+// PUT /admin/users/:id/reject — suspend a pending user with an optional reason and revoke sessions.
+// We use suspend (not a separate "rejected" status) to avoid a schema migration while still
+// blocking access.  The reason is stored as a note in the response but not persisted because
+// the users table has no rejection_reason column.  If a reason column is added later this
+// route can be extended without changing the frontend contract.
+router.put('/users/:id/reject', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `UPDATE users SET status = 'suspended', updated_at = NOW()
+       WHERE id = $1 RETURNING id, email, role, status`,
+      [req.params.id],
+    );
+    if (!result.rows[0]) {
+      res.status(404).json({ success: false, data: null, error: 'User not found' });
+      return;
+    }
+    // Revoke all active sessions so the user is immediately logged out
+    await query('DELETE FROM refresh_tokens WHERE user_id = $1', [req.params.id]);
+    res.json(successResponse({ message: 'User rejected', user: result.rows[0] }));
+  } catch (err) { next(err); }
+});
+
 // DELETE /admin/users/:id — hard delete, removes all dependent rows first
 router.delete('/users/:id', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {

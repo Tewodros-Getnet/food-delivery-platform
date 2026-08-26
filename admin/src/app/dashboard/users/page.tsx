@@ -307,10 +307,14 @@ function UserDrawer({
         'resend-verification': 'Verification email sent',
         suspend:               'User suspended',
         reactivate:            'User reactivated',
+        approve:               'User approved — account is now active',
+        reject:                'User rejected — account suspended',
       };
       setToast({ msg: labels[type] ?? 'Done', ok: true });
       if      (type === 'suspend')    setUser(u => ({ ...u, status: 'suspended' }));
       else if (type === 'reactivate') setUser(u => ({ ...u, status: 'active' }));
+      else if (type === 'approve')    setUser(u => ({ ...u, status: 'active' }));
+      else if (type === 'reject')     setUser(u => ({ ...u, status: 'suspended' }));
       else if (type === 'role')       setUser(u => ({ ...u, role: payload! }));
       else if (type === 'delete')     { setTimeout(onClose, 600); return; }
     } catch (e: unknown) {
@@ -370,8 +374,12 @@ function UserDrawer({
                 </span>
               )],
               ['Status', (
-                <span key="s" className={`px-2 py-0.5 rounded-full text-xs font-medium ${isSuspended ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                  {isSuspended ? 'Suspended' : 'Active'}
+                <span key="s" className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  user.status === 'active'    ? 'bg-green-50 text-green-700'  :
+                  user.status === 'pending'   ? 'bg-amber-50 text-amber-700'  :
+                                               'bg-red-50 text-red-600'
+                }`}>
+                  {user.status === 'active' ? 'Active' : user.status === 'pending' ? 'Pending' : 'Suspended'}
                 </span>
               )],
               ['Email', (
@@ -403,6 +411,38 @@ function UserDrawer({
           {/* Actions */}
           <div className="px-6 pb-6 space-y-2 border-t border-gray-100 pt-4">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Actions</p>
+
+          {/* Pending users: approve or reject before suspend/reactivate */}
+            {user.status === 'pending' && (
+              <div className="flex gap-2">
+                <button
+                  disabled={!!busy}
+                  onClick={() => setConfirm({
+                    type: 'approve', label: 'Approve',
+                    message: `Approve ${user.email}? Their account will become active.`,
+                  })}
+                  className={`${btnBase} bg-green-50 text-green-700 hover:bg-green-100 flex-1`}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {busy === 'approve' ? 'Working…' : 'Approve account'}
+                </button>
+                <button
+                  disabled={!!busy}
+                  onClick={() => setConfirm({
+                    type: 'reject', label: 'Reject', danger: true,
+                    message: `Reject ${user.email}? Their account will be suspended and all sessions revoked.`,
+                  })}
+                  className={`${btnBase} bg-red-50 text-red-600 hover:bg-red-100 flex-1`}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                  {busy === 'reject' ? 'Working…' : 'Reject account'}
+                </button>
+              </div>
+            )}
 
             {/* Suspend / Reactivate */}
             <button
@@ -587,6 +627,8 @@ export default function UsersPage() {
   const handleAction = async (id: string, type: string, payload?: string) => {
     if (type === 'suspend')                  await api.put(`/admin/users/${id}/suspend`);
     else if (type === 'reactivate')          await api.put(`/admin/users/${id}/reactivate`);
+    else if (type === 'approve')             await api.put(`/admin/users/${id}/approve`);
+    else if (type === 'reject')              await api.put(`/admin/users/${id}/reject`);
     else if (type === 'force-logout')        await api.post(`/admin/users/${id}/force-logout`);
     else if (type === 'resend-verification') await api.post(`/admin/users/${id}/resend-verification`);
     else if (type === 'role')                await api.put(`/admin/users/${id}/role`, { role: payload });
@@ -912,12 +954,16 @@ export default function UsersPage() {
                         {/* Status */}
                         <td className="px-4 py-4">
                           <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-                            u.status === 'active' ? 'text-green-600' : 'text-red-500'
+                            u.status === 'active'  ? 'text-green-600'  :
+                            u.status === 'pending' ? 'text-amber-600'  :
+                                                     'text-red-500'
                           }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${
-                              u.status === 'active' ? 'bg-green-500' : 'bg-red-400'
+                              u.status === 'active'  ? 'bg-green-500'  :
+                              u.status === 'pending' ? 'bg-amber-400'  :
+                                                       'bg-red-400'
                             }`} />
-                            {u.status === 'active' ? 'Active' : 'Suspended'}
+                            {u.status === 'active' ? 'Active' : u.status === 'pending' ? 'Pending' : 'Suspended'}
                           </span>
                         </td>
 
@@ -933,21 +979,40 @@ export default function UsersPage() {
                           {safeDate(u.created_at)}
                         </td>
 
-                        {/* Inline quick actions — stop propagation so drawer doesn't open */}
+                        {/* Inline quick actions */}
                         <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center gap-2">
-                            {/* Quick suspend/reactivate toggle */}
-                            <button
-                              onClick={e => void quickToggle(u, e)}
-                              title={u.status === 'active' ? 'Suspend' : 'Reactivate'}
-                              className={`text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
-                                u.status === 'active'
-                                  ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                                  : 'bg-green-50 text-green-700 hover:bg-green-100'
-                              }`}
-                            >
-                              {u.status === 'active' ? 'Suspend' : 'Reactivate'}
-                            </button>
+                            {/* Approve / Reject for pending accounts */}
+                            {u.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={e => { e.stopPropagation(); void handleAction(u.id, 'approve'); }}
+                                  className="text-xs bg-green-500 hover:bg-green-600 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={e => { e.stopPropagation(); void handleAction(u.id, 'reject'); }}
+                                  className="text-xs bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {/* Quick suspend/reactivate toggle for non-pending accounts */}
+                            {u.status !== 'pending' && (
+                              <button
+                                onClick={e => void quickToggle(u, e)}
+                                title={u.status === 'active' ? 'Suspend' : 'Reactivate'}
+                                className={`text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
+                                  u.status === 'active'
+                                    ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                                    : 'bg-green-50 text-green-700 hover:bg-green-100'
+                                }`}
+                              >
+                                {u.status === 'active' ? 'Suspend' : 'Reactivate'}
+                              </button>
+                            )}
                             {/* Manage drawer button */}
                             <button
                               onClick={e => { e.stopPropagation(); setSelected(u); }}
