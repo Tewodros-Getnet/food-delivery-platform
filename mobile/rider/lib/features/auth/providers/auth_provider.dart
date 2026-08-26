@@ -78,16 +78,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _checkInvitationStatus();
   }
 
-  /// Fetches /riders/invitation to determine:
-  ///  - Is there a pending invitation waiting to be accepted?
-  ///  - Has the rider already accepted one (active team membership)?
+  /// Fetches /riders/invitation to determine invitation/team membership status.
+  /// On a 401 or 403 the account no longer exists — log out immediately.
   Future<void> _checkInvitationStatus() async {
     try {
       final res = await _dio.dio.get(ApiConstants.ridersInvitation);
       final data = res.data['data'] as Map<String, dynamic>?;
 
       if (data == null) {
-        // No invitation and no team — rider is waiting
         state = state.copyWith(
           hasAcceptedInvitation: false,
           clearInvitation: true,
@@ -97,13 +95,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final invStatus = data['status'] as String?;
       if (invStatus == 'accepted') {
-        // Rider is already on a team — go straight to home
         state = state.copyWith(
           hasAcceptedInvitation: true,
           clearInvitation: true,
         );
       } else if (invStatus == 'pending') {
-        // Pending invitation — show invitation screen
         state = state.copyWith(
           hasAcceptedInvitation: false,
           invitationData: data,
@@ -115,14 +111,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        // No invitation record at all
+      final code = e.response?.statusCode;
+      if (code == 401 || code == 403) {
+        // Token is invalid or the account was deleted.
+        await _svc.logout();
+        state = const AuthState(status: AuthStatus.unauthenticated);
+        return;
+      }
+      if (code == 404) {
         state = state.copyWith(
           hasAcceptedInvitation: false,
           clearInvitation: true,
         );
+        return;
       }
-      // Other network error — leave hasAcceptedInvitation null so router waits
+      // Network error — leave hasAcceptedInvitation null so router waits.
     } catch (_) {
       state = state.copyWith(
         hasAcceptedInvitation: false,

@@ -79,6 +79,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Calls GET /restaurants/my to determine whether the user has a restaurant
   /// and what its approval status is. Sets hasRestaurant + restaurantStatus.
+  /// On a 401 or 403 the account no longer exists or the token is invalid —
+  /// log out immediately so the user isn't stuck in a broken authenticated state.
   Future<void> _checkRestaurant() async {
     try {
       final res = await _dio.dio.get(ApiConstants.myRestaurant);
@@ -88,12 +90,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
         restaurantStatus: data?['status'] as String?,
       );
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        // No restaurant profile yet
-        state = state.copyWith(hasRestaurant: false, restaurantStatus: null);
+      final code = e.response?.statusCode;
+      if (code == 401 || code == 403) {
+        // Token is invalid or the account was deleted by an admin.
+        // Clear stored tokens so the next cold start shows the login screen,
+        // then transition to unauthenticated — the router will redirect to /login.
+        await _svc.logout();
+        state = const AuthState(status: AuthStatus.unauthenticated);
+        return;
       }
-      // Network error — leave hasRestaurant as null (unknown), router will
-      // not redirect so the orders screen can show its own retry UI.
+      if (code == 404) {
+        // Authenticated but no restaurant profile created yet.
+        state = state.copyWith(hasRestaurant: false, restaurantStatus: null);
+        return;
+      }
+      // Network / timeout error — leave hasRestaurant null so the router waits
+      // and the orders screen can show its own retry UI rather than redirecting.
     } catch (_) {
       state = state.copyWith(hasRestaurant: false);
     }
