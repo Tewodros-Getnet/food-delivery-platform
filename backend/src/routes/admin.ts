@@ -4,6 +4,11 @@ import { authorize } from '../middleware/rbac';
 import { query } from '../config/database';
 import { successResponse } from '../utils/response';
 import { resendOtpInternal } from '../services/auth.service';
+import {
+  approveRestaurantHandler,
+  rejectRestaurantHandler,
+  suspendRestaurantHandler,
+} from '../controllers/restaurant.controller';
 
 const router = Router();
 
@@ -44,6 +49,35 @@ router.get('/restaurants', ...adminAuth, async (req: Request, res: Response, nex
       values
     );
     res.json(successResponse(result.rows));
+  } catch (err) { next(err); }
+});
+
+// GET /admin/restaurants/:id — full detail
+router.get('/restaurants/:id', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+
+// ── Restaurant action routes (frontend calls /admin/restaurants/:id/<action>) ─
+
+router.post('/restaurants/:id/approve',  ...adminAuth, approveRestaurantHandler);
+router.post('/restaurants/:id/reject',   ...adminAuth, rejectRestaurantHandler);
+router.put('/restaurants/:id/suspend',   ...adminAuth, suspendRestaurantHandler);
+router.put('/restaurants/:id/unsuspend', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `UPDATE restaurants SET status = 'approved', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+    if (!result.rows[0]) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+    res.json(successResponse(result.rows[0]));
+  } catch (err) { next(err); }
+});
+router.put('/restaurants/:id/reopen',    ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await query(
+      `UPDATE restaurants SET status = 'pending', rejection_reason = NULL, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+    if (!result.rows[0]) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
+    res.json(successResponse(result.rows[0]));
   } catch (err) { next(err); }
 });
 
@@ -469,19 +503,7 @@ router.put('/orders/:id/reassign-rider', ...adminAuth, async (req: Request, res:
   } catch (err) { next(err); }
 });
 
-// PUT /admin/restaurants/:id/unsuspend — Fix 2: reactivate suspended restaurants
-router.put('/restaurants/:id/unsuspend', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await query(
-      `UPDATE restaurants SET status = 'approved', updated_at = NOW() WHERE id = $1 RETURNING *`,
-      [req.params.id]
-    );
-    if (!result.rows[0]) { res.status(404).json({ success: false, data: null, error: 'Restaurant not found' }); return; }
-    res.json(successResponse(result.rows[0]));
-  } catch (err) { next(err); }
-});
-
-// ── Platform Config (Medium #7) ───────────────────────────────────────────────
+// ── Platform Config ────────────────────────────────────────────────────────────
 
 // GET /admin/config
 router.get('/config', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
