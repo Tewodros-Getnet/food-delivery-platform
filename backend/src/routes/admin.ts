@@ -52,9 +52,6 @@ router.get('/restaurants', ...adminAuth, async (req: Request, res: Response, nex
   } catch (err) { next(err); }
 });
 
-// GET /admin/restaurants/:id — full detail
-router.get('/restaurants/:id', ...adminAuth, async (req: Request, res: Response, next: NextFunction) => {
-
 // ── Restaurant action routes (frontend calls /admin/restaurants/:id/<action>) ─
 
 router.post('/restaurants/:id/approve',  ...adminAuth, approveRestaurantHandler);
