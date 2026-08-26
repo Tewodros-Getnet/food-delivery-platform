@@ -15,92 +15,110 @@ class _RestaurantMapPickerScreenState
     extends State<RestaurantMapPickerScreen> {
   final MapController _mapController = MapController();
 
-  // Default to Addis Ababa center
+  // Default to Addis Ababa — replaced immediately by GPS on first frame
   LatLng _pinPosition = const LatLng(9.0192, 38.7525);
-  bool _locating = false;
+
+  // true while the initial GPS fix is in flight (shows full-screen overlay)
+  bool _initialLocating = true;
+  // true while the GPS button re-center is in flight (shows button spinner)
+  bool _reLocating = false;
+
+  String? _locationError;
 
   @override
   void initState() {
     super.initState();
-    // Wait for the first frame so FlutterMap has mounted and registered
+    // Defer until the first frame so FlutterMap has mounted and registered
     // the MapController before we call move() on it.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _goToMyLocation());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _locateUser(initial: true));
   }
 
-  Future<void> _goToMyLocation() async {
+  Future<void> _locateUser({bool initial = false}) async {
     if (!mounted) return;
-    setState(() => _locating = true);
+    setState(() {
+      _locationError = null;
+      if (initial) _initialLocating = true;
+      else         _reLocating      = true;
+    });
+
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      // 1. Check GPS hardware is on
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Location services are disabled. Please enable GPS.'),
-            ),
-          );
-        }
+        setState(() => _locationError =
+            'GPS is turned off. Please enable location services.');
         return;
       }
 
+      // 2. Check / request permission
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.denied) {
+        setState(() => _locationError =
+            'Location permission denied. Tap the map to set a pin manually.');
+        return;
       }
       if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Location permission permanently denied. '
-                'Please enable it in app settings.',
-              ),
-            ),
-          );
-        }
+        setState(() => _locationError =
+            'Location permission permanently denied. '
+            'Please enable it in Settings → App permissions.');
         return;
       }
 
+      // 3. Get position
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
         ),
       );
+
       if (!mounted) return;
       final loc = LatLng(pos.latitude, pos.longitude);
       setState(() => _pinPosition = loc);
       _mapController.move(loc, 16);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not get location: $e')),
-        );
+        setState(() => _locationError =
+            'Could not determine your location. '
+            'Tap the map to set a pin manually.');
       }
     } finally {
-      if (mounted) setState(() => _locating = false);
+      if (mounted) {
+        setState(() {
+          _initialLocating = false;
+          _reLocating      = false;
+        });
+      }
     }
   }
 
   void _onMapTap(TapPosition _, LatLng point) {
-    setState(() => _pinPosition = point);
+    // Tapping the map places the pin and dismisses any location error
+    setState(() {
+      _pinPosition   = point;
+      _locationError = null;
+    });
   }
 
   void _confirm() {
     Navigator.pop(context, {
-      'latitude': _pinPosition.latitude,
+      'latitude':  _pinPosition.latitude,
       'longitude': _pinPosition.longitude,
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pick Restaurant Location'),
-      ),
+      appBar: AppBar(title: const Text('Pin Restaurant Location')),
       body: Stack(
         children: [
+          // ── Map ──────────────────────────────────────────────────────────
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -110,8 +128,7 @@ class _RestaurantMapPickerScreenState
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.fooddelivery.restaurant',
               ),
               MarkerLayer(
@@ -119,11 +136,19 @@ class _RestaurantMapPickerScreenState
                   Marker(
                     point: _pinPosition,
                     width: 48,
-                    height: 48,
-                    child: const Icon(
+                    height: 56, // extra height so the pin tip is at the point
+                    alignment: Alignment.topCenter,
+                    child: Icon(
                       Icons.location_pin,
-                      color: Colors.red,
+                      color: cs.primary,
                       size: 48,
+                      shadows: const [
+                        Shadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -131,48 +156,98 @@ class _RestaurantMapPickerScreenState
             ],
           ),
 
-          // GPS button
+          // ── Top hint pill ─────────────────────────────────────────────────
+          if (!_initialLocating)
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 68, // leave room for the GPS FAB
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 6),
+                  ],
+                ),
+                child: const Text(
+                  'Tap the map to move the pin to your restaurant',
+                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+
+          // ── GPS / re-center button ────────────────────────────────────────
           Positioned(
             top: 12,
             right: 12,
             child: FloatingActionButton.small(
-              heroTag: 'gps',
-              onPressed: _locating ? null : _goToMyLocation,
+              heroTag: 'gps_restaurant',
+              tooltip: 'Move to my location',
+              onPressed: (_initialLocating || _reLocating)
+                  ? null
+                  : () => _locateUser(),
               backgroundColor: Colors.white,
-              child: _locating
-                  ? const SizedBox(
+              elevation: 2,
+              child: (_initialLocating || _reLocating)
+                  ? SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: cs.primary,
+                      ),
                     )
-                  : const Icon(Icons.my_location),
+                  : Icon(Icons.my_location_rounded, color: cs.primary),
             ),
           ),
 
-          // Instruction hint
-          Positioned(
-            top: 12,
-            left: 12,
-            right: 60,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Tap on the map to place your restaurant pin',
-                style: TextStyle(fontSize: 12, color: Colors.black87),
+          // ── Full-screen loading overlay (initial GPS fix only) ────────────
+          if (_initialLocating)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black.withValues(alpha: 0.35),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 16),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: cs.primary),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Finding your location…',
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'You can tap the map to set a pin manually',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
 
-          // Coordinates + confirm button
+          // ── Bottom sheet: coordinates + error + confirm ───────────────────
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
+            bottom: 0, left: 0, right: 0,
             child: Container(
               padding: EdgeInsets.only(
                 left: 16,
@@ -182,47 +257,80 @@ class _RestaurantMapPickerScreenState
               ),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [
-                  BoxShadow(blurRadius: 10, color: Colors.black26)
-                ],
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black26)],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Coordinates chip
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.shade200),
+                      color: cs.primaryContainer.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.2)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.location_pin,
-                            color: Colors.green, size: 18),
+                        Icon(Icons.location_pin,
+                            color: cs.primary, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           '${_pinPosition.latitude.toStringAsFixed(5)}, '
                           '${_pinPosition.longitude.toStringAsFixed(5)}',
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(
+                              fontSize: 12, fontFamily: 'monospace'),
                         ),
                       ],
                     ),
                   ),
-                  ElevatedButton.icon(
+
+                  // Location error (if any)
+                  if (_locationError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded,
+                              size: 16, color: Colors.amber),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _locationError!,
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[700]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Confirm button
+                  FilledButton.icon(
                     onPressed: _confirm,
-                    icon: const Icon(Icons.check, color: Colors.white),
+                    icon: const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 20),
                     label: const Text(
                       'Confirm Location',
                       style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                 ],

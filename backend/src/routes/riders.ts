@@ -86,25 +86,64 @@ router.get('/available', authenticate, authorize('admin'), async (req: Request, 
   } catch (err) { next(err); }
 });
 
-// GET /riders/invitation — get pending invitation for this rider
+// GET /riders/invitation — returns the rider's current invitation/team status.
+//
+// Priority order:
+//   1. Already on a team (restaurant_riders row exists) → {status:'accepted', ...}
+//   2. Pending invitation (rider_invitations.status='pending')  → {status:'pending', ...}
+//   3. Nothing found → null
+//
+// This ensures that after a rider accepts an invitation and then signs out,
+// signing back in correctly routes them to /home instead of /waiting.
 router.get('/invitation', authenticate, authorize('rider'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const emailResult = await query<{ email: string }>(
-      'SELECT email FROM users WHERE id = $1', [req.userId]
+    // ── 1. Check restaurant_riders — the authoritative source of membership ──
+    const teamResult = await query(
+      `SELECT rr.restaurant_id,
+              r.name    AS restaurant_name,
+              r.address AS restaurant_address
+       FROM restaurant_riders rr
+       JOIN restaurants r ON r.id = rr.restaurant_id
+       WHERE rr.rider_id = $1
+       LIMIT 1`,
+      [req.userId],
     );
-    if (!emailResult.rows[0]) { res.status(404).json(errorResponse('User not found')); return; }
+
+    if (teamResult.rows[0]) {
+      // Rider is already on a team — return accepted status so the Flutter
+      // client sets hasAcceptedInvitation=true and routes to /home.
+      res.json(successResponse({
+        status:            'accepted',
+        restaurant_id:     teamResult.rows[0].restaurant_id as string,
+        restaurant_name:   teamResult.rows[0].restaurant_name as string,
+        restaurant_address: teamResult.rows[0].restaurant_address as string,
+      }));
+      return;
+    }
+
+    // ── 2. No team membership — check for a pending invitation by email ──
+    const emailResult = await query<{ email: string }>(
+      'SELECT email FROM users WHERE id = $1', [req.userId],
+    );
+    if (!emailResult.rows[0]) {
+      res.status(404).json(errorResponse('User not found'));
+      return;
+    }
     const email = emailResult.rows[0].email;
 
-    const result = await query(
+    const invResult = await query(
       `SELECT ri.id, ri.restaurant_id, ri.status, ri.created_at,
-              r.name as restaurant_name, r.address as restaurant_address
+              r.name    AS restaurant_name,
+              r.address AS restaurant_address
        FROM rider_invitations ri
        JOIN restaurants r ON r.id = ri.restaurant_id
        WHERE ri.rider_email = $1 AND ri.status = 'pending'
-       ORDER BY ri.created_at DESC LIMIT 1`,
-      [email]
+       ORDER BY ri.created_at DESC
+       LIMIT 1`,
+      [email],
     );
-    res.json(successResponse(result.rows[0] ?? null));
+
+    res.json(successResponse(invResult.rows[0] ?? null));
   } catch (err) { next(err); }
 });
 

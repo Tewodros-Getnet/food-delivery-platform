@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/network/dio_client.dart';
@@ -16,6 +17,7 @@ class RestaurantSetupScreen extends ConsumerStatefulWidget {
 class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
   final _formKey     = GlobalKey<FormState>();
   final _nameCtrl    = TextEditingController();
+  final _phoneCtrl   = TextEditingController();
   final _descCtrl    = TextEditingController();
   final _addressCtrl = TextEditingController();
   double? _latitude;
@@ -26,6 +28,7 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _phoneCtrl.dispose();
     _descCtrl.dispose();
     _addressCtrl.dispose();
     super.dispose();
@@ -52,7 +55,20 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
     }
     setState(() { _isLoading = true; _error = null; });
     try {
-      await ref.read(dioClientProvider).dio.post(
+      final dio = ref.read(dioClientProvider).dio;
+
+      // Save phone number to the owner's user profile first so the admin
+      // can use it for contact and it appears in the restaurant drawer.
+      final phone = _phoneCtrl.text.trim();
+      if (phone.isNotEmpty) {
+        await dio.put(
+          ApiConstants.profile,
+          data: {'phone': phone},
+        );
+      }
+
+      // Create the restaurant profile
+      await dio.post(
         ApiConstants.restaurants,
         data: {
           'name':        _nameCtrl.text.trim(),
@@ -62,12 +78,9 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
           'longitude':   _longitude,
         },
       );
+
       if (mounted) {
-        // Tell AuthNotifier a restaurant now exists with pending status
         ref.read(authProvider.notifier).onRestaurantCreated();
-        // Router redirect will pick up the state change and go to
-        // /pending-approval automatically, but we also push explicitly
-        // to be safe.
         context.go('/pending-approval');
       }
     } catch (e) {
@@ -223,6 +236,34 @@ class _RestaurantSetupScreenState extends ConsumerState<RestaurantSetupScreen> {
                           icon: Icons.storefront_outlined),
                       validator: (v) =>
                           v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Contact phone — riders call this number for pickups,
+                    // customers can also see it on the restaurant detail page.
+                    _Label('Contact Phone Number'),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      textInputAction: TextInputAction.next,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                            RegExp(r'[0-9+\-\s()]')),
+                      ],
+                      decoration: _dec(context,
+                          hint: 'e.g. +251 91 234 5678',
+                          icon: Icons.phone_outlined),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        final digits =
+                            v.replaceAll(RegExp(r'\D'), '');
+                        if (digits.length < 7) {
+                          return 'Enter a valid phone number';
+                        }
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: 20),
