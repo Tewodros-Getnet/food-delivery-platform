@@ -11,12 +11,12 @@ interface Restaurant {
   address: string;
   category: string | null;
   status: string;
-  average_rating: number;
+  average_rating: number | string;  // pg driver returns numeric as string
   is_open: boolean;
   logo_url: string | null;
   cover_image_url: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | string | null;  // pg driver returns numeric as string
+  longitude: number | string | null;
   operating_hours: Record<string, { open: string; close: string }> | null;
   rejection_reason: string | null;
   owner_email: string;
@@ -411,11 +411,11 @@ function DetailDrawer({
                       width="100%"
                       height="100%"
                       style={{ border: 0 }}
-                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${restaurant.longitude - 0.005},${restaurant.latitude - 0.005},${restaurant.longitude + 0.005},${restaurant.latitude + 0.005}&layer=mapnik&marker=${restaurant.latitude},${restaurant.longitude}`}
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(restaurant.longitude) - 0.005},${Number(restaurant.latitude) - 0.005},${Number(restaurant.longitude) + 0.005},${Number(restaurant.latitude) + 0.005}&layer=mapnik&marker=${Number(restaurant.latitude)},${Number(restaurant.longitude)}`}
                     />
                   </div>
                   <p className="text-xs text-gray-400 mt-1">
-                    {restaurant.latitude.toFixed(5)}, {restaurant.longitude.toFixed(5)}
+                    {Number(restaurant.latitude).toFixed(5)}, {Number(restaurant.longitude).toFixed(5)}
                   </p>
                 </div>
               )}
