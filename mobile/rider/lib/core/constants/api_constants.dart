@@ -17,6 +17,7 @@ class ApiConstants {
   static const String ridersAvailability = '/riders/availability';
   static const String ridersEarnings = '/riders/earnings';
   static const String ridersInvitation = '/riders/invitation';
+  static const String ridersProfile    = '/riders/profile';
   static const String deliveries = '/deliveries';
   static const String chat = '/chat';
 }
