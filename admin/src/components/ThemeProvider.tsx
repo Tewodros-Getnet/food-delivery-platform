@@ -10,32 +10,24 @@ const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
-  const [mounted, setMounted] = useState(false);
 
-  // On mount, read the persisted preference (the inline script already applied
-  // the class, so we just need to sync React state with it).
+  // Sync React state with whatever the inline script already applied to <html>.
+  // We read localStorage once on mount — no flash because the class is already set.
   useEffect(() => {
-    const stored = localStorage.getItem('admin-theme') as Theme | null;
+    const stored = localStorage.getItem('admin-theme');
     if (stored === 'dark') setTheme('dark');
-    setMounted(true);
   }, []);
 
   const toggle = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     localStorage.setItem('admin-theme', next);
-    if (next === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', next === 'dark');
   };
 
-  // Render children immediately (the inline script handles the visual state).
-  // Only suppress hydration mismatch for the root html element via
-  // suppressHydrationWarning on <html> in layout.tsx.
-  if (!mounted) return <>{children}</>;
-
+  // Always render the Provider — never skip it.
+  // The initial theme value is 'light' which matches the server render.
+  // suppressHydrationWarning on <html> handles the class mismatch.
   return (
     <ThemeContext.Provider value={{ theme, toggle }}>
       {children}
