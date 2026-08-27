@@ -5,7 +5,7 @@ import RealtimeNotifications from '@/components/RealtimeNotifications';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-auto">
           <div className="flex justify-end px-6 pt-4">

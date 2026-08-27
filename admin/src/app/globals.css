@@ -1,3 +1,113 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Smooth theme transition ─────────────────────────────────────────────── */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* ── Dark mode overrides ──────────────────────────────────────────────────
+   Instead of adding dark: variants to every Tailwind class on every page
+   (which would risk touching working components), we apply dark overrides
+   here via CSS. This is the safest approach — zero changes to .tsx files.
+
+   Color mapping:
+     Light                 Dark
+     bg-white          →   bg-gray-900
+     bg-gray-50        →   bg-gray-950
+     bg-gray-100       →   bg-gray-800
+     border-gray-100   →   border-gray-800
+     border-gray-200   →   border-gray-700
+     text-gray-900     →   text-gray-100
+     text-gray-700     →   text-gray-300
+     text-gray-600     →   text-gray-400
+     text-gray-500     →   text-gray-500  (unchanged — neutral)
+     text-gray-400     →   text-gray-500
+     shadow-sm         →   shadow none (dark needs less depth)
+────────────────────────────────────────────────────────────────────────── */
+
+/* Page / section backgrounds */
+.dark .bg-white         { background-color: rgb(17 24 39);  }   /* gray-900  */
+.dark .bg-gray-50       { background-color: rgb(3 7 18);    }   /* gray-950  */
+.dark .bg-gray-100      { background-color: rgb(31 41 55);  }   /* gray-800  */
+
+/* Skeleton / pulse placeholders */
+.dark .bg-gray-200      { background-color: rgb(55 65 81);  }   /* gray-700  */
+
+/* Borders */
+.dark .border-gray-100  { border-color: rgb(31 41 55);  }       /* gray-800  */
+.dark .border-gray-200  { border-color: rgb(55 65 81);  }       /* gray-700  */
+
+/* Text */
+.dark .text-gray-900    { color: rgb(243 244 246); }             /* gray-100  */
+.dark .text-gray-800    { color: rgb(229 231 235); }             /* gray-200  */
+.dark .text-gray-700    { color: rgb(209 213 219); }             /* gray-300  */
+.dark .text-gray-600    { color: rgb(156 163 175); }             /* gray-400  */
+.dark .text-gray-400    { color: rgb(107 114 128); }             /* gray-500  */
+
+/* Input / select / textarea */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: rgb(17 24 39) !important;  /* gray-900 */
+  color: rgb(243 244 246) !important;           /* gray-100 */
+  border-color: rgb(55 65 81) !important;       /* gray-700 */
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(107 114 128);   /* gray-500 */
+}
+
+/* Focus ring — keep orange but slightly brighter in dark */
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(251 146 60); /* orange-400 */
+}
+
+/* Dropdown options */
+.dark option {
+  background-color: rgb(17 24 39);
+  color: rgb(243 244 246);
+}
+
+/* Modals / drawers (fixed position white panels) */
+.dark .bg-white.rounded-2xl,
+.dark .bg-white.shadow-2xl,
+.dark .bg-white.shadow-xl {
+  background-color: rgb(17 24 39) !important; /* gray-900 */
+}
+
+/* Table rows hover */
+.dark .hover\:bg-gray-50\/50:hover  { background-color: rgba(31, 41, 55, 0.5) !important; }
+.dark .hover\:bg-gray-50\/60:hover  { background-color: rgba(31, 41, 55, 0.6) !important; }
+.dark .hover\:bg-gray-50:hover      { background-color: rgb(31 41 55) !important; }
+.dark .hover\:bg-gray-100:hover     { background-color: rgb(55 65 81) !important; }
+.dark .hover\:bg-gray-200:hover     { background-color: rgb(75 85 99) !important; }
+
+/* Table header bg */
+.dark .bg-gray-50.border-b { background-color: rgb(17 24 39) !important; }
+
+/* Divide lines */
+.dark .divide-gray-50 > * + *  { border-color: rgb(31 41 55) !important; }
+.dark .divide-gray-100 > * + * { border-color: rgb(31 41 55) !important; }
+
+/* Backdrop / overlay — already dark enough, keep as is */
+
+/* Charts tooltip */
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: rgb(17 24 39) !important;
+  border-color: rgb(55 65 81) !important;
+  color: rgb(243 244 246) !important;
+}
+
+/* Scrollbar (Webkit) */
+.dark ::-webkit-scrollbar { width: 6px; height: 6px; }
+.dark ::-webkit-scrollbar-track { background: rgb(17 24 39); }
+.dark ::-webkit-scrollbar-thumb { background: rgb(55 65 81); border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: rgb(75 85 99); }
