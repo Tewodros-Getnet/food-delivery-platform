@@ -94,7 +94,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function StarRating({ value }: { value: number }) {
+function StarRating({ value }: { value: number | string }) {
   return (
     <div className="flex items-center gap-1">
       <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
