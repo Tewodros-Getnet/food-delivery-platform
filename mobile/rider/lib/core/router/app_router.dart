@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/providers/auth_provider.dart';
@@ -15,7 +16,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: '/splash',
     redirect: (ctx, state) {
       final loc = state.matchedLocation;
 
@@ -27,39 +28,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc == '/register' ||
           loc == '/verify-otp';
 
-      // ── 1. Still resolving token — wait ────────────────────────────────
-      if (isUnknown) return null;
+      // ── Still resolving — stay on splash ──────────────────────────────
+      if (isUnknown) {
+        if (loc != '/splash') return '/splash';
+        return null;
+      }
 
-      // ── 2. OTP pending — lock to /verify-otp ──────────────────────────
-      if (isPending && loc != '/verify-otp') return '/verify-otp';
-
-      // ── 3. Not authenticated — send to login ───────────────────────────
-      if (!isAuth && !isPending && !isPublicRoute) return '/login';
-
-      // ── 4. Authenticated + on a public route ───────────────────────────
-      if (isAuth && isPublicRoute) {
+      // ── Once resolved, leave splash immediately ───────────────────────
+      if (loc == '/splash') {
+        if (isPending) return '/verify-otp';
+        if (!isAuth)   return '/login';
         return _postAuthDestination(auth);
       }
 
-      // ── 5. Authenticated + on a protected route ────────────────────────
-      if (isAuth && !isPublicRoute) {
-        // Invitation status still being fetched — let current screen stay
-        if (auth.hasAcceptedInvitation == null) return null;
+      // ── OTP pending ───────────────────────────────────────────────────
+      if (isPending && loc != '/verify-otp') return '/verify-otp';
 
-        // Has a pending invitation — must view it first
-        if (auth.invitationData != null &&
-            loc != '/invitation') {
+      // ── Not authenticated ─────────────────────────────────────────────
+      if (!isAuth && !isPending && !isPublicRoute) return '/login';
+
+      // ── Authenticated + on a public route ─────────────────────────────
+      if (isAuth && isPublicRoute) return _postAuthDestination(auth);
+
+      // ── Authenticated + on a protected route ─────────────────────────
+      if (isAuth && !isPublicRoute) {
+        if (auth.hasAcceptedInvitation == null) return null;
+        if (auth.invitationData != null && loc != '/invitation') {
           return '/invitation';
         }
-
-        // No invitation yet — keep on /waiting
         if (auth.hasAcceptedInvitation == false &&
             auth.invitationData == null &&
             loc != '/waiting') {
           return '/waiting';
         }
-
-        // Has accepted invitation — /waiting and /invitation are no longer valid
         if (auth.hasAcceptedInvitation == true &&
             (loc == '/waiting' || loc == '/invitation')) {
           return '/home';
@@ -69,16 +70,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      // ── Auth ────────────────────────────────────────────────────────────
+      GoRoute(path: '/splash', builder: (_, __) => const _SplashScreen()),
+
       GoRoute(path: '/login',      builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register',   builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/verify-otp', builder: (_, __) => const OtpScreen()),
 
-      // ── Onboarding / invitation ──────────────────────────────────────────
       GoRoute(path: '/waiting',    builder: (_, __) => const WaitingForInvitationScreen()),
       GoRoute(path: '/invitation', builder: (_, __) => const InvitationScreen()),
 
-      // ── Main app ─────────────────────────────────────────────────────────
       GoRoute(path: '/home',     builder: (_, __) => const RiderHomeScreen()),
       GoRoute(path: '/earnings', builder: (_, __) => const EarningsScreen()),
       GoRoute(path: '/profile',  builder: (_, __) => const RiderProfileScreen()),
@@ -93,10 +93,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Where to send an authenticated user who is currently on a public route.
 String _postAuthDestination(AuthState auth) {
-  if (auth.hasAcceptedInvitation == null) return '/home'; // still loading
+  if (auth.hasAcceptedInvitation == null) return '/home';
   if (auth.invitationData != null)         return '/invitation';
   if (auth.hasAcceptedInvitation == false) return '/waiting';
   return '/home';
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delivery_dining_rounded, size: 56, color: cs.primary),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: cs.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -43,13 +43,11 @@ class _RouterNotifier extends ChangeNotifier {
     final auth = _auth;
     final loc = state.matchedLocation;
 
-    // Auth screens (always accessible before login)
     final isAuthScreen = loc == '/landing' ||
         loc == '/login' ||
         loc == '/register' ||
         loc == '/verify-otp';
 
-    // Screens that require a full account
     final isProtected = loc == '/orders' ||
         loc == '/profile' ||
         loc == '/notifications' ||
@@ -61,37 +59,43 @@ class _RouterNotifier extends ChangeNotifier {
 
     switch (auth.status) {
       case AuthStatus.unknown:
-        // Still checking — don't redirect
+        // Still checking — show splash, never the real home screen
+        if (loc != '/splash') return '/splash';
         return null;
 
       case AuthStatus.pendingVerification:
+        if (loc == '/splash') return '/verify-otp';
         if (loc != '/verify-otp') return '/verify-otp';
         return null;
 
       case AuthStatus.unauthenticated:
-        // Not logged in, not guest — force to landing
+        // Leave splash → landing
+        if (loc == '/splash') return '/landing';
         if (!isAuthScreen) return '/landing';
         return null;
 
       case AuthStatus.guest:
-        // Guest can browse home + restaurants only
+        if (loc == '/splash') return '/home';
         if (isProtected) return '/landing';
-        // Guests are allowed on any auth screen (landing, login, register, otp)
-        // so they can sign in or create an account at any time
         return null;
 
       case AuthStatus.authenticated:
-        // Logged in — push away from auth screens
+        if (loc == '/splash') return '/home';
         if (isAuthScreen) return '/home';
         return null;
     }
   }
 
   GoRouter _buildRouter() => GoRouter(
-        initialLocation: '/home',
+        initialLocation: '/splash',
         refreshListenable: this,
         redirect: _redirect,
         routes: [
+          // Splash — shown only during auth resolution
+          GoRoute(
+            path: '/splash',
+            builder: (_, __) => const _SplashScreen(),
+          ),
           GoRoute(
               path: '/landing',
               builder: (_, __) => const LandingScreen()),
@@ -200,6 +204,38 @@ final _routerNotifierProvider =
 final appRouterProvider = Provider<GoRouter>((ref) {
   return ref.watch(_routerNotifierProvider).router;
 });
+
+// ── Splash screen ─────────────────────────────────────────────────────────────
+// Shown only during AuthStatus.unknown (the 200–400ms while _check() runs).
+// Replaces the accidental home-screen flash with a neutral branded loader.
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lunch_dining_rounded,
+                size: 56, color: Colors.orange),
+            const SizedBox(height: 24),
+            const SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.orange,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // ── Bottom nav shell ──────────────────────────────────────────────────────────
 

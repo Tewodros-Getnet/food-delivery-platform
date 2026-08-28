@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/providers/auth_provider.dart';
@@ -21,7 +22,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation: '/orders',
+    // Start on /splash — a neutral loading screen.
+    // The router immediately redirects away once auth resolves,
+    // so the real home/orders/login screen is never shown prematurely.
+    initialLocation: '/splash',
     redirect: (ctx, state) {
       final loc = state.matchedLocation;
 
@@ -33,47 +37,50 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc == '/register' ||
           loc == '/verify-otp';
 
-      // ── 1. Still resolving stored token — don't redirect yet ──────────
-      if (isUnknown) return null;
+      // ── Still resolving — stay on splash, show nothing sensitive ──────
+      if (isUnknown) {
+        if (loc != '/splash') return '/splash';
+        return null;
+      }
 
-      // ── 2. OTP pending — lock to /verify-otp ─────────────────────────
-      if (isPending && loc != '/verify-otp') return '/verify-otp';
-
-      // ── 3. Not authenticated — send to login ──────────────────────────
-      if (!isAuth && !isPending && !isPublicRoute) return '/login';
-
-      // ── 4. Authenticated + on a public route — decide where to go ────
-      if (isAuth && isPublicRoute) {
+      // ── Once resolved, leave splash immediately ───────────────────────
+      if (loc == '/splash') {
+        if (isPending)  return '/verify-otp';
+        if (!isAuth)    return '/login';
         return _postAuthDestination(auth);
       }
 
-      // ── 5. Authenticated + on a protected route ───────────────────────
+      // ── OTP pending — lock to /verify-otp ────────────────────────────
+      if (isPending && loc != '/verify-otp') return '/verify-otp';
+
+      // ── Not authenticated — send to login ─────────────────────────────
+      if (!isAuth && !isPending && !isPublicRoute) return '/login';
+
+      // ── Authenticated + on a public route — decide where to go ───────
+      if (isAuth && isPublicRoute) return _postAuthDestination(auth);
+
+      // ── Authenticated + on a protected route ─────────────────────────
       if (isAuth && !isPublicRoute) {
-        // hasRestaurant is still null → restaurant check in flight, wait
         if (auth.hasRestaurant == null) return null;
-
-        // No restaurant yet — only allow /setup
         if (auth.hasRestaurant == false && loc != '/setup') return '/setup';
-
-        // Restaurant pending approval — only allow /pending-approval & /setup
         if (auth.hasRestaurant == true &&
             auth.restaurantStatus == 'pending' &&
             loc != '/pending-approval' &&
-            loc != '/setup') {
-          return '/pending-approval';
-        }
-
-        // Restaurant rejected — only allow /setup (re-submit)
+            loc != '/setup') return '/pending-approval';
         if (auth.hasRestaurant == true &&
             auth.restaurantStatus == 'rejected' &&
-            loc != '/setup') {
-          return '/setup';
-        }
+            loc != '/setup') return '/setup';
       }
 
       return null;
     },
     routes: [
+      // Splash — shown only during auth resolution
+      GoRoute(
+        path: '/splash',
+        builder: (_, __) => const _SplashScreen(),
+      ),
+
       // ── Auth ────────────────────────────────────────────────────────────
       GoRoute(path: '/login',      builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register',   builder: (_, __) => const RegisterScreen()),
@@ -87,7 +94,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/orders',  builder: (_, __) => const OrdersScreen()),
       GoRoute(path: '/riders',  builder: (_, __) => const MyRidersScreen()),
       GoRoute(path: '/profile', builder: (_, __) => const RestaurantProfileScreen()),
-
       GoRoute(
         path: '/menu/:restaurantId',
         builder: (_, s) =>
@@ -109,14 +115,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Decides where an authenticated user should land after coming from a
-/// public route (login / register / OTP).
 String _postAuthDestination(AuthState auth) {
-  // Restaurant check still in flight — go to orders, which handles its own
-  // loading/empty state gracefully
   if (auth.hasRestaurant == null) return '/orders';
   if (auth.hasRestaurant == false) return '/setup';
   if (auth.restaurantStatus == 'pending') return '/pending-approval';
   if (auth.restaurantStatus == 'rejected') return '/setup';
   return '/orders';
+}
+
+// Shown only during the auth check — a clean branded loading screen
+// that replaces the accidental home-screen flash.
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.storefront_rounded, size: 56, color: cs.primary),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: cs.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
