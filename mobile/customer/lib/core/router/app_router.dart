@@ -205,10 +205,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return ref.watch(_routerNotifierProvider).router;
 });
 
-// ── Splash screen ─────────────────────────────────────────────────────────────
-// Shown only during AuthStatus.unknown (the 200–400ms while _check() runs).
-// Replaces the accidental home-screen flash with a neutral branded loader.
-
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
 
@@ -218,11 +214,18 @@ class _SplashScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: Center(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lunch_dining_rounded,
-                size: 56, color: Colors.orange),
-            const SizedBox(height: 24),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 110,
+                height: 110,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 32),
             const SizedBox(
               width: 24, height: 24,
               child: CircularProgressIndicator(

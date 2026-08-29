@@ -135,10 +135,19 @@ class _SplashScreen extends StatelessWidget {
       backgroundColor: cs.surface,
       body: Center(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.storefront_rounded, size: 56, color: cs.primary),
-            const SizedBox(height: 24),
+            // App logo
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.asset(
+                'assets/images/logo.jpg',
+                width: 110,
+                height: 110,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 32),
             SizedBox(
               width: 24, height: 24,
               child: CircularProgressIndicator(
