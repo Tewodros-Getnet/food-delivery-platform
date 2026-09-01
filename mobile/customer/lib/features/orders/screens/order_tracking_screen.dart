@@ -778,7 +778,9 @@ class _Timeline extends StatelessWidget {
                   steps[i],
               style: TextStyle(
                   fontWeight: done ? FontWeight.bold : FontWeight.normal,
-                  color: done ? Colors.black : Colors.grey)),
+                  color: done
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4))),
         ]);
       },
     );

@@ -634,43 +634,75 @@ class _RiderProfileScreenState extends ConsumerState<RiderProfileScreen> {
                   // ── Restaurant assignment card ──────────────────────────
                   if (isAssigned) ...[
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.green.shade200),
+                        gradient: LinearGradient(
+                          colors: [
+                            cs.primary.withValues(alpha: 0.15),
+                            cs.primary.withValues(alpha: 0.08),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: cs.primary.withValues(alpha: 0.35),
+                            width: 1.5),
                       ),
                       child: Row(
                         children: [
                           Container(
-                            width: 40, height: 40,
+                            width: 46, height: 46,
                             decoration: BoxDecoration(
-                              color: Colors.green.shade100,
-                              borderRadius: BorderRadius.circular(10),
+                              color: cs.primary.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.storefront_outlined,
-                                color: Colors.green, size: 20),
+                            child: Icon(Icons.storefront_rounded,
+                                color: cs.primary, size: 22),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Assigned Restaurant',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 2),
-                                Text(restName!,
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold)),
+                                Text(
+                                  'ACTIVE TEAM',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.primary,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  restName!,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: cs.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  'You are assigned to this restaurant',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: cs.onSurface.withValues(alpha: 0.5),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.check_circle_rounded,
-                              color: Colors.green, size: 20),
+                          Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.check_rounded,
+                                color: Colors.green, size: 16),
+                          ),
                         ],
                       ),
                     ),
@@ -682,22 +714,15 @@ class _RiderProfileScreenState extends ConsumerState<RiderProfileScreen> {
                   const SizedBox(height: 8),
                   _SettingsCard(children: [
                     _SettingsTile(
-                      icon: Icons.person_outline,
+                      icon: Icons.edit_outlined,
                       iconColor: Colors.blue,
-                      title: name.isNotEmpty ? name : 'Set your name',
-                      subtitle: email,
-                      onTap: _showEditProfileSheet,
-                    ),
-                    const _Divider(),
-                    _SettingsTile(
-                      icon: Icons.phone_outlined,
-                      iconColor: Colors.teal,
-                      title: (phone != null && phone.isNotEmpty)
-                          ? phone
-                          : 'Add phone number',
-                      subtitle: (phone != null && phone.isNotEmpty)
-                          ? 'Phone number'
-                          : 'Required for deliveries',
+                      title: 'Edit Profile',
+                      subtitle: [
+                        if (name.isNotEmpty) name,
+                        if (phone != null && phone.isNotEmpty) phone!,
+                        if (name.isEmpty && (phone == null || phone.isEmpty))
+                          'Name · Phone number',
+                      ].join(' · '),
                       onTap: _showEditProfileSheet,
                     ),
                   ]),

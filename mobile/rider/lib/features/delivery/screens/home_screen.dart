@@ -92,44 +92,46 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     _restoreAvailability();
   }
 
-  // Restore persisted availability on app start / return from background
   Future<void> _restoreAvailability() async {
     final storage = ref.read(secureStorageProvider);
     final wasAvailable = await storage.getAvailability();
-
-    // Restore active delivery state if the rider was mid-delivery
     final deliveryState = await storage.getDeliveryState();
 
     if (!mounted) return;
+    // Single setState so the toggle never renders an intermediate state
     setState(() {
       _isAvailable = wasAvailable;
       _restoringAvailability = false;
       if (deliveryState != null) {
-        _onDelivery = true;
-        _activeOrderId = deliveryState['orderId'] as String;
-        _restaurantLat = deliveryState['restaurantLat'] as double;
-        _restaurantLon = deliveryState['restaurantLon'] as double;
-        _customerLat = deliveryState['customerLat'] as double;
-        _customerLon = deliveryState['customerLon'] as double;
-        _pickedUp = deliveryState['pickedUp'] as bool;
+        _onDelivery     = true;
+        _activeOrderId  = deliveryState['orderId']       as String;
+        _restaurantLat  = deliveryState['restaurantLat'] as double;
+        _restaurantLon  = deliveryState['restaurantLon'] as double;
+        _customerLat    = deliveryState['customerLat']   as double;
+        _customerLon    = deliveryState['customerLon']   as double;
+        _pickedUp       = deliveryState['pickedUp']      as bool;
       }
     });
 
     if (wasAvailable) {
       final locationOk = await _sendLocationNow();
       if (locationOk) {
-        // Use faster interval if mid-delivery
         _startLocationUpdates(interval: _onDelivery ? 10 : 30);
+      } else {
+        // Location failed — mark offline so toggle reflects reality
+        setState(() => _isAvailable = false);
+        await storage.saveAvailability(false);
       }
     }
   }
 
-  // Called when app comes back to foreground
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _isAvailable) {
-      _sendLocationNow(); // return value intentionally ignored here — best effort on resume
-      _connectSocket();
+    if (state == AppLifecycleState.resumed) {
+      // Best-effort location refresh on resume
+      if (_isAvailable) _sendLocationNow();
+      // Only reconnect if the socket actually dropped
+      if (_socket?.connected != true) _connectSocket();
     }
   }
 
@@ -184,6 +186,10 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
   }
 
   Future<void> _connectSocket() async {
+    // Don't reconnect if already connected — prevents duplicate event handlers
+    // that cause delivery requests to fire twice and the toggle to appear to flip.
+    if (_socket?.connected == true) return;
+
     _socket?.disconnect();
     _socket?.dispose();
 
