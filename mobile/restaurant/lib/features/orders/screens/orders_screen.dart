@@ -808,7 +808,7 @@ class _RestaurantDrawer extends ConsumerWidget {
                 ),
                 const SizedBox(height: 14),
                 const Text(
-                  'Restaurant Dashboard',
+                  'Tana Partner',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 17,

@@ -71,7 +71,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
     });
 
     return MaterialApp.router(
-      title: 'Food Delivery',
+      title: 'Tana Delivery',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

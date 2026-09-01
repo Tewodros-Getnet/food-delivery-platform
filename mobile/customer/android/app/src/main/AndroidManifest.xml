@@ -20,7 +20,7 @@
     </queries>
 
     <application
-        android:label="Food Delivery"
+        android:label="Tana Delivery"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

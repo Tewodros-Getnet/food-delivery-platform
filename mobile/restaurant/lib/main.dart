@@ -70,7 +70,7 @@ class _RestaurantAppState extends ConsumerState<RestaurantApp>
     });
 
     return MaterialApp.router(
-      title: 'Restaurant Dashboard',
+      title: 'Tana Partner',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

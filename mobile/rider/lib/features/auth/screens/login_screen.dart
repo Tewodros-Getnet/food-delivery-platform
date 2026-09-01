@@ -86,7 +86,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Rider Portal',
+                  'Tana Driver',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,

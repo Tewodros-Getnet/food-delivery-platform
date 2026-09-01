@@ -415,7 +415,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen>
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
-        title: const Text('Rider Dashboard'),
+        title: const Text('Tana Driver'),
         elevation: 0,
         actions: [
           IconButton(

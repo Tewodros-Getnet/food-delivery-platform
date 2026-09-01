@@ -287,7 +287,7 @@ class _StepAccount extends StatelessWidget {
           Text('Account details',
               style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text('How you\'ll sign in to the rider portal',
+          Text('How you\'ll sign in to Tana Driver',
               style: tt.bodySmall
                   ?.copyWith(color: cs.onSurface.withValues(alpha: 0.5))),
           const SizedBox(height: 24),

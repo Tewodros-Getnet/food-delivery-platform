@@ -167,7 +167,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   SliverAppBar(
                     floating: true,
                     snap: true,
-                    title: const Text('Food Delivery'),
+                    title: const Text('Tana Delivery'),
                     // No backgroundColor / foregroundColor — inherits AppBarTheme
                     bottom: PreferredSize(
                       preferredSize: const Size.fromHeight(56),

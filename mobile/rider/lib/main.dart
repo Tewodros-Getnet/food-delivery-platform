@@ -70,7 +70,7 @@ class _RiderAppState extends ConsumerState<RiderApp>
     });
 
     return MaterialApp.router(
-      title: 'Rider App',
+      title: 'Tana Driver',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
