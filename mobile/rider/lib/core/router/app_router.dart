@@ -107,19 +107,16 @@ class _SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: cs.surface,
+      backgroundColor: const Color(0xFF0D0D0D),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Image.asset(
-                'assets/images/logo.jpg',
-                width: 110,
-                height: 110,
-                fit: BoxFit.cover,
-              ),
+            Image.asset(
+              'assets/images/logo.png',
+              width: 160,
+              height: 160,
+              fit: BoxFit.contain,
             ),
             const SizedBox(height: 32),
             SizedBox(
