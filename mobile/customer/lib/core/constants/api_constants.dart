@@ -8,6 +8,7 @@ class ApiConstants {
 
   static const String register = '/auth/register';
   static const String login = '/auth/login';
+  static const String googleSignIn = '/auth/google-signin';
   static const String refresh = '/auth/refresh';
   static const String logout = '/auth/logout';
   static const String verifyOtp = '/auth/verify-otp';

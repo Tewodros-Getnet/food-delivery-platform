@@ -7,6 +7,7 @@ import { query, withTransaction } from '../config/database';
 import { env } from '../config/env';
 import { User, PublicUser, UserRole } from '../models/user.model';
 import { sendOtpEmail, sendEmail } from './email.service';
+import { verifyGoogleIdToken } from './google-auth.service';
 import { logger } from '../utils/logger';
 
 // ── Per-user resend-OTP rate limit ────────────────────────────────────────────
@@ -67,6 +68,7 @@ function toPublicUser(user: User): PublicUser {
     phone: user.phone,
     profile_photo_url: user.profile_photo_url,
     status: user.status,
+    provider: user.provider,
     created_at: user.created_at,
   };
 }
@@ -250,7 +252,14 @@ export async function login(email: string, password: string): Promise<AuthResult
     throw err;
   }
 
-  const valid = await bcrypt.compare(password, user.password_hash);
+  // Check if this is a Google account trying to use password login
+  if (user.provider === 'google') {
+    const err = new Error('This account uses Google Sign-In. Please sign in with Google.') as Error & { statusCode: number };
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const valid = await bcrypt.compare(password, user.password_hash!);
   if (!valid) throw unauthorized;
 
   // Email verification check AFTER password validation (to avoid leaking account existence)
@@ -416,4 +425,95 @@ export async function resetPassword(token: string, newPassword: string): Promise
   });
 
   logger.info('Password reset successfully', { userId: record.user_id });
+}
+// ── Google Sign-In ────────────────────────────────────────────────────────────
+
+export async function googleSignIn(
+  idToken: string,
+  role: UserRole
+): Promise<AuthResult> {
+  const googleUser = await verifyGoogleIdToken(idToken);
+  
+  // Look for existing user by Google ID first, then by email
+  let user = await query<User>(
+    'SELECT * FROM users WHERE provider = $1 AND external_id = $2',
+    ['google', googleUser.id]
+  ).then(r => r.rows[0]);
+
+  if (!user) {
+    // Check if email exists with different provider
+    const existingEmail = await query<User>(
+      'SELECT * FROM users WHERE email = $1',
+      [googleUser.email]
+    );
+
+    if (existingEmail.rows[0]) {
+      const err = new Error(
+        'An account with this email already exists. Please sign in with your email and password.'
+      ) as Error & { statusCode: number };
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // Create new Google user account
+    const result = await query<User>(
+      `INSERT INTO users (
+        email, role, display_name, profile_photo_url, provider, external_id, 
+        email_verified, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, TRUE, 'active') RETURNING *`,
+      [
+        googleUser.email,
+        role,
+        googleUser.name,
+        googleUser.picture,
+        'google',
+        googleUser.id
+      ]
+    );
+    user = result.rows[0];
+    
+    logger.info('New Google user registered', { 
+      userId: user.id, 
+      email: user.email, 
+      role: user.role 
+    });
+  } else {
+    // Existing Google user - update profile info in case it changed
+    const updated = await query<User>(
+      `UPDATE users SET 
+        display_name = $1, 
+        profile_photo_url = $2, 
+        updated_at = NOW() 
+       WHERE id = $3 RETURNING *`,
+      [googleUser.name, googleUser.picture, user.id]
+    );
+    user = updated.rows[0];
+    
+    logger.info('Existing Google user signed in', { 
+      userId: user.id, 
+      email: user.email 
+    });
+  }
+
+  if (user.status === 'suspended') {
+    const err = new Error('Account suspended') as Error & { statusCode: number };
+    err.statusCode = 401;
+    throw err;
+  }
+
+  // Generate tokens
+  const jwtToken = generateJwt(user.id, user.role);
+  const { raw, hash } = generateRefreshToken();
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  // Delete all existing tokens for this user before inserting new one
+  await query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
+  await query(
+    'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+    [user.id, hash, expiresAt]
+  );
+
+  return { user: toPublicUser(user), tokens: { jwt: jwtToken, refreshToken: raw } };
 }

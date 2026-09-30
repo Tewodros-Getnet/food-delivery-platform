@@ -35,4 +35,5 @@ export const env = {
   BREVO_API_KEY: process.env.BREVO_API_KEY || '',
   BREVO_FROM_EMAIL: process.env.BREVO_FROM_EMAIL || '',
   BREVO_FROM_NAME: process.env.BREVO_FROM_NAME || 'Tana Delivery',
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
 };

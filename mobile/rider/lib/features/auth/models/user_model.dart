@@ -6,6 +6,7 @@ class UserModel {
   final String? phone;
   final String? profilePhotoUrl;
   final String status;
+  final String? provider;
 
   const UserModel({
     required this.id,
@@ -15,6 +16,7 @@ class UserModel {
     this.phone,
     this.profilePhotoUrl,
     required this.status,
+    this.provider,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -25,5 +27,6 @@ class UserModel {
     phone: json['phone'] as String?,
     profilePhotoUrl: json['profile_photo_url'] as String?,
     status: json['status'] as String,
+    provider: json['provider'] as String?,
   );
 }

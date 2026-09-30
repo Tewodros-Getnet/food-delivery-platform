@@ -48,6 +48,7 @@ class FakeLoginNotifier extends AuthNotifier {
         role: 'customer',
         displayName: 'Test User',
         status: '',
+        provider: 'local',  // Add provider field
       ),
       isLoading: false,
     );

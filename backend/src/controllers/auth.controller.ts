@@ -58,6 +58,12 @@ export const resetPasswordValidation = [
   validate,
 ];
 
+export const googleSignInValidation = [
+  body('idToken').notEmpty().withMessage('Google ID token is required'),
+  body('role').isIn(['customer', 'restaurant', 'rider']).withMessage('Invalid role'),
+  validate,
+];
+
 export async function registerHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const { email, password, role } = req.body as { email: string; password: string; role: 'customer' | 'restaurant' | 'rider' };
@@ -136,6 +142,16 @@ export async function resetPasswordHandler(req: Request, res: Response, next: Ne
     const { token, newPassword } = req.body as { token: string; newPassword: string };
     await authService.resetPassword(token, newPassword);
     res.json(successResponse({ message: 'Password reset successfully. Please log in with your new password.' }));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function googleSignInHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { idToken, role } = req.body as { idToken: string; role: 'customer' | 'restaurant' | 'rider' };
+    const result = await authService.googleSignIn(idToken, role);
+    res.json(successResponse(result));
   } catch (err) {
     next(err);
   }

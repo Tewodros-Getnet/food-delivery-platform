@@ -217,6 +217,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             AuthDivider(label: 'or'),
                             const SizedBox(height: 20),
 
+                            // Google Sign-In button
+                            OutlinedButton.icon(
+                              onPressed: auth.isLoading
+                                  ? null
+                                  : () async {
+                                      await ref
+                                          .read(authProvider.notifier)
+                                          .googleSignIn();
+                                    },
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 52),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14)),
+                                side: BorderSide(
+                                    color: cs.outline.withValues(alpha: 0.5)),
+                              ),
+                              icon: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: const BoxDecoration(
+                                  image: DecorationImage(
+                                    image: NetworkImage(
+                                      'https://www.google.com/favicon.ico',
+                                    ),
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ),
+                              label: const Text(
+                                'Continue with Google',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
                             // Register link
                             OutlinedButton(
                               onPressed: () => context.push('/register'),

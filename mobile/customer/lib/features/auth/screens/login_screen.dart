@@ -185,6 +185,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   color: Color(0xFFCC1A1A), fontSize: 13)),
                         ),
                       ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Divider
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: Colors.grey[700])),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'or',
+                              style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                            ),
+                          ),
+                          Expanded(child: Divider(color: Colors.grey[700])),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Google Sign-In Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: auth.isLoading
+                              ? null
+                              : () async {
+                                  await ref
+                                      .read(authProvider.notifier)
+                                      .googleSignIn();
+                                },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(color: Colors.grey[700]!),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: const BoxDecoration(
+                              image: DecorationImage(
+                                image: NetworkImage(
+                                  'https://www.google.com/favicon.ico',
+                                ),
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                          label: const Text(
+                            'Continue with Google',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

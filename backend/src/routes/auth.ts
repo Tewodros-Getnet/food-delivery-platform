@@ -8,6 +8,7 @@ import {
   resendOtpHandler, resendOtpValidation,
   requestPasswordResetHandler, requestPasswordResetValidation,
   resetPasswordHandler, resetPasswordValidation,
+  googleSignInHandler, googleSignInValidation,
 } from '../controllers/auth.controller';
 
 const router = Router();
@@ -16,6 +17,7 @@ router.post('/register', registerValidation, registerHandler);
 router.post('/verify-otp', verifyOtpValidation, verifyOtpHandler);
 router.post('/resend-otp', resendOtpValidation, resendOtpHandler);
 router.post('/login', loginValidation, loginHandler);
+router.post('/google-signin', googleSignInValidation, googleSignInHandler);
 router.post('/refresh', refreshValidation, refreshHandler);
 router.post('/logout', logoutValidation, logoutHandler);
 // Step 1: user submits email → receives reset link

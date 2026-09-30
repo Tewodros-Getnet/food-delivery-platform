@@ -143,6 +143,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> googleSignIn() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final user = await _svc.googleSignIn();
+      state = state.copyWith(
+        status: AuthStatus.authenticated,
+        user: user,
+        isLoading: false,
+      );
+      // Fetch restaurant status right after login
+      await _checkRestaurant();
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString().replaceFirst('Exception: ', ''),
+        status: AuthStatus.unauthenticated,
+      );
+    }
+  }
+
   Future<void> register(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {

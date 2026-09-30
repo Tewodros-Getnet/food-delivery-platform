@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/services/google_auth_service.dart';
 import '../models/user_model.dart';
 
 final authServiceProvider = Provider<AuthService>(
@@ -124,6 +125,30 @@ class AuthService {
     }
   }
 
+  Future<UserModel> googleSignIn() async {
+    try {
+      final user = await GoogleAuthService.signInWithGoogle();
+      if (user == null) {
+        throw Exception('Google Sign-In was cancelled');
+      }
+      
+      // Verify role for this app
+      if (user.role != 'rider') {
+        // Sign out from Google on role mismatch
+        await GoogleAuthService.signOut();
+        throw Exception(
+          'This account is not a rider account. '
+          'Please use the correct app for your account type.',
+        );
+      }
+      
+      return user;
+    } catch (e) {
+      if (e is Exception && e.toString().contains('correct app')) rethrow;
+      throw Exception(_parseError(e));
+    }
+  }
+
   Future<void> logout() async {
     final rt = await _storage.getRefreshToken();
     if (rt != null) {
@@ -132,6 +157,9 @@ class AuthService {
       } catch (_) {}
     }
     await _storage.clearTokens();
+    
+    // Also sign out from Google
+    await GoogleAuthService.signOut();
   }
 
   /// Returns true when the user has a valid session.
