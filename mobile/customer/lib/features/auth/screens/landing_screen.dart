@@ -44,7 +44,7 @@ class LandingScreen extends ConsumerWidget {
                               size: 42, color: Colors.white),
                           SizedBox(height: 4),
                           Text(
-                            'TT\nDelivery',
+                            'Tana Delivery',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white,
