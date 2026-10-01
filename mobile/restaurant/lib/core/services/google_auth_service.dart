@@ -42,15 +42,15 @@ class GoogleAuthService {
       );
 
       if (response.statusCode == 200) {
-        final data = response.data['data'];
-        final token = data['tokens']['jwt'];
-        final user = UserModel.fromJson(data['user']);
+        final data = response.data['data'] as Map<String, dynamic>;
+        final tokens = data['tokens'] as Map<String, dynamic>;
+        final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
 
         // Store the token using secure storage
         final storage = SecureStorageService();
         await storage.saveTokens(
-          jwt: token,
-          refreshToken: data['tokens']['refreshToken'],
+          jwt: tokens['jwt'] as String,
+          refreshToken: tokens['refreshToken'] as String,
         );
         
         return user;
