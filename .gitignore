@@ -38,6 +38,12 @@ build/
 # Android local machine config
 **/local.properties
 
+# Keystore files - NEVER commit these!
+*.keystore
+*.jks
+key.properties
+**/key.properties
+
 # OS
 .DS_Store
 Thumbs.db
