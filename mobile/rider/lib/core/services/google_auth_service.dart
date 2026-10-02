@@ -38,6 +38,7 @@ class GoogleAuthService {
         '${ApiConstants.baseUrl}${ApiConstants.googleSignIn}',
         data: {
           'idToken': googleAuth.idToken,
+          'role': 'rider',
         },
       );
 
