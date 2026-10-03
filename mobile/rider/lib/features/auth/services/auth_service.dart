@@ -230,7 +230,7 @@ class AuthService {
       return true;
     }
   }
-}
+
   Future<void> requestPasswordReset(String email) async {
     try {
       await _client.dio.post(
@@ -241,6 +241,7 @@ class AuthService {
       throw Exception(_parseError(e));
     }
   }
+
   Future<void> resetPassword(String token, String newPassword) async {
     try {
       await _client.dio.post(
@@ -254,3 +255,4 @@ class AuthService {
       throw Exception(_parseError(e));
     }
   }
+}

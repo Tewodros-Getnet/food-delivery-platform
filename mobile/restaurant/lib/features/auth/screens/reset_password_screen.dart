@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../providers/reset_password_provider.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
-  final String token;
+  final String? token;
   
-  const ResetPasswordScreen({super.key, required this.token});
+  const ResetPasswordScreen({super.key, this.token});
 
   @override
   ConsumerState<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -50,8 +50,20 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen>
   void _submitReset() {
     if (!_formKey.currentState!.validate()) return;
     
+    final token = widget.token;
+    if (token == null || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid or missing reset token. Please request a new password reset.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      context.go('/forgot-password');
+      return;
+    }
+    
     ref.read(resetPasswordProvider.notifier).resetPassword(
-      widget.token, 
+      token, 
       _passwordController.text
     );
   }

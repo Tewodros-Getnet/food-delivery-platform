@@ -7,6 +7,8 @@ import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
 import '../../features/auth/screens/invitation_screen.dart';
 import '../../features/auth/screens/waiting_for_invitation_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/delivery/screens/home_screen.dart';
 import '../../features/delivery/screens/earnings_screen.dart';
 import '../../features/delivery/screens/chat_screen.dart';
@@ -26,7 +28,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isPublicRoute = loc == '/login' ||
           loc == '/register' ||
-          loc == '/verify-otp';
+          loc == '/verify-otp' ||
+          loc == '/forgot-password' ||
+          loc == '/reset-password';
 
       // ── Still resolving — stay on splash ──────────────────────────────
       if (isUnknown) {
@@ -75,6 +79,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login',      builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register',   builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/verify-otp', builder: (_, __) => const OtpScreen()),
+      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(
+        path: '/reset-password',
+        builder: (_, s) {
+          final token = s.uri.queryParameters['token'];
+          return ResetPasswordScreen(token: token);
+        },
+      ),
 
       GoRoute(path: '/waiting',    builder: (_, __) => const WaitingForInvitationScreen()),
       GoRoute(path: '/invitation', builder: (_, __) => const InvitationScreen()),

@@ -6,6 +6,8 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
 import '../../features/auth/screens/landing_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/restaurants/screens/restaurant_detail_screen.dart';
 import '../../features/restaurants/screens/favorites_screen.dart';
@@ -46,7 +48,9 @@ class _RouterNotifier extends ChangeNotifier {
     final isAuthScreen = loc == '/landing' ||
         loc == '/login' ||
         loc == '/register' ||
-        loc == '/verify-otp';
+        loc == '/verify-otp' ||
+        loc == '/forgot-password' ||
+        loc == '/reset-password';
 
     final isProtected = loc == '/orders' ||
         loc == '/profile' ||
@@ -105,6 +109,16 @@ class _RouterNotifier extends ChangeNotifier {
           GoRoute(
               path: '/register',
               builder: (_, __) => const RegisterScreen()),
+          GoRoute(
+              path: '/forgot-password',
+              builder: (_, __) => const ForgotPasswordScreen()),
+          GoRoute(
+            path: '/reset-password',
+            builder: (_, s) {
+              final token = s.uri.queryParameters['token'];
+              return ResetPasswordScreen(token: token);
+            },
+          ),
           GoRoute(
             path: '/verify-otp',
             builder: (_, s) {

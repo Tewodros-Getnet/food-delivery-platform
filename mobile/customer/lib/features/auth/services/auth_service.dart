@@ -218,7 +218,6 @@ class AuthService {
       return true; // malformed JWT — treat as expired
     }
   }
-}
 
   Future<void> requestPasswordReset(String email) async {
     try {
@@ -244,3 +243,4 @@ class AuthService {
       throw Exception(_parseError(e));
     }
   }
+}
