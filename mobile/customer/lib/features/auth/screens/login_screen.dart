@@ -177,9 +177,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 24),
                       Center(
                         child: TextButton(
-                          onPressed: () {
-                            // TODO: navigate to forgot password screen
-                          },
+                          onPressed: () => context.push('/forgot-password'),
                           child: const Text('Reset your password',
                               style: TextStyle(
                                   color: Color(0xFFCC1A1A), fontSize: 13)),

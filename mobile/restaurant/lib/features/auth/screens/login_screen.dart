@@ -217,6 +217,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             AuthDivider(label: 'or'),
                             const SizedBox(height: 20),
 
+                            // Forgot password link
+                            Center(
+                              child: TextButton(
+                                onPressed: () => context.push('/forgot-password'),
+                                child: const Text(
+                                  'Forgot Password?',
+                                  style: TextStyle(
+                                    color: Color(0xFFCC1A1A),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
                             // Google Sign-In button
                             OutlinedButton.icon(
                               onPressed: auth.isLoading

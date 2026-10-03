@@ -11,6 +11,8 @@ class ApiConstants {
   static const String googleSignIn = '/auth/google-signin';
   static const String refresh = '/auth/refresh';
   static const String logout = '/auth/logout';
+  static const String requestPasswordReset = '/auth/request-password-reset';
+  static const String resetPassword = '/auth/reset-password';
   static const String verifyOtp = '/auth/verify-otp';
   static const String resendOtp = '/auth/resend-otp';
   static const String profile = '/users/profile';
