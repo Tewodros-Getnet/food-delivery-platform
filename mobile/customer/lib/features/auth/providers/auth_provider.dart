@@ -11,28 +11,26 @@ class AuthState {
   final String? error;
   final bool isLoading;
   final String? pendingUserId;
-  final String? devOtp; // non-null only in dev/staging — backend returns OTP directly
+  
   const AuthState(
       {this.status = AuthStatus.unknown,
       this.user,
       this.error,
       this.isLoading = false,
-      this.pendingUserId,
-      this.devOtp});
+      this.pendingUserId});
+      
   AuthState copyWith(
           {AuthStatus? status,
           UserModel? user,
           String? error,
           bool? isLoading,
-          String? pendingUserId,
-          String? devOtp}) =>
+          String? pendingUserId}) =>
       AuthState(
           status: status ?? this.status,
           user: user ?? this.user,
           error: error,
           isLoading: isLoading ?? this.isLoading,
-          pendingUserId: pendingUserId ?? this.pendingUserId,
-          devOtp: devOtp ?? this.devOtp);
+          pendingUserId: pendingUserId ?? this.pendingUserId);
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
@@ -94,7 +92,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
           status: AuthStatus.pendingVerification,
           pendingUserId: result.userId,
-          devOtp: result.devOtp,
           isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

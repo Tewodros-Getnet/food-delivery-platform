@@ -41,7 +41,7 @@ class AuthService {
   final SecureStorageService _storage;
   AuthService(this._client, this._storage);
 
-  Future<({String userId, String? devOtp})> register({
+  Future<({String userId})> register({
     required String email,
     required String password,
     String? displayName,
@@ -62,7 +62,6 @@ class AuthService {
       final data = res.data['data'] as Map<String, dynamic>;
       return (
         userId: data['userId'] as String,
-        devOtp: data['devOtp'] as String?,
       );
     } catch (e) {
       throw Exception(_parseError(e));

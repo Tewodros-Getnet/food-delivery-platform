@@ -195,38 +195,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Dev OTP banner
-                      if (auth.devOtp != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: cs.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: cs.primary.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.developer_mode_rounded,
-                                  size: 16, color: cs.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Dev OTP: ${auth.devOtp}',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: cs.primary,
-                                  letterSpacing: 5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-
                       Text('Enter the code',
                           style: Theme.of(context)
                               .textTheme

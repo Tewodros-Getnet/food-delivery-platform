@@ -13,7 +13,6 @@ class AuthState {
   final String? error;
   final bool isLoading;
   final String? pendingUserId;
-  final String? devOtp;
 
   /// null  = not yet checked
   /// true  = rider has accepted an invitation (part of a restaurant team)
@@ -30,7 +29,6 @@ class AuthState {
     this.error,
     this.isLoading = false,
     this.pendingUserId,
-    this.devOtp,
     this.hasAcceptedInvitation,
     this.invitationData,
   });
@@ -41,7 +39,6 @@ class AuthState {
     String? error,
     bool? isLoading,
     String? pendingUserId,
-    String? devOtp,
     bool? hasAcceptedInvitation,
     Map<String, dynamic>? invitationData,
     bool clearInvitation = false,
@@ -52,7 +49,6 @@ class AuthState {
         error:                 error,
         isLoading:             isLoading            ?? this.isLoading,
         pendingUserId:         pendingUserId        ?? this.pendingUserId,
-        devOtp:                devOtp               ?? this.devOtp,
         hasAcceptedInvitation: hasAcceptedInvitation ?? this.hasAcceptedInvitation,
         invitationData:        clearInvitation ? null : (invitationData ?? this.invitationData),
       );
@@ -201,7 +197,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         status: AuthStatus.pendingVerification,
         pendingUserId: result.userId,
-        devOtp: result.devOtp,
         isLoading: false,
       );
     } catch (e) {

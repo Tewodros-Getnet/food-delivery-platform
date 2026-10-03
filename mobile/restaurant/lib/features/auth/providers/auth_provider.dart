@@ -13,7 +13,6 @@ class AuthState {
   final String? error;
   final bool isLoading;
   final String? pendingUserId;
-  final String? devOtp;
 
   /// null  = not yet checked
   /// false = authenticated but no restaurant profile created
@@ -29,7 +28,6 @@ class AuthState {
     this.error,
     this.isLoading = false,
     this.pendingUserId,
-    this.devOtp,
     this.hasRestaurant,
     this.restaurantStatus,
   });
@@ -40,7 +38,6 @@ class AuthState {
     String? error,
     bool? isLoading,
     String? pendingUserId,
-    String? devOtp,
     bool? hasRestaurant,
     String? restaurantStatus,
   }) =>
@@ -50,7 +47,6 @@ class AuthState {
         error: error,
         isLoading: isLoading ?? this.isLoading,
         pendingUserId: pendingUserId ?? this.pendingUserId,
-        devOtp: devOtp ?? this.devOtp,
         hasRestaurant: hasRestaurant ?? this.hasRestaurant,
         restaurantStatus: restaurantStatus ?? this.restaurantStatus,
       );
@@ -170,7 +166,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         status: AuthStatus.pendingVerification,
         pendingUserId: result.userId,
-        devOtp: result.devOtp,
         isLoading: false,
       );
     } catch (e) {

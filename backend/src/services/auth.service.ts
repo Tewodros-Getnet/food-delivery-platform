@@ -132,10 +132,7 @@ export async function register(
     logger.error('OTP email delivery failed — user can resend', { userId, email, error: String(err) })
   );
 
-  // In development, return the OTP directly so testing doesn't depend on SMTP
-  const devOtp = env.NODE_ENV !== 'production' ? otp : undefined;
-
-  return { userId, email, pendingVerification: true, ...(devOtp && { devOtp }) };
+  return { userId, email, pendingVerification: true };
 }
 
 const MAX_OTP_ATTEMPTS = 5;
