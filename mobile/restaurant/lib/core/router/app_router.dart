@@ -149,12 +149,31 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // App logo
-            Image.asset(
-              'assets/images/logo.png',
+            // App logo with circular clipping
+            Container(
               width: 160,
               height: 160,
-              fit: BoxFit.contain,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Container(
+                  color: Colors.white,
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 160,
+                    height: 160,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 32),
             SizedBox(
