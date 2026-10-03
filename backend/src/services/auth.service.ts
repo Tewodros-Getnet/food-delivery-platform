@@ -337,8 +337,8 @@ export async function cleanupExpiredTokens(): Promise<void> {
 
 export async function requestPasswordReset(email: string): Promise<void> {
   // Always resolve successfully — never reveal whether an email exists
-  const userResult = await query<{ id: string; email: string }>(
-    'SELECT id, email FROM users WHERE email = $1', [email]
+  const userResult = await query<{ id: string; email: string; role: string }>(
+    'SELECT id, email, role FROM users WHERE email = $1', [email]
   );
   const user = userResult.rows[0];
   if (!user) return; // Silent — don't leak account existence
@@ -360,11 +360,35 @@ export async function requestPasswordReset(email: string): Promise<void> {
     [user.id, tokenHash, expiresAt]
   );
 
-  const resetLink = `${env.APP_DEEP_LINK_BASE}/reset-password?token=${rawToken}`;
+  // Generate role-specific deep link
+  const getRoleSpecificLink = (role: string, token: string) => {
+    switch (role) {
+      case 'customer':
+        return `fooddelivery://customer/reset-password?token=${token}`;
+      case 'restaurant':
+        return `fooddelivery://restaurant/reset-password?token=${token}`;
+      case 'rider':
+        return `fooddelivery://rider/reset-password?token=${token}`;
+      default:
+        return `fooddelivery://app/reset-password?token=${token}`;
+    }
+  };
+
+  const resetLink = getRoleSpecificLink(user.role, rawToken);
+  
+  // Also provide web fallback links
+  const webFallbackLinks = {
+    customer: `${env.APP_DEEP_LINK_BASE?.replace('fooddelivery://app', 'https://customer.tanadelivery.com')}/reset-password?token=${rawToken}`,
+    restaurant: `${env.APP_DEEP_LINK_BASE?.replace('fooddelivery://app', 'https://restaurant.tanadelivery.com')}/reset-password?token=${rawToken}`,
+    rider: `${env.APP_DEEP_LINK_BASE?.replace('fooddelivery://app', 'https://rider.tanadelivery.com')}/reset-password?token=${rawToken}`,
+  };
+
+  const roleTitle = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+  const webLink = webFallbackLinks[user.role as keyof typeof webFallbackLinks] || resetLink;
 
   await sendEmail(
     user.email,
-    'Reset Your Password - Tana Delivery',
+    `Reset Your Password - Tana Delivery ${roleTitle} App`,
     `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden;">
       <!-- Header -->
@@ -376,23 +400,31 @@ export async function requestPasswordReset(email: string): Promise<void> {
           </svg>
         </div>
         <h1 style="color: white; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Tana Delivery</h1>
-        <p style="color: rgba(255,255,255,0.8); font-size: 16px; margin: 8px 0 0;">Reset Your Password</p>
+        <p style="color: rgba(255,255,255,0.8); font-size: 16px; margin: 8px 0 0;">${roleTitle} App - Reset Your Password</p>
       </div>
 
       <!-- Content -->
       <div style="background: white; padding: 40px;">
         <div style="text-align: center; margin-bottom: 32px;">
           <h2 style="color: #1f2937; font-size: 24px; font-weight: 600; margin: 0 0 8px;">Forgot your password?</h2>
-          <p style="color: #6b7280; font-size: 16px; margin: 0; line-height: 1.5;">No worries! We'll help you reset it securely.</p>
+          <p style="color: #6b7280; font-size: 16px; margin: 0; line-height: 1.5;">No worries! We'll help you reset it securely for your ${roleTitle} account.</p>
         </div>
 
         <div style="background: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center;">
-          <p style="color: #374151; font-size: 14px; margin: 0 0 20px; line-height: 1.5;">Click the button below to create a new password. This link is valid for <strong>${RESET_TOKEN_EXPIRY_MINUTES} minutes</strong> only.</p>
+          <p style="color: #374151; font-size: 14px; margin: 0 0 20px; line-height: 1.5;">Click the button below to open the ${roleTitle} app and create a new password. This link is valid for <strong>${RESET_TOKEN_EXPIRY_MINUTES} minutes</strong> only.</p>
           
           <a href="${resetLink}" 
-             style="display: inline-block; background: linear-gradient(135deg, #CC1A1A 0%, #e11d48 100%); color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(204, 26, 26, 0.3); transition: transform 0.2s;">
-            🔑 Reset My Password
+             style="display: inline-block; background: linear-gradient(135deg, #CC1A1A 0%, #e11d48 100%); color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(204, 26, 26, 0.3); transition: transform 0.2s; margin-bottom: 16px;">
+            🔑 Open ${roleTitle} App & Reset Password
           </a>
+          
+          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 12px; margin: 0 0 8px;">Having trouble with the app? Use this web link instead:</p>
+            <a href="${webLink}" 
+               style="color: #CC1A1A; font-size: 12px; text-decoration: underline;">
+              ${webLink}
+            </a>
+          </div>
         </div>
 
         <!-- Security Info -->
@@ -400,6 +432,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
           <h4 style="color: #92400e; font-size: 14px; font-weight: 600; margin: 0 0 8px;">🛡️ Security Notice</h4>
           <p style="color: #a16207; font-size: 13px; margin: 0; line-height: 1.4;">
             • This link expires in ${RESET_TOKEN_EXPIRY_MINUTES} minutes<br>
+            • Only works for your ${roleTitle} account<br>
             • If you didn't request this, ignore this email<br>
             • Your password won't change unless you click the link
           </p>
@@ -416,7 +449,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
       <div style="background: #f9fafb; padding: 20px 40px; text-align: center;">
         <p style="color: #6b7280; font-size: 12px; margin: 0;">
           © 2026 Tana Delivery. All rights reserved.<br>
-          This email was sent because you requested a password reset.
+          This email was sent because you requested a password reset for your ${roleTitle} account.
         </p>
       </div>
     </div>

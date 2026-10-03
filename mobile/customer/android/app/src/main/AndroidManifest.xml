@@ -39,7 +39,14 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Deep link: fooddelivery://app/order/{id}/track (Chapa return_url) -->
+            <!-- Deep link: fooddelivery://customer/* -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="fooddelivery" android:host="customer"/>
+            </intent-filter>
+            <!-- Legacy deep link: fooddelivery://app/* (for backward compatibility) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
