@@ -117,15 +117,17 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: Colors.white,
       body: Center(
         child: SizedBox(
-          width: 24, height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            color: cs.primary,
+          width: 180,
+          height: 180,
+          child: ClipOval(
+            child: Image.asset(
+              'assets/images/logo.png',
+              fit: BoxFit.cover,
+            ),
           ),
         ),
       ),
