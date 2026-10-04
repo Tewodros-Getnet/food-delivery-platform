@@ -31,6 +31,7 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.14.1
   flutter_native_splash: ^2.3.10
+  image: ^4.10.1
 
 flutter_launcher_icons:
   android: true
@@ -42,9 +43,9 @@ flutter_launcher_icons:
 
 flutter_native_splash:
   color: "#0D0D0D"
-  image: "assets/images/logo.png"
+  image: "assets/images/logo_circle.png"
   android_12:
-    image: "assets/images/logo.png"
+    image: "assets/images/logo_circle.png"
     icon_background_color: "#0D0D0D"
     color: "#0D0D0D"
 
