@@ -1,0 +1,9 @@
+
+
+
+cd %LOCALAPPDATA%\Android\Sdk\platform-tools
+
+adb connect 192.168.137
+
+C:\food-delivery-platform-main\mobile\customer
+
