@@ -63,43 +63,35 @@ class _RouterNotifier extends ChangeNotifier {
 
     switch (auth.status) {
       case AuthStatus.unknown:
-        // Still checking — show splash, never the real home screen
-        if (loc != '/splash') return '/splash';
+        // Still checking auth - stay on current screen or go to landing
+        if (loc == '/home' || isProtected) return '/landing';
         return null;
 
       case AuthStatus.pendingVerification:
-        if (loc == '/splash') return '/verify-otp';
         if (loc != '/verify-otp') return '/verify-otp';
         return null;
 
       case AuthStatus.unauthenticated:
-        // Leave splash → landing
-        if (loc == '/splash') return '/landing';
+        // Not authenticated - go to landing if on protected screen
         if (!isAuthScreen) return '/landing';
         return null;
 
       case AuthStatus.guest:
-        if (loc == '/splash') return '/home';
         if (isProtected) return '/landing';
         return null;
 
       case AuthStatus.authenticated:
-        if (loc == '/splash') return '/home';
         if (isAuthScreen) return '/home';
         return null;
     }
   }
 
   GoRouter _buildRouter() => GoRouter(
-        initialLocation: '/splash',
+        initialLocation: '/home',
         refreshListenable: this,
         redirect: _redirect,
         routes: [
-          // Splash — shown only during auth resolution
-          GoRoute(
-            path: '/splash',
-            builder: (_, __) => const _SplashScreen(),
-          ),
+          // Direct routes - no splash screen
           GoRoute(
               path: '/landing',
               builder: (_, __) => const LandingScreen()),
@@ -218,29 +210,6 @@ final _routerNotifierProvider =
 final appRouterProvider = Provider<GoRouter>((ref) {
   return ref.watch(_routerNotifierProvider).router;
 });
-
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
-      body: Center(
-        child: SizedBox(
-          width: 180,
-          height: 180,
-          child: ClipOval(
-            child: Image.asset(
-              'assets/images/logo.png',
-              fit: BoxFit.cover,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ── Bottom nav shell ──────────────────────────────────────────────────────────
 

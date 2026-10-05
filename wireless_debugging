@@ -7,3 +7,7 @@ adb connect 192.168.137
 
 C:\food-delivery-platform-main\mobile\customer
 
+now it runs. i want to fix 2 things. 1st remove the 1st android splash screen's 
+log just only the background that match the 2nd flutter slash screen which have perect circle.
+ the main aim is not to allow the user to notice the trantioon of the 2 splashes .
+  also the app icon image doesn't fit well ..
