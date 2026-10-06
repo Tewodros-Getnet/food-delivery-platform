@@ -27,26 +27,33 @@ void main() async {
       continue;
     }
 
-    // Resize to square 512x512 to ensure perfect circle
-    final size = 512;
-    final resized = img.copyResize(src, width: size, height: size, interpolation: img.Interpolation.linear);
-
-    // Create output image with transparency
+    // Create 1024x1024 canvas for Android 12+ adaptive icon compatibility
+    final size = 1024;
     final out = img.Image(width: size, height: size, numChannels: 4);
     img.fill(out, color: img.ColorRgba8(0, 0, 0, 0)); // fully transparent
 
+    // Android 12+ safe zone: use 60% of canvas for actual logo (20% padding on all sides)
+    final logoSize = (size * 0.6).round(); // 614 pixels for the actual logo
+    final logoOffset = (size * 0.2).round(); // 205 pixel offset from edges
+
+    // Resize source image to fit the safe zone
+    final resized = img.copyResize(src, width: logoSize, height: logoSize, interpolation: img.Interpolation.linear);
+
+    // Circle parameters for the logo area
     final cx = size / 2.0;
     final cy = size / 2.0;
-    final r = size / 2.0;
+    final r = logoSize / 2.0; // Circle radius matches logo size
 
-    // Copy pixels inside the circle, leave outside transparent
-    for (int y = 0; y < size; y++) {
-      for (int x = 0; x < size; x++) {
-        final dx = x - cx;
-        final dy = y - cy;
+    // Copy pixels inside the circle, with proper offset for centering
+    for (int y = 0; y < logoSize; y++) {
+      for (int x = 0; x < logoSize; x++) {
+        final dx = x - logoSize / 2.0;
+        final dy = y - logoSize / 2.0;
         if (dx * dx + dy * dy <= r * r) {
           final srcPixel = resized.getPixel(x, y);
-          out.setPixel(x, y, srcPixel);
+          final outX = x + logoOffset;
+          final outY = y + logoOffset;
+          out.setPixel(outX, outY, srcPixel);
         }
         // else: remains transparent
       }
