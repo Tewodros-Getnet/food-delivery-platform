@@ -40,9 +40,11 @@ flutter_launcher_icons:
 
 flutter_native_splash:
   color: "#0D0D0D"
+  image: "assets/images/logo_circle.png"
   android_12:
-    color: "#0D0D0D"
+    image: "assets/images/logo_circle.png"
     icon_background_color: "#0D0D0D"
+    color: "#0D0D0D"
 
 flutter:
   uses-material-design: true

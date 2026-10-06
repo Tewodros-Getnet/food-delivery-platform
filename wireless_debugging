@@ -5,7 +5,7 @@ cd %LOCALAPPDATA%\Android\Sdk\platform-tools
 
 adb connect 192.168.137
 
-C:\food-delivery-platform-main\mobile\customer
+cd C:\food-delivery-platform-main\mobile\customer
 
 now it runs. i want to fix 2 things. 1st remove the 1st android splash screen's 
 log just only the background that match the 2nd flutter slash screen which have perect circle.
