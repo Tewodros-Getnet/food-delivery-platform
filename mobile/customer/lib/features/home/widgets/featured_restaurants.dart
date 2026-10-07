@@ -3,20 +3,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../restaurants/models/restaurant_model.dart';
-import '../../restaurants/providers/restaurant_provider.dart';
+import '../../restaurants/services/restaurant_service.dart';
+
+// Use the same provider pattern as home screen
+final _featuredRestaurantsProvider = FutureProvider<List<RestaurantModel>>(
+    (ref) => ref.read(restaurantServiceProvider).getRestaurants());
 
 class FeaturedRestaurantsSection extends ConsumerWidget {
   const FeaturedRestaurantsSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final featuredRestaurants = ref.watch(featuredRestaurantsProvider);
+    final restaurants = ref.watch(_featuredRestaurantsProvider);
 
-    return featuredRestaurants.when(
+    return restaurants.when(
       loading: () => const SizedBox.shrink(), // Don't show loading for featured section
       error: (_, __) => const SizedBox.shrink(), // Fail silently for featured section
-      data: (restaurants) {
-        if (restaurants.isEmpty) return const SizedBox.shrink();
+      data: (allRestaurants) {
+        // Filter to get featured restaurants (simulate with top-rated restaurants)
+        final featuredRestaurants = allRestaurants
+            .where((r) => r.averageRating >= 4.5 && r.isOpen)
+            .take(5)
+            .toList();
+
+        if (featuredRestaurants.isEmpty) return const SizedBox.shrink();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,12 +47,12 @@ class FeaturedRestaurantsSection extends ConsumerWidget {
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: restaurants.length,
+                itemCount: featuredRestaurants.length,
                 itemBuilder: (context, index) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: FeaturedRestaurantCard(
-                      restaurant: restaurants[index],
+                      restaurant: featuredRestaurants[index],
                     ),
                   );
                 },
