@@ -8,6 +8,10 @@ final restaurantListProvider =
       ref.read(restaurantServiceProvider).getRestaurants(category: category),
 );
 
+final restaurantsProvider = FutureProvider<List<RestaurantModel>>(
+  (ref) => ref.read(restaurantServiceProvider).getRestaurants(),
+);
+
 final restaurantDetailProvider = FutureProvider.family<RestaurantModel, String>(
   (ref, id) => ref.read(restaurantServiceProvider).getById(id),
 );

@@ -10,6 +10,7 @@ import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/restaurants/screens/restaurant_detail_screen.dart';
+import '../../features/restaurants/screens/restaurant_map_screen.dart';
 import '../../features/restaurants/screens/favorites_screen.dart';
 import '../../features/cart/screens/cart_screen.dart';
 import '../../features/orders/screens/checkout_screen.dart';
@@ -183,6 +184,11 @@ class _RouterNotifier extends ChangeNotifier {
               ]),
               StatefulShellBranch(routes: [
                 GoRoute(
+                    path: '/map',
+                    builder: (_, __) => const RestaurantMapScreen()),
+              ]),
+              StatefulShellBranch(routes: [
+                GoRoute(
                     path: '/orders',
                     builder: (_, __) => const OrderHistoryScreen()),
               ]),
@@ -236,8 +242,8 @@ class _ScaffoldWithBottomNavState
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: (index) {
-          if (isGuest && index > 0) {
-            // Guest taps protected tab → go to landing
+          if (isGuest && index > 1) {
+            // Guest taps protected tab → go to landing (Map is index 1, so protected tabs start at 2)
             GoRouter.of(context).go('/landing');
             return;
           }
@@ -256,6 +262,11 @@ class _ScaffoldWithBottomNavState
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home, color: Colors.orange),
             label: 'Home',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map, color: Colors.orange),
+            label: 'Map',
           ),
           const NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),

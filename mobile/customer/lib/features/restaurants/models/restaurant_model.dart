@@ -14,6 +14,13 @@ class RestaurantModel {
   final String? promoBannerText;
   final String? promoBannerImageUrl;
   final double? minimumOrderValue;
+  // Premium/Subscription features
+  final String subscriptionTier;
+  final DateTime? subscriptionExpiresAt;
+  final bool isPromoted;
+  final DateTime? promotionExpiresAt;
+  final int boostScore;
+  final DateTime? featuredUntil;
 
   const RestaurantModel({
     required this.id,
@@ -31,7 +38,21 @@ class RestaurantModel {
     this.promoBannerText,
     this.promoBannerImageUrl,
     this.minimumOrderValue,
+    this.subscriptionTier = 'free',
+    this.subscriptionExpiresAt,
+    this.isPromoted = false,
+    this.promotionExpiresAt,
+    this.boostScore = 0,
+    this.featuredUntil,
   });
+
+  // Helper methods for subscription features
+  bool get isPremium => subscriptionTier == 'premium' || subscriptionTier == 'premium_plus';
+  bool get isPremiumPlus => subscriptionTier == 'premium_plus';
+  bool get isCurrentlyPromoted => isPromoted && 
+      (promotionExpiresAt?.isAfter(DateTime.now()) ?? false);
+  bool get isCurrentlyFeatured => featuredUntil?.isAfter(DateTime.now()) ?? false;
+  bool get hasActiveSubscription => subscriptionExpiresAt?.isAfter(DateTime.now()) ?? false;
 
   factory RestaurantModel.fromJson(Map<String, dynamic> json) =>
       RestaurantModel(

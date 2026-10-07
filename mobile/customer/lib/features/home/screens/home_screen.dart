@@ -8,6 +8,7 @@ import '../../restaurants/models/restaurant_model.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../restaurants/providers/favorites_provider.dart';
 import '../../../core/widgets/retry_widget.dart';
+import '../widgets/featured_restaurants.dart';
 
 final restaurantsProvider = FutureProvider<List<RestaurantModel>>(
     (ref) => ref.read(restaurantServiceProvider).getRestaurants());
@@ -229,6 +230,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ),
                     ),
+
+                  // Featured restaurants section
+                  const SliverToBoxAdapter(
+                    child: FeaturedRestaurantsSection(),
+                  ),
 
                   // Restaurant list / loading / error states
                   restaurants.when(
