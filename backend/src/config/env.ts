@@ -32,6 +32,7 @@ export const env = {
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
   GMAIL_USER: process.env.GMAIL_USER || '',
   GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD || '',
+  FROM_NAME: process.env.FROM_NAME || 'Tana Delivery',
   BREVO_API_KEY: process.env.BREVO_API_KEY || '',
   BREVO_FROM_EMAIL: process.env.BREVO_FROM_EMAIL || '',
   BREVO_FROM_NAME: process.env.BREVO_FROM_NAME || 'Tana Delivery',
