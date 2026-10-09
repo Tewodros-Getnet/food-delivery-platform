@@ -6,7 +6,7 @@ import { PoolClient } from 'pg';
 import { query, withTransaction } from '../config/database';
 import { env } from '../config/env';
 import { User, PublicUser, UserRole } from '../models/user.model';
-import { sendOtpEmail, sendEmail } from './email-enhanced.service';
+import { sendOtpEmail, sendEmail } from './email.service';
 import { verifyGoogleIdToken } from './google-auth.service';
 import { logger } from '../utils/logger';
 
