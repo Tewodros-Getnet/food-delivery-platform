@@ -1,33 +1,27 @@
-import nodemailer from 'nodemailer';
+import * as Brevo from '@getbrevo/brevo';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
-// ── Gmail SMTP Email Service (Temporary while Brevo account gets verified) ────
+// ── Brevo transactional email client ─────────────────────────────────────────
+const apiInstance = new Brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(
+  Brevo.TransactionalEmailsApiApiKeys.apiKey,
+  env.BREVO_API_KEY,
+);
 
-let transporter: any = null;
-
-// Initialize transporter
-function getTransporter() {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      service: 'gmail',
-      host: 'smtp.gmail.com', 
-      port: 587,
-      secure: false,
-      auth: {
-        user: 'tgetnet156@gmail.com', // Your Gmail
-        pass: 'aoybtfqhjfvlkqsj', // Your app password
-      },
-    });
-  }
-  return transporter;
-}
+const FROM_EMAIL = env.BREVO_FROM_EMAIL;
+const FROM_NAME  = env.BREVO_FROM_NAME;
 
 // ── OTP email ─────────────────────────────────────────────────────────────────
 export async function sendOtpEmail(to: string, otp: string): Promise<void> {
-  const html = `
+  const mail = new Brevo.SendSmtpEmail();
+
+  mail.sender      = { email: FROM_EMAIL, name: FROM_NAME };
+  mail.to          = [{ email: to }];
+  mail.subject     = 'Your verification code';
+  mail.htmlContent = `
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#fff;">
-      <h2 style="color:#f97316;margin-bottom:4px;">Tana Delivery</h2>
+      <h2 style="color:#f97316;margin-bottom:4px;">${FROM_NAME}</h2>
       <p style="font-size:16px;color:#333;margin-top:0;">Your email verification code is:</p>
       <div style="background:#f3f4f6;border-radius:8px;padding:20px;text-align:center;margin:20px 0;">
         <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#111;">${otp}</span>
@@ -38,16 +32,10 @@ export async function sendOtpEmail(to: string, otp: string): Promise<void> {
   `;
 
   try {
-    const info = await getTransporter().sendMail({
-      from: '"Tana Delivery" <tgetnet156@gmail.com>',
-      to,
-      subject: 'Your verification code',
-      html,
-    });
-    
-    logger.info('OTP email sent via Gmail SMTP', { to, messageId: info.messageId });
+    await apiInstance.sendTransacEmail(mail);
+    logger.info('OTP email sent via Brevo', { to });
   } catch (err) {
-    logger.error('Failed to send OTP email via Gmail SMTP', { to, error: String(err) });
+    logger.error('Failed to send OTP email via Brevo', { to, error: String(err) });
     throw err;
   }
 }
@@ -58,17 +46,18 @@ export async function sendEmail(
   subject: string,
   html: string,
 ): Promise<void> {
+  const mail = new Brevo.SendSmtpEmail();
+
+  mail.sender      = { email: FROM_EMAIL, name: FROM_NAME };
+  mail.to          = [{ email: to }];
+  mail.subject     = subject;
+  mail.htmlContent = html;
+
   try {
-    const info = await getTransporter().sendMail({
-      from: '"Tana Delivery" <tgetnet156@gmail.com>',
-      to,
-      subject,
-      html,
-    });
-    
-    logger.info('Email sent via Gmail SMTP', { to, subject, messageId: info.messageId });
+    await apiInstance.sendTransacEmail(mail);
+    logger.info('Email sent via Brevo', { to, subject });
   } catch (err) {
-    logger.error('Failed to send email via Gmail SMTP', { to, subject, error: String(err) });
+    logger.error('Failed to send email via Brevo', { to, subject, error: String(err) });
     throw err;
   }
 }
