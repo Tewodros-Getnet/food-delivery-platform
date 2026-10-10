@@ -26,8 +26,7 @@ export const env = {
   CHAPA_BASE_URL: process.env.CHAPA_BASE_URL || 'https://api.chapa.co/v1',
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001',
   APP_DEEP_LINK_BASE: process.env.APP_DEEP_LINK_BASE || 'fooddelivery://app',
-  BREVO_API_KEY: process.env.BREVO_API_KEY || '',
-  BREVO_FROM_EMAIL: process.env.BREVO_FROM_EMAIL || '',
-  BREVO_FROM_NAME: process.env.BREVO_FROM_NAME || 'Tana Delivery',
+  SENDLIB_API_KEY: process.env.SENDLIB_API_KEY || '',
+  SENDLIB_FROM_EMAIL: process.env.SENDLIB_FROM_EMAIL || '',
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
 };
