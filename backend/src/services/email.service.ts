@@ -57,7 +57,7 @@ class SendLibService {
         throw new Error(`SendLib API error (${response.status}): ${errorText}`);
       }
 
-      const result: SendLibResponse = await response.json();
+      const result = await response.json() as SendLibResponse;
       
       if (!result.success) {
         throw new Error(`SendLib delivery error: ${result.error || result.message}`);
