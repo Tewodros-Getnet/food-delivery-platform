@@ -34,6 +34,7 @@ class SendLibService {
     // Create text version from HTML (basic fallback)
     const textContent = html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
+    // Anti-spam: Add sender reputation headers and improve content
     const emailData: SendLibEmailRequest = {
       from: env.SENDLIB_FROM_EMAIL || 'noreply@gmail.com', // Your connected Gmail
       to,
@@ -48,6 +49,8 @@ class SendLibService {
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
+          // Anti-spam: Add additional headers to improve reputation
+          'User-Agent': 'Tana-Delivery-Platform/1.0',
         },
         body: JSON.stringify(emailData)
       });
@@ -85,19 +88,24 @@ const sendLibService = new SendLibService();
 
 // ── OTP email ─────────────────────────────────────────────────────────────────
 export async function sendOtpEmail(to: string, otp: string): Promise<void> {
+  // Anti-spam: Simple plain text with minimal styling
   const html = `
-    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#fff;">
-      <h2 style="color:#f97316;margin-bottom:4px;">Tana Delivery</h2>
-      <p style="font-size:16px;color:#333;margin-top:0;">Your email verification code is:</p>
-      <div style="background:#f3f4f6;border-radius:8px;padding:20px;text-align:center;margin:20px 0;">
-        <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#111;">${otp}</span>
-      </div>
-      <p style="font-size:14px;color:#666;">This code expires in <strong>10 minutes</strong>.</p>
-      <p style="font-size:14px;color:#666;">If you did not request this, you can safely ignore this email.</p>
-    </div>
+<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #ffffff;">
+  <h2 style="color: #333333; font-size: 18px; margin: 0 0 15px 0;">Tana Delivery</h2>
+  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
+    Your verification code:
+  </p>
+  <p style="color: #333333; font-size: 24px; font-weight: bold; letter-spacing: 4px; margin: 15px 0; text-align: center;">
+    ${otp}
+  </p>
+  <p style="color: #666666; font-size: 12px; line-height: 1.4; margin: 15px 0 0 0;">
+    Code expires in 10 minutes. If you did not request this, ignore this email.
+  </p>
+</div>
   `;
 
-  await sendLibService.sendEmail(to, 'Your verification code - Tana Delivery', html);
+  // Anti-spam: Plain, business-like subject
+  await sendLibService.sendEmail(to, 'Verification code for Tana Delivery', html);
 }
 
 // ── Generic email (password reset links, etc.) ────────────────────────────────

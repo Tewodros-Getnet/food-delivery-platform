@@ -350,53 +350,20 @@ export async function requestPasswordReset(email: string): Promise<void> {
     // Send Google Sign-In reminder email instead of password reset
     await sendEmail(
       user.email,
-      `Account Access - Tana Delivery ${roleTitle} App`,
+      `Account access - Tana Delivery ${roleTitle}`,
       `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden;">
-        <!-- Header -->
-        <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 32px 40px; text-align: center;">
-          <div style="width: 80px; height: 80px; background: white; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
-          </div>
-          <h1 style="color: white; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Tana Delivery</h1>
-          <p style="color: rgba(255,255,255,0.8); font-size: 16px; margin: 8px 0 0;">${roleTitle} App - Account Access</p>
-        </div>
-
-        <!-- Content -->
-        <div style="background: white; padding: 40px;">
-          <div style="text-align: center; margin-bottom: 32px;">
-            <h2 style="color: #1f2937; font-size: 24px; font-weight: 600; margin: 0 0 8px;">You're using Google Sign-In!</h2>
-            <p style="color: #6b7280; font-size: 16px; margin: 0; line-height: 1.5;">Your account is connected with Google. No password reset needed - just sign in with Google!</p>
-          </div>
-
-          <div style="background: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center;">
-            <p style="color: #374151; font-size: 14px; margin: 0 0 20px; line-height: 1.5;">To access your ${roleTitle} account, use the "Continue with Google" button in the app.</p>
-            
-            <div style="background: linear-gradient(135deg, #4285F4 0%, #34A853 50%, #FBBC05 75%, #EA4335 100%); color: white; padding: 16px 32px; border-radius: 12px; display: inline-block; font-weight: 600; font-size: 16px; margin-bottom: 16px;">
-              🔐 Continue with Google
-            </div>
-            
-            <p style="color: #6b7280; font-size: 12px; margin: 0;">This is more secure than traditional passwords!</p>
-          </div>
-
-          <!-- Security Info -->
-          <div style="background: #ecfdf5; border-left: 4px solid #10b981; padding: 16px; margin: 24px 0; border-radius: 0 8px 8px 0;">
-            <p style="color: #065f46; font-size: 14px; margin: 0; font-weight: 600;">🛡️ Your account is secure</p>
-            <p style="color: #047857; font-size: 13px; margin: 4px 0 0; line-height: 1.4;">Google authentication provides enhanced security with two-factor authentication and advanced threat protection.</p>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div style="background: #f9fafb; padding: 20px 40px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="color: #6b7280; font-size: 12px; margin: 0;">If you're having trouble signing in, contact our support team.</p>
-          <p style="color: #9ca3af; font-size: 11px; margin: 8px 0 0;">© 2024 Tana Delivery. All rights reserved.</p>
-        </div>
-      </div>
+<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #ffffff;">
+  <h2 style="color: #333333; font-size: 18px; margin: 0 0 15px 0;">Tana Delivery</h2>
+  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
+    Your ${roleTitle} account uses Google Sign-In. No password reset needed.
+  </p>
+  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
+    To access your account, use the "Continue with Google" button in the ${roleTitle} app.
+  </p>
+  <p style="color: #666666; font-size: 12px; line-height: 1.4; margin: 15px 0 0 0;">
+    Google authentication provides enhanced security. If you need help, contact support.
+  </p>
+</div>
       `
     );
     return;
@@ -442,73 +409,28 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
   const roleTitle = user.role.charAt(0).toUpperCase() + user.role.slice(1);
 
+  // Anti-spam: Much simpler email without heavy HTML/CSS
   await sendEmail(
     user.email,
-    `Reset Your Password - Tana Delivery ${roleTitle} App`,
+    `Password reset - Tana Delivery ${roleTitle}`,
     `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden;">
-      <!-- Header -->
-      <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 32px 40px; text-align: center;">
-        <div style="width: 80px; height: 80px; background: white; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" fill="#CC1A1A"/>
-            <circle cx="12" cy="18" r="4" fill="#CC1A1A"/>
-          </svg>
-        </div>
-        <h1 style="color: white; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Tana Delivery</h1>
-        <p style="color: rgba(255,255,255,0.8); font-size: 16px; margin: 8px 0 0;">${roleTitle} App - Reset Your Password</p>
-      </div>
-
-      <!-- Content -->
-      <div style="background: white; padding: 40px;">
-        <div style="text-align: center; margin-bottom: 32px;">
-          <h2 style="color: #1f2937; font-size: 24px; font-weight: 600; margin: 0 0 8px;">Forgot your password?</h2>
-          <p style="color: #6b7280; font-size: 16px; margin: 0; line-height: 1.5;">No worries! We'll help you reset it securely for your ${roleTitle} account.</p>
-        </div>
-
-        <div style="background: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center;">
-          <p style="color: #374151; font-size: 14px; margin: 0 0 20px; line-height: 1.5;">Click the button below to open the ${roleTitle} app and create a new password. This link is valid for <strong>${RESET_TOKEN_EXPIRY_MINUTES} minutes</strong> only.</p>
-          
-          <a href="${resetLink}" 
-             style="display: inline-block; background: linear-gradient(135deg, #CC1A1A 0%, #e11d48 100%); color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(204, 26, 26, 0.3); transition: transform 0.2s; margin-bottom: 16px;">
-            🔑 Open ${roleTitle} App & Reset Password
-          </a>
-          
-          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-            <p style="color: #6b7280; font-size: 12px; margin: 0 0 8px;">Having trouble with the app? Use this web link instead:</p>
-            <a href="${webLink}" 
-               style="color: #CC1A1A; font-size: 12px; text-decoration: underline;">
-              ${webLink}
-            </a>
-          </div>
-        </div>
-
-        <!-- Security Info -->
-        <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 0 8px 8px 0;">
-          <h4 style="color: #92400e; font-size: 14px; font-weight: 600; margin: 0 0 8px;">🛡️ Security Notice</h4>
-          <p style="color: #a16207; font-size: 13px; margin: 0; line-height: 1.4;">
-            • This link expires in ${RESET_TOKEN_EXPIRY_MINUTES} minutes<br>
-            • Only works for your ${roleTitle} account<br>
-            • If you didn't request this, ignore this email<br>
-            • Your password won't change unless you click the link
-          </p>
-        </div>
-
-        <div style="text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            Need help? Contact us at <a href="mailto:support@tanadelivery.com" style="color: #CC1A1A;">support@tanadelivery.com</a>
-          </p>
-        </div>
-      </div>
-
-      <!-- Footer -->
-      <div style="background: #f9fafb; padding: 20px 40px; text-align: center;">
-        <p style="color: #6b7280; font-size: 12px; margin: 0;">
-          © 2026 Tana Delivery. All rights reserved.<br>
-          This email was sent because you requested a password reset for your ${roleTitle} account.
-        </p>
-      </div>
-    </div>
+<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #ffffff;">
+  <h2 style="color: #333333; font-size: 18px; margin: 0 0 15px 0;">Tana Delivery</h2>
+  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
+    You requested a password reset for your ${roleTitle} account.
+  </p>
+  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
+    <strong>Reset your password:</strong><br>
+    <a href="${resetLink}" style="color: #0066cc; text-decoration: underline;">${resetLink}</a>
+  </p>
+  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
+    <strong>Or use this web link:</strong><br>
+    <a href="${webLink}" style="color: #0066cc; text-decoration: underline;">${webLink}</a>
+  </p>
+  <p style="color: #666666; font-size: 12px; line-height: 1.4; margin: 15px 0 0 0;">
+    Link expires in ${RESET_TOKEN_EXPIRY_MINUTES} minutes. If you did not request this, ignore this email.
+  </p>
+</div>
     `
   );
 
