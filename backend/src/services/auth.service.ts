@@ -404,28 +404,23 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // Generate role-specific deep link
   const resetLink = getRoleSpecificLink(user.role, rawToken);
   
-  // Create a simple redirect URL that works
-  const webLink = `https://food-delivery-platform-i5by.onrender.com/redirect?app=customer&token=${rawToken}`;
+  // Create role-specific redirect URL that works for all app types
+  const webLink = `https://food-delivery-platform-i5by.onrender.com/redirect?app=${user.role}&token=${rawToken}`;
 
   const roleTitle = user.role.charAt(0).toUpperCase() + user.role.slice(1);
 
-  // Anti-spam: Much simpler email without heavy HTML/CSS
+  // Anti-spam: Make it as simple as the OTP email that works
   await sendEmail(
     user.email,
-    `Password reset - Tana Delivery ${roleTitle}`,
+    `Account access - Tana Delivery`,
     `
 <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #ffffff;">
   <h2 style="color: #333333; font-size: 18px; margin: 0 0 15px 0;">Tana Delivery</h2>
   <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
-    You requested a password reset for your ${roleTitle} account.
+    Access your ${roleTitle} account:
   </p>
-  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
-    <strong>Reset your password:</strong><br>
-    <a href="${resetLink}" style="color: #0066cc; text-decoration: underline;">${resetLink}</a>
-  </p>
-  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
-    <strong>Or use this web link:</strong><br>
-    <a href="${webLink}" style="color: #0066cc; text-decoration: underline;">${webLink}</a>
+  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0; text-align: center;">
+    <a href="${resetLink}" style="color: #0066cc; text-decoration: underline;">Open ${roleTitle} App</a>
   </p>
   <p style="color: #666666; font-size: 12px; line-height: 1.4; margin: 15px 0 0 0;">
     Link expires in ${RESET_TOKEN_EXPIRY_MINUTES} minutes. If you did not request this, ignore this email.
