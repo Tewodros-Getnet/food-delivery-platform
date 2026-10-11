@@ -6,6 +6,7 @@ import { requestLogger } from './middleware/requestLogger';
 import { rateLimiter, authRateLimiter } from './middleware/rateLimiter';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import router from './routes/index';
+import redirectRouter from './routes/redirect';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.get('/health', (_req, res) => {
   res.json({ success: true, data: { status: 'ok' }, error: null });
 });
 
+app.use('/redirect', redirectRouter);
 app.use('/api/v1', router);
 
 app.use(notFoundHandler);

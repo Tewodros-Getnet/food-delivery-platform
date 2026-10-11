@@ -434,17 +434,13 @@ export async function requestPasswordReset(email: string): Promise<void> {
     }
   };
 
+  // Generate role-specific deep link
   const resetLink = getRoleSpecificLink(user.role, rawToken);
   
-  // Also provide web fallback links
-  const webFallbackLinks = {
-    customer: `${env.APP_DEEP_LINK_BASE?.replace('fooddelivery://app', 'https://customer.tanadelivery.com')}/reset-password?token=${rawToken}`,
-    restaurant: `${env.APP_DEEP_LINK_BASE?.replace('fooddelivery://app', 'https://restaurant.tanadelivery.com')}/reset-password?token=${rawToken}`,
-    rider: `${env.APP_DEEP_LINK_BASE?.replace('fooddelivery://app', 'https://rider.tanadelivery.com')}/reset-password?token=${rawToken}`,
-  };
+  // Create a simple redirect URL that works
+  const webLink = `https://food-delivery-platform-i5by.onrender.com/redirect?app=customer&token=${rawToken}`;
 
   const roleTitle = user.role.charAt(0).toUpperCase() + user.role.slice(1);
-  const webLink = webFallbackLinks[user.role as keyof typeof webFallbackLinks] || resetLink;
 
   await sendEmail(
     user.email,
