@@ -15,13 +15,13 @@ class DeepLinkService {
   Future<void> initialize(BuildContext context) async {
     try {
       // Handle initial link when app is opened from terminated state
-      final initialUri = await _appLinks.getInitialLink();
+      final initialUri = await _appLinks.getInitialAppLink();
       if (initialUri != null && context.mounted) {
         _handleDeepLink(context, initialUri);
       }
 
       // Handle deep links when app is already running
-      _linkSubscription = _appLinks.uriLinkStream.listen(
+      _linkSubscription = _appLinks.allUriLinkStream.listen(
         (Uri uri) {
           if (context.mounted) {
             _handleDeepLink(context, uri);
