@@ -23,6 +23,7 @@ dependencies:
   google_sign_in: ^6.2.1
   uuid: ^4.3.3
   url_launcher: ^6.2.4
+  app_links: ^3.5.1
   geolocator: ^11.0.0
 
 dev_dependencies:

@@ -5,6 +5,7 @@ import 'core/router/app_router.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/network/dio_client.dart';
+import 'core/services/deep_link_service.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/notifications/fcm_service.dart';
 
@@ -29,6 +30,8 @@ class _RiderAppState extends ConsumerState<RiderApp>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(fcmServiceProvider).initialize(context);
+      // Initialize deep link service
+      DeepLinkService().initialize(context);
     });
   }
 

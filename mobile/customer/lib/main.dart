@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'core/router/app_router.dart';
 import 'core/providers/theme_provider.dart';
+import 'core/services/deep_link_service.dart';
 import 'features/notifications/fcm_service.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'core/network/dio_client.dart';
@@ -28,7 +29,11 @@ class _CustomerAppState extends ConsumerState<CustomerApp>
     WidgetsBinding.instance.addObserver(this);
     // FCM init is a one-time side effect — safe in initState
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(fcmServiceProvider).initialize(context);
+      if (mounted) {
+        ref.read(fcmServiceProvider).initialize(context);
+        // Initialize deep link service
+        DeepLinkService().initialize(context);
+      }
     });
   }
 

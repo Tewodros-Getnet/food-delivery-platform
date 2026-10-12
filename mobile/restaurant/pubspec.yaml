@@ -22,6 +22,7 @@ dependencies:
   flutter_map: ^8.3.0
   geolocator: ^14.0.2
   google_sign_in: ^6.2.1
+  app_links: ^3.5.1
 
 dev_dependencies:
   flutter_test:
