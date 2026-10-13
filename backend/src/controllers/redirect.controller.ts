@@ -76,6 +76,11 @@ export function redirectToApp(req: Request, res: Response) {
         .instructions h3 { margin-top: 0; color: #1f2937; }
         .instructions ol { margin: 10px 0; padding-left: 20px; }
         .instructions li { margin: 5px 0; }
+        .status { 
+            margin-top: 10px; 
+            font-size: 14px; 
+            color: #666; 
+        }
     </style>
 </head>
 <body>
@@ -84,9 +89,11 @@ export function redirectToApp(req: Request, res: Response) {
         <h1>Reset Your Password</h1>
         <p>Click the button below to open the Tana Delivery app and reset your password.</p>
         
-        <a href="${deepLink}" class="btn" onclick="setTimeout(() => showInstructions(), 2000);">
+        <button onclick="tryOpenApp()" class="btn">
             Open Tana Delivery App
-        </a>
+        </button>
+        
+        <div class="status" id="status">Preparing to open app...</div>
         
         <div id="instructions" class="instructions" style="display: none;">
             <h3>App didn't open?</h3>
@@ -100,17 +107,44 @@ export function redirectToApp(req: Request, res: Response) {
     </div>
     
     <script>
-        function showInstructions() {
-            document.getElementById('instructions').style.display = 'block';
+        let attemptCount = 0;
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
         }
         
-        // Auto-try deep link on page load
-        setTimeout(() => {
-            window.location.href = '${deepLink}';
-        }, 1000);
+        function showInstructions() {
+            document.getElementById('instructions').style.display = 'block';
+            updateStatus('If the app didn\\'t open, follow the instructions below.');
+        }
         
-        // Show instructions after 3 seconds
-        setTimeout(showInstructions, 3000);
+        function tryOpenApp() {
+            attemptCount++;
+            updateStatus('Attempting to open app... (attempt ' + attemptCount + ')');
+            
+            // Method 1: Try direct deep link
+            window.location.href = '${deepLink}';
+            
+            // Method 2: Try using iframe (fallback)
+            setTimeout(() => {
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = '${deepLink}';
+                document.body.appendChild(iframe);
+                setTimeout(() => document.body.removeChild(iframe), 1000);
+            }, 500);
+            
+            // Method 3: Show instructions after delay
+            setTimeout(() => {
+                showInstructions();
+            }, 3000);
+        }
+        
+        // Auto-try on page load
+        setTimeout(() => {
+            updateStatus('Auto-opening app...');
+            tryOpenApp();
+        }, 1000);
     </script>
 </body>
 </html>

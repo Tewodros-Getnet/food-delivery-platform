@@ -420,7 +420,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
     Access your ${roleTitle} account:
   </p>
   <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0; text-align: center;">
-    <a href="${resetLink}" style="color: #0066cc; text-decoration: underline;">Open ${roleTitle} App</a>
+    <a href="${webLink}" style="color: #0066cc; text-decoration: underline;">Open ${roleTitle} App</a>
   </p>
   <p style="color: #666666; font-size: 12px; line-height: 1.4; margin: 15px 0 0 0;">
     Link expires in ${RESET_TOKEN_EXPIRY_MINUTES} minutes. If you did not request this, ignore this email.

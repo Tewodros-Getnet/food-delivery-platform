@@ -46,6 +46,13 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="fooddelivery" android:host="customer"/>
             </intent-filter>
+            <!-- Additional deep link filter for better compatibility -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="fooddelivery"/>
+            </intent-filter>
             <!-- Legacy deep link: fooddelivery://app/* (for backward compatibility) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
