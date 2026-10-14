@@ -32,21 +32,19 @@ dev_dependencies:
   flutter_native_splash: ^2.3.10
   image: ^4.10.1
 
-flutter_launcher_icons:
-  android: true
-  ios: false
-  image_path: "assets/images/logo.png"
-  min_sdk_android: 26
-  adaptive_icon_background: "#0D0D0D"
-  adaptive_icon_foreground: "assets/images/logo.png"
-  remove_alpha_ios: true
-  adaptive_icon_padding: true
+# flutter_launcher_icons:
+#   android: true
+#   ios: false
+#   image_path: "assets/images/logo.png"
+#   min_sdk_android: 26
+#   adaptive_icon_background: "#0D0D0D"
+#   adaptive_icon_foreground: "assets/images/logo.png"
+#   remove_alpha_ios: true
+#   adaptive_icon_padding: true
 
 flutter_native_splash:
   color: "#0D0D0D"
-  image: "assets/images/logo_circle.png"
   android_12:
-    image: "assets/images/logo_circle.png"
     icon_background_color: "#0D0D0D"
     color: "#0D0D0D"
 
