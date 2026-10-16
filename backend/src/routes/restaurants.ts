@@ -263,6 +263,13 @@ router.get('/my/analytics', authenticate, authorize('restaurant'), async (req: R
   } catch (err) { next(err); }
 });
 router.get('/', listRestaurantsHandler);
+router.get('/featured', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { getFeaturedRestaurants } = await import('../services/restaurant.service');
+    const restaurants = await getFeaturedRestaurants();
+    res.json(successResponse(restaurants));
+  } catch (err) { next(err); }
+});
 router.get('/:id', getRestaurantHandler);
 router.get('/:id/ratings', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -350,5 +357,34 @@ router.post('/', authenticate, authorize('restaurant'), createValidation, create
 router.post('/:id/approve', authenticate, authorize('admin'), approveRestaurantHandler);
 router.post('/:id/reject', authenticate, authorize('admin'), rejectRestaurantHandler);
 router.put('/:id/suspend', authenticate, authorize('admin'), suspendRestaurantHandler);
+
+// PUT /restaurants/:id/feature — admin sets or clears featured_until
+router.put('/:id/feature', authenticate, authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { featured_until } = req.body as { featured_until?: string | null };
+
+    // featured_until must be a future ISO date string, or null/undefined to clear
+    let parsedDate: Date | null = null;
+    if (featured_until) {
+      parsedDate = new Date(featured_until);
+      if (isNaN(parsedDate.getTime())) {
+        res.status(422).json({ success: false, data: null, error: 'featured_until must be a valid ISO date string' });
+        return;
+      }
+      if (parsedDate <= new Date()) {
+        res.status(422).json({ success: false, data: null, error: 'featured_until must be a future date' });
+        return;
+      }
+    }
+
+    const { setFeaturedUntil } = await import('../services/restaurant.service');
+    const restaurant = await setFeaturedUntil(req.params.id, parsedDate);
+    if (!restaurant) {
+      res.status(404).json({ success: false, data: null, error: 'Restaurant not found' });
+      return;
+    }
+    res.json(successResponse(restaurant));
+  } catch (err) { next(err); }
+});
 
 export default router;

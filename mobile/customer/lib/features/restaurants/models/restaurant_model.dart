@@ -73,6 +73,9 @@ class RestaurantModel {
         minimumOrderValue: json['minimum_order_value'] != null
             ? double.tryParse(json['minimum_order_value'].toString())
             : null,
+        featuredUntil: json['featured_until'] != null
+            ? DateTime.tryParse(json['featured_until'] as String)
+            : null,
       );
 }
 

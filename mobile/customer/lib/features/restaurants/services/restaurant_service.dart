@@ -19,6 +19,15 @@ class RestaurantService {
         .toList();
   }
 
+  Future<List<RestaurantModel>> getFeaturedRestaurants() async {
+    final res =
+        await _client.dio.get('${ApiConstants.restaurants}/featured');
+    final list = res.data['data'] as List<dynamic>;
+    return list
+        .map((e) => RestaurantModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<RestaurantModel> getById(String id) async {
     final res = await _client.dio.get('${ApiConstants.restaurants}/$id');
     return RestaurantModel.fromJson(res.data['data'] as Map<String, dynamic>);

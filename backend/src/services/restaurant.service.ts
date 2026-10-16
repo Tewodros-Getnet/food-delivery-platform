@@ -75,6 +75,39 @@ export async function getRestaurants(params: {
   };
 }
 
+/**
+ * Returns approved restaurants whose featured_until is in the future.
+ * Ordered by featured_until DESC so the most-recently-featured appear first.
+ */
+export async function getFeaturedRestaurants(): Promise<Restaurant[]> {
+  const result = await query<Restaurant>(
+    `SELECT * FROM restaurants
+     WHERE status = 'approved'
+       AND featured_until IS NOT NULL
+       AND featured_until > NOW()
+     ORDER BY featured_until DESC`,
+  );
+  return result.rows;
+}
+
+/**
+ * Set or clear the featured_until timestamp for a restaurant.
+ * Pass null to un-feature immediately.
+ */
+export async function setFeaturedUntil(
+  id: string,
+  featuredUntil: Date | null,
+): Promise<Restaurant | null> {
+  const result = await query<Restaurant>(
+    `UPDATE restaurants
+     SET featured_until = $1, updated_at = NOW()
+     WHERE id = $2
+     RETURNING *`,
+    [featuredUntil, id],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function getRestaurantById(id: string): Promise<Restaurant | null> {
   const result = await query<Restaurant>('SELECT * FROM restaurants WHERE id = $1', [id]);
   return result.rows[0] ?? null;

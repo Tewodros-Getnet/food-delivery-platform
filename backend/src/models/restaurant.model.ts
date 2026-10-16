@@ -19,6 +19,7 @@ export interface Restaurant {
   promo_banner_text?: string | null;
   promo_banner_image_url?: string | null;
   rejection_reason?: string | null;
+  featured_until?: Date | null;
   created_at: Date;
   updated_at: Date;
 }

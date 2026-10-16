@@ -11,14 +11,15 @@ interface Restaurant {
   address: string;
   category: string | null;
   status: string;
-  average_rating: number | string;  // pg driver returns numeric as string
+  average_rating: number | string;
   is_open: boolean;
   logo_url: string | null;
   cover_image_url: string | null;
-  latitude: number | string | null;  // pg driver returns numeric as string
+  latitude: number | string | null;
   longitude: number | string | null;
   operating_hours: Record<string, { open: string; close: string }> | null;
   rejection_reason: string | null;
+  featured_until: string | null;
   owner_email: string;
   owner_name: string | null;
   owner_phone: string | null;
@@ -50,7 +51,7 @@ interface ActiveOrder {
   items_summary: string | null;
 }
 
-type RestaurantAction = 'approve' | 'reject' | 'suspend' | 'unsuspend' | 'reopen';
+type RestaurantAction = 'approve' | 'reject' | 'suspend' | 'unsuspend' | 'reopen' | 'unfeature';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -222,6 +223,81 @@ function RejectModal({ onConfirm, onCancel }: { onConfirm: (reason: string) => v
   );
 }
 
+// ── Feature modal ─────────────────────────────────────────────────────────────
+
+function FeatureModal({
+  restaurant,
+  onConfirm,
+  onCancel,
+}: {
+  restaurant: Restaurant;
+  onConfirm: (featuredUntil: string | null) => void;
+  onCancel: () => void;
+}) {
+  const isCurrentlyFeatured =
+    restaurant.featured_until && new Date(restaurant.featured_until) > new Date();
+
+  // Default expiry: 7 days from now, formatted for datetime-local input
+  const defaultExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
+  const [expiry, setExpiry] = useState(defaultExpiry);
+
+  if (isCurrentlyFeatured) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Remove from Featured</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            <span className="font-medium text-gray-700">{restaurant.name}</span> is currently featured
+            until <span className="font-medium text-orange-600">{new Date(restaurant.featured_until!).toLocaleString()}</span>.
+            Remove it from the featured section?
+          </p>
+          <div className="flex gap-2 justify-end">
+            <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+            <button
+              onClick={() => onConfirm(null)}
+              className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-800 text-white rounded-xl transition-colors font-medium"
+            >
+              Remove from Featured
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Feature Restaurant</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          <span className="font-medium text-gray-700">{restaurant.name}</span> will appear in the
+          &ldquo;Featured Restaurants&rdquo; section on the customer home screen until the chosen date.
+        </p>
+        <label className="block text-xs font-medium text-gray-600 mb-1.5">Featured until</label>
+        <input
+          type="datetime-local"
+          value={expiry}
+          min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
+          onChange={(e) => setExpiry(e.target.value)}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+        />
+        <div className="flex gap-2 mt-4 justify-end">
+          <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+          <button
+            onClick={() => onConfirm(new Date(expiry).toISOString())}
+            disabled={!expiry}
+            className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white rounded-xl transition-colors font-medium"
+          >
+            ⭐ Feature Restaurant
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Detail drawer ─────────────────────────────────────────────────────────────
 
 type DrawerTab = 'info' | 'menu' | 'orders';
@@ -231,11 +307,13 @@ function DetailDrawer({
   acting,
   onClose,
   onAction,
+  onFeature,
 }: {
   restaurant: Restaurant;
   acting: boolean;
   onClose: () => void;
   onAction: (id: string, action: RestaurantAction) => void;
+  onFeature: (id: string) => void;
 }) {
   const [tab, setTab] = useState<DrawerTab>('info');
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -365,6 +443,9 @@ function DetailDrawer({
                 { label: 'Phone',   value: restaurant.owner_phone ?? '—' },
                 { label: 'Address', value: restaurant.address },
                 { label: 'Category', value: restaurant.category ?? '—' },
+                { label: 'Featured', value: restaurant.featured_until && new Date(restaurant.featured_until) > new Date()
+                    ? `Until ${new Date(restaurant.featured_until).toLocaleString()}`
+                    : 'Not featured' },
                 { label: 'Joined',  value: restaurant.created_at ? new Date(restaurant.created_at).toLocaleDateString() : '—' },
                 { label: 'Updated', value: restaurant.updated_at ? new Date(restaurant.updated_at).toLocaleDateString() : '—' },
               ].map((f) => (
@@ -513,10 +594,18 @@ function DetailDrawer({
             </>
           )}
           {restaurant.status === 'approved' && (
-            <button onClick={() => onAction(restaurant.id, 'suspend')} disabled={acting}
-              className="flex-1 text-sm bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
-              Suspend Restaurant
-            </button>
+            <>
+              <button onClick={() => onFeature(restaurant.id)} disabled={acting}
+                className="flex-1 text-sm bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
+                {restaurant.featured_until && new Date(restaurant.featured_until) > new Date()
+                  ? '★ Edit Featured'
+                  : '⭐ Feature'}
+              </button>
+              <button onClick={() => onAction(restaurant.id, 'suspend')} disabled={acting}
+                className="flex-1 text-sm bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
+                Suspend
+              </button>
+            </>
           )}
           {restaurant.status === 'suspended' && (
             <button onClick={() => onAction(restaurant.id, 'unsuspend')} disabled={acting}
@@ -524,8 +613,6 @@ function DetailDrawer({
               Reactivate Restaurant
             </button>
           )}
-          {/* Rejected restaurants can be moved back to pending so the owner
-              can fix issues and the admin can re-review */}
           {restaurant.status === 'rejected' && (
             <button onClick={() => onAction(restaurant.id, 'reopen')} disabled={acting}
               className="flex-1 text-sm bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl transition-colors font-medium">
@@ -547,6 +634,7 @@ export default function RestaurantsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [selected, setSelected]       = useState<Restaurant | null>(null);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [featureTarget, setFeatureTarget] = useState<Restaurant | null>(null);
   const [acting, setActing]           = useState<string | null>(null);
 
   const load = useCallback((status?: string, q?: string) => {
@@ -588,6 +676,7 @@ export default function RestaurantsPage() {
         suspend:   `/admin/restaurants/${id}/suspend`,
         unsuspend: `/admin/restaurants/${id}/unsuspend`,
         reopen:    `/admin/restaurants/${id}/reopen`,
+        unfeature: `/restaurants/${id}/feature`,
       };
       const methods: Record<RestaurantAction, 'post' | 'put'> = {
         approve:   'post',
@@ -595,12 +684,13 @@ export default function RestaurantsPage() {
         suspend:   'put',
         unsuspend: 'put',
         reopen:    'put',
+        unfeature: 'put',
       };
-      const body = action === 'reject' && reason ? { reason } : undefined;
+      const body = action === 'reject' && reason ? { reason }
+        : action === 'unfeature' ? { featured_until: null }
+        : undefined;
       await api[methods[action]](endpoints[action], body);
-      // Reload the list with current filters
       load(filter || undefined, searchInput || undefined);
-      // Refresh the drawer if the acted-on restaurant is currently open
       if (selected?.id === id) {
         api.get(`/admin/restaurants/${id}`)
           .then((res) => setSelected(res.data.data as Restaurant))
@@ -611,7 +701,25 @@ export default function RestaurantsPage() {
     } finally {
       setActing(null);
     }
-  }, [filter, searchInput, load]);
+  }, [filter, searchInput, load, selected]);
+
+  const doFeature = useCallback(async (id: string, featuredUntil: string | null) => {
+    setActing(id);
+    try {
+      await api.put(`/restaurants/${id}/feature`, { featured_until: featuredUntil });
+      setFeatureTarget(null);
+      load(filter || undefined, searchInput || undefined);
+      if (selected?.id === id) {
+        api.get(`/admin/restaurants/${id}`)
+          .then((res) => setSelected(res.data.data as Restaurant))
+          .catch(console.error);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setActing(null);
+    }
+  }, [filter, searchInput, load, selected]);
 
   const counts = {
     pending:  restaurants.filter((r) => r.status === 'pending').length,
@@ -628,12 +736,24 @@ export default function RestaurantsPage() {
         />
       )}
 
+      {featureTarget && (
+        <FeatureModal
+          restaurant={featureTarget}
+          onConfirm={(featuredUntil) => void doFeature(featureTarget.id, featuredUntil)}
+          onCancel={() => setFeatureTarget(null)}
+        />
+      )}
+
       {selected && (
         <DetailDrawer
           restaurant={selected}
           acting={acting === selected.id}
           onClose={() => setSelected(null)}
           onAction={(id, action) => { void doAction(id, action); }}
+          onFeature={(id) => {
+            const r = restaurants.find((x) => x.id === id) ?? selected;
+            setFeatureTarget(r);
+          }}
         />
       )}
 
@@ -728,8 +848,12 @@ export default function RestaurantsPage() {
                       <div className="flex items-center gap-3">
                         <RestaurantLogo src={r.logo_url} name={r.name} size="sm" />
                         <div>
-                          <span className="font-medium text-gray-800">{r.name}</span>
-                          {/* Rejection reason snippet visible directly in the row */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-800">{r.name}</span>
+                            {r.featured_until && new Date(r.featured_until) > new Date() && (
+                              <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">⭐ Featured</span>
+                            )}
+                          </div>
                           {r.status === 'rejected' && r.rejection_reason && (
                             <p className="text-xs text-red-500 mt-0.5 max-w-[180px] truncate" title={r.rejection_reason}>
                               ✕ {r.rejection_reason}

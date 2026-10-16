@@ -5,5 +5,5 @@ cd %LOCALAPPDATA%\Android\Sdk\platform-tools
 
 adb connect 192.168.137
 
-cd C:\food-delivery-platform-main\mobile\customer
+C:\Projects\food-delivery-platform-main\mobile\customer
 2 accounts above this 

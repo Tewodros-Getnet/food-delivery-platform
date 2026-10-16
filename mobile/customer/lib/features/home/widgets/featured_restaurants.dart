@@ -5,28 +5,25 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../restaurants/models/restaurant_model.dart';
 import '../../restaurants/services/restaurant_service.dart';
 
-// Use the same provider pattern as home screen
-final _featuredRestaurantsProvider = FutureProvider<List<RestaurantModel>>(
-    (ref) => ref.read(restaurantServiceProvider).getRestaurants());
+// Dedicated provider that hits GET /restaurants/featured
+final featuredRestaurantsProvider = FutureProvider<List<RestaurantModel>>(
+  (ref) => ref.read(restaurantServiceProvider).getFeaturedRestaurants(),
+);
 
 class FeaturedRestaurantsSection extends ConsumerWidget {
   const FeaturedRestaurantsSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final restaurants = ref.watch(_featuredRestaurantsProvider);
+    final async = ref.watch(featuredRestaurantsProvider);
 
-    return restaurants.when(
-      loading: () => const SizedBox.shrink(), // Don't show loading for featured section
-      error: (_, __) => const SizedBox.shrink(), // Fail silently for featured section
-      data: (allRestaurants) {
-        // Filter to get featured restaurants (simulate with top-rated restaurants)
-        final featuredRestaurants = allRestaurants
-            .where((r) => r.averageRating >= 4.5 && r.isOpen)
-            .take(5)
-            .toList();
-
-        if (featuredRestaurants.isEmpty) return const SizedBox.shrink();
+    return async.when(
+      // Don't show a spinner — the section simply fades in when ready
+      loading: () => const SizedBox.shrink(),
+      // Fail silently; the main restaurant list still shows
+      error: (_, __) => const SizedBox.shrink(),
+      data: (featured) {
+        if (featured.isEmpty) return const SizedBox.shrink();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,13 +44,11 @@ class FeaturedRestaurantsSection extends ConsumerWidget {
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: featuredRestaurants.length,
+                itemCount: featured.length,
                 itemBuilder: (context, index) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 12),
-                    child: FeaturedRestaurantCard(
-                      restaurant: featuredRestaurants[index],
-                    ),
+                    child: FeaturedRestaurantCard(restaurant: featured[index]),
                   );
                 },
               ),
@@ -95,9 +90,7 @@ class FeaturedRestaurantCard extends StatelessWidget {
           child: Stack(
             children: [
               // Background image
-              Positioned.fill(
-                child: _buildBackgroundImage(),
-              ),
+              Positioned.fill(child: _buildBackgroundImage()),
 
               // Gradient overlay for text readability
               Positioned.fill(
@@ -106,7 +99,7 @@ class FeaturedRestaurantCard extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        Colors.black.withValues(alpha: 0.6),
+                        Colors.black.withValues(alpha: 0.65),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -115,12 +108,13 @@ class FeaturedRestaurantCard extends StatelessWidget {
                 ),
               ),
 
-              // Featured badge
+              // Featured badge — top right
               Positioned(
                 top: 12,
                 right: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.orange,
                     borderRadius: BorderRadius.circular(12),
@@ -137,12 +131,13 @@ class FeaturedRestaurantCard extends StatelessWidget {
                 ),
               ),
 
-              // Open/Closed status
+              // Open / Closed badge — top left
               Positioned(
                 top: 12,
                 left: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: restaurant.isOpen ? Colors.green : Colors.red,
                     borderRadius: BorderRadius.circular(12),
@@ -159,7 +154,7 @@ class FeaturedRestaurantCard extends StatelessWidget {
                 ),
               ),
 
-              // Restaurant information at bottom
+              // Info at the bottom
               Positioned(
                 bottom: 16,
                 left: 16,
@@ -167,7 +162,6 @@ class FeaturedRestaurantCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Restaurant name
                     Text(
                       restaurant.name,
                       style: const TextStyle(
@@ -178,17 +172,10 @@ class FeaturedRestaurantCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    
                     const SizedBox(height: 6),
-                    
-                    // Rating and category
                     Row(
                       children: [
-                        const Icon(
-                          Icons.star,
-                          color: Colors.orange,
-                          size: 16,
-                        ),
+                        const Icon(Icons.star, color: Colors.orange, size: 16),
                         const SizedBox(width: 4),
                         Text(
                           restaurant.averageRating.toStringAsFixed(1),
@@ -201,7 +188,8 @@ class FeaturedRestaurantCard extends StatelessWidget {
                         if (restaurant.category != null) ...[
                           const SizedBox(width: 12),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
@@ -218,8 +206,6 @@ class FeaturedRestaurantCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    
-                    // Promotional text if available
                     if (restaurant.promoBannerText != null) ...[
                       const SizedBox(height: 6),
                       Text(
@@ -249,32 +235,27 @@ class FeaturedRestaurantCard extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: restaurant.coverImageUrl!,
         fit: BoxFit.cover,
-        placeholder: (_, __) => _buildGradientPlaceholder(),
-        errorWidget: (_, __, ___) => _buildGradientPlaceholder(),
+        placeholder: (_, __) => _buildPlaceholder(),
+        errorWidget: (_, __, ___) => _buildPlaceholder(),
       );
     }
-    return _buildGradientPlaceholder();
+    return _buildPlaceholder();
   }
 
-  Widget _buildGradientPlaceholder() {
+  Widget _buildPlaceholder() {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             Colors.orange.shade300,
-            Colors.orange.shade600,
-            Colors.orange.shade800,
+            Colors.orange.shade700,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
       child: const Center(
-        child: Icon(
-          Icons.restaurant,
-          size: 48,
-          color: Colors.white,
-        ),
+        child: Icon(Icons.restaurant, size: 48, color: Colors.white),
       ),
     );
   }
