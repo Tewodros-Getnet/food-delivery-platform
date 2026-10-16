@@ -404,6 +404,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // Generate role-specific deep link
   const resetLink = getRoleSpecificLink(user.role, rawToken);
 
+  // Gmail and most email clients block custom URI schemes (fooddelivery://).
+  // We send an https link to the backend redirect page, which then fires
+  // the deep link via JavaScript — the only reliable way to open the app from email.
+  const webLink = `https://food-delivery-platform-i5by.onrender.com/redirect?app=${user.role}&token=${rawToken}`;
+
   const roleTitle = user.role.charAt(0).toUpperCase() + user.role.slice(1);
 
   await sendEmail(
@@ -418,7 +423,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
     Tap the button below to open the app and choose a new password.
   </p>
   <div style="text-align: center; margin: 24px 0;">
-    <a href="${resetLink}"
+    <a href="${webLink}"
        style="background-color: #f97316; color: #ffffff; text-decoration: none;
               padding: 14px 32px; border-radius: 8px; font-size: 15px;
               font-weight: 600; display: inline-block;">
@@ -428,11 +433,6 @@ export async function requestPasswordReset(email: string): Promise<void> {
   <p style="color: #6b7280; font-size: 12px; line-height: 1.6; margin: 20px 0 0 0;">
     This link expires in <strong>${RESET_TOKEN_EXPIRY_MINUTES} minutes</strong>.
     If you did not request a password reset, you can safely ignore this email.
-  </p>
-  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-  <p style="color: #9ca3af; font-size: 11px; margin: 0;">
-    If the button doesn't work, copy and open this link in your browser:<br/>
-    <span style="color: #6b7280; word-break: break-all;">${resetLink}</span>
   </p>
 </div>
     `
