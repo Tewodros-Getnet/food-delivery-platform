@@ -403,27 +403,36 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
   // Generate role-specific deep link
   const resetLink = getRoleSpecificLink(user.role, rawToken);
-  
-  // Create role-specific redirect URL that works for all app types
-  const webLink = `https://food-delivery-platform-i5by.onrender.com/redirect?app=${user.role}&token=${rawToken}`;
 
   const roleTitle = user.role.charAt(0).toUpperCase() + user.role.slice(1);
 
-  // Anti-spam: Make it as simple as the OTP email that works
   await sendEmail(
     user.email,
-    `Account access - Tana Delivery`,
+    `Reset your Tana Delivery password`,
     `
 <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #ffffff;">
-  <h2 style="color: #333333; font-size: 18px; margin: 0 0 15px 0;">Tana Delivery</h2>
-  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0;">
-    Access your ${roleTitle} account:
+  <h2 style="color: #f97316; font-size: 20px; margin: 0 0 8px 0;">Tana Delivery</h2>
+  <h3 style="color: #1f2937; font-size: 16px; margin: 0 0 16px 0;">Reset your password</h3>
+  <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+    We received a request to reset the password for your <strong>${roleTitle}</strong> account.
+    Tap the button below to open the app and choose a new password.
   </p>
-  <p style="color: #333333; font-size: 14px; line-height: 1.4; margin: 0 0 15px 0; text-align: center;">
-    <a href="${webLink}" style="color: #0066cc; text-decoration: underline;">Open ${roleTitle} App</a>
+  <div style="text-align: center; margin: 24px 0;">
+    <a href="${resetLink}"
+       style="background-color: #f97316; color: #ffffff; text-decoration: none;
+              padding: 14px 32px; border-radius: 8px; font-size: 15px;
+              font-weight: 600; display: inline-block;">
+      Reset Password
+    </a>
+  </div>
+  <p style="color: #6b7280; font-size: 12px; line-height: 1.6; margin: 20px 0 0 0;">
+    This link expires in <strong>${RESET_TOKEN_EXPIRY_MINUTES} minutes</strong>.
+    If you did not request a password reset, you can safely ignore this email.
   </p>
-  <p style="color: #666666; font-size: 12px; line-height: 1.4; margin: 15px 0 0 0;">
-    Link expires in ${RESET_TOKEN_EXPIRY_MINUTES} minutes. If you did not request this, ignore this email.
+  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+  <p style="color: #9ca3af; font-size: 11px; margin: 0;">
+    If the button doesn't work, copy and open this link in your browser:<br/>
+    <span style="color: #6b7280; word-break: break-all;">${resetLink}</span>
   </p>
 </div>
     `
