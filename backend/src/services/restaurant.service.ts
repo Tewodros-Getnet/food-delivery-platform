@@ -189,20 +189,19 @@ export async function findNearbyRestaurants(
   limit: number = 50
 ): Promise<NearbyRestaurant[]> {
   const result = await query<NearbyRestaurant>(
-    `SELECT *,
-       (6371 * acos(
-         LEAST(1.0, cos(radians($1)) * cos(radians(latitude)) *
-         cos(radians(longitude) - radians($2)) +
-         sin(radians($1)) * sin(radians(latitude)))
-       )) AS distance_km
-     FROM restaurants
-     WHERE status = 'approved'
-     HAVING (6371 * acos(
-         LEAST(1.0, cos(radians($1)) * cos(radians(latitude)) *
-         cos(radians(longitude) - radians($2)) +
-         sin(radians($1)) * sin(radians(latitude)))
-       )) <= $3
-     ORDER BY distance_km ASC
+    `WITH distances AS (
+       SELECT *,
+         (6371 * acos(
+           LEAST(1.0, cos(radians($1)) * cos(radians(latitude)) *
+           cos(radians(longitude) - radians($2)) +
+           sin(radians($1)) * sin(radians(latitude)))
+         )) AS distance_km
+       FROM restaurants
+       WHERE status = 'approved'
+     )
+     SELECT * FROM distances 
+     WHERE distance_km <= $3 
+     ORDER BY distance_km ASC 
      LIMIT $4`,
     [userLat, userLon, radiusKm, limit]
   );

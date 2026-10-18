@@ -278,6 +278,10 @@ router.get('/nearby', async (req: Request, res: Response, next: NextFunction) =>
       res.status(422).json({ success: false, data: null, error: 'radius must be between 0 and 100 km' });
       return;
     }
+    if (isNaN(limit) || limit < 1 || limit > 500) {
+      res.status(422).json({ success: false, data: null, error: 'limit must be between 1 and 500' });
+      return;
+    }
 
     const { findNearbyRestaurants } = await import('../services/restaurant.service');
     const restaurants = await findNearbyRestaurants(lat, lon, radius, limit);
