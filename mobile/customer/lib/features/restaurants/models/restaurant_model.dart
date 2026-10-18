@@ -21,6 +21,7 @@ class RestaurantModel {
   final DateTime? promotionExpiresAt;
   final int boostScore;
   final DateTime? featuredUntil;
+  final double? distanceKm;
 
   const RestaurantModel({
     required this.id,
@@ -44,6 +45,7 @@ class RestaurantModel {
     this.promotionExpiresAt,
     this.boostScore = 0,
     this.featuredUntil,
+    this.distanceKm,
   });
 
   // Helper methods for subscription features
@@ -75,6 +77,9 @@ class RestaurantModel {
             : null,
         featuredUntil: json['featured_until'] != null
             ? DateTime.tryParse(json['featured_until'] as String)
+            : null,
+        distanceKm: json['distance_km'] != null
+            ? double.tryParse(json['distance_km'].toString())
             : null,
       );
 }

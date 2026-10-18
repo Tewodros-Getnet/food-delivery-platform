@@ -28,3 +28,24 @@ final searchResultsProvider = FutureProvider<Map<String, dynamic>>((ref) {
   if (query.isEmpty) return Future.value({'restaurants': [], 'menuItems': []});
   return ref.read(restaurantServiceProvider).search(query);
 });
+
+class NearbyParams {
+  final double lat;
+  final double lon;
+  final double radius;
+  const NearbyParams({required this.lat, required this.lon, this.radius = 10});
+
+  @override
+  bool operator ==(Object other) =>
+      other is NearbyParams && lat == other.lat && lon == other.lon && radius == other.radius;
+
+  @override
+  int get hashCode => Object.hash(lat, lon, radius);
+}
+
+final nearbyRestaurantsProvider =
+    FutureProvider.family<List<RestaurantModel>, NearbyParams>(
+  (ref, params) => ref
+      .read(restaurantServiceProvider)
+      .getNearbyRestaurants(lat: params.lat, lon: params.lon, radius: params.radius),
+);

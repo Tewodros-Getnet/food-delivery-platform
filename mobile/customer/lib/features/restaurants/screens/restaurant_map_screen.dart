@@ -18,6 +18,7 @@ class _RestaurantMapScreenState extends ConsumerState<RestaurantMapScreen> {
   final MapController _mapController = MapController();
   LatLng _center = const LatLng(11.5954, 37.3910); // Bahir Dar default
   bool _isLoadingLocation = false;
+  LatLng? _userLocation;
 
   @override
   void initState() {
@@ -63,6 +64,7 @@ class _RestaurantMapScreenState extends ConsumerState<RestaurantMapScreen> {
 
       setState(() {
         _center = LatLng(position.latitude, position.longitude);
+        _userLocation = LatLng(position.latitude, position.longitude);
         _isLoadingLocation = false;
       });
 
@@ -143,6 +145,34 @@ class _RestaurantMapScreenState extends ConsumerState<RestaurantMapScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // Distance label
+              if (restaurant.distanceKm != null) ...[
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '${restaurant.distanceKm!.toStringAsFixed(1)} km',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black54,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -152,7 +182,12 @@ class _RestaurantMapScreenState extends ConsumerState<RestaurantMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final restaurants = ref.watch(restaurantsProvider);
+    final restaurants = _userLocation != null
+        ? ref.watch(nearbyRestaurantsProvider(NearbyParams(
+            lat: _userLocation!.latitude,
+            lon: _userLocation!.longitude,
+          )))
+        : ref.watch(restaurantsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -191,7 +226,13 @@ class _RestaurantMapScreenState extends ConsumerState<RestaurantMapScreen> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    onPressed: () => ref.refresh(restaurantsProvider),
+                    onPressed: () {
+                      if (_userLocation != null) {
+                        ref.invalidate(nearbyRestaurantsProvider);
+                      } else {
+                        ref.invalidate(restaurantsProvider);
+                      }
+                    },
                     icon: const Icon(Icons.refresh),
                     label: const Text('Retry'),
                   ),

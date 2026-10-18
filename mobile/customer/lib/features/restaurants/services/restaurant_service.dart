@@ -48,6 +48,27 @@ class RestaurantService {
     return res.data['data'] as Map<String, dynamic>;
   }
 
+  Future<List<RestaurantModel>> getNearbyRestaurants({
+    required double lat,
+    required double lon,
+    double radius = 10,
+    int limit = 50,
+  }) async {
+    final res = await _client.dio.get(
+      '${ApiConstants.restaurants}/nearby',
+      queryParameters: {
+        'lat': lat,
+        'lon': lon,
+        'radius': radius,
+        'limit': limit,
+      },
+    );
+    final list = res.data['data'] as List<dynamic>;
+    return list
+        .map((e) => RestaurantModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<Map<String, dynamic>>> getRestaurantRatings(
       String restaurantId) async {
     final res = await _client.dio

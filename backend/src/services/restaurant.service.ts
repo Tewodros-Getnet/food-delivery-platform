@@ -177,3 +177,34 @@ export async function getRestaurantsWithOperatingHours(): Promise<
   );
   return result.rows;
 }
+
+export interface NearbyRestaurant extends Restaurant {
+  distance_km: number;
+}
+
+export async function findNearbyRestaurants(
+  userLat: number,
+  userLon: number,
+  radiusKm: number = 10,
+  limit: number = 50
+): Promise<NearbyRestaurant[]> {
+  const result = await query<NearbyRestaurant>(
+    `SELECT *,
+       (6371 * acos(
+         LEAST(1.0, cos(radians($1)) * cos(radians(latitude)) *
+         cos(radians(longitude) - radians($2)) +
+         sin(radians($1)) * sin(radians(latitude)))
+       )) AS distance_km
+     FROM restaurants
+     WHERE status = 'approved'
+     HAVING (6371 * acos(
+         LEAST(1.0, cos(radians($1)) * cos(radians(latitude)) *
+         cos(radians(longitude) - radians($2)) +
+         sin(radians($1)) * sin(radians(latitude)))
+       )) <= $3
+     ORDER BY distance_km ASC
+     LIMIT $4`,
+    [userLat, userLon, radiusKm, limit]
+  );
+  return result.rows;
+}

@@ -262,6 +262,29 @@ router.get('/my/analytics', authenticate, authorize('restaurant'), async (req: R
     }));
   } catch (err) { next(err); }
 });
+// GET /restaurants/nearby — public, no auth
+router.get('/nearby', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const lat = parseFloat(req.query['lat'] as string);
+    const lon = parseFloat(req.query['lon'] as string);
+    const radius = req.query['radius'] ? parseFloat(req.query['radius'] as string) : 10;
+    const limit = req.query['limit'] ? parseInt(req.query['limit'] as string, 10) : 50;
+
+    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      res.status(422).json({ success: false, data: null, error: 'lat and lon must be valid coordinates' });
+      return;
+    }
+    if (isNaN(radius) || radius <= 0 || radius > 100) {
+      res.status(422).json({ success: false, data: null, error: 'radius must be between 0 and 100 km' });
+      return;
+    }
+
+    const { findNearbyRestaurants } = await import('../services/restaurant.service');
+    const restaurants = await findNearbyRestaurants(lat, lon, radius, limit);
+    res.json(successResponse(restaurants));
+  } catch (err) { next(err); }
+});
+
 router.get('/', listRestaurantsHandler);
 router.get('/featured', async (req: Request, res: Response, next: NextFunction) => {
   try {
